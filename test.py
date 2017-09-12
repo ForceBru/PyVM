@@ -7,7 +7,17 @@ if __name__ == "__main__":
     pr = cProfile.Profile()
     vm = VM.VM(1024)
 
-    binary = "B8 00 04 00 00 B9 00 08 00 00 01 C1 B8 01 00 00 00 BB 00 00 00 00 CD 80".replace(' ', '')
+    binary = "B8 04 00 00 00" \
+             "BB 01 00 00 00" \
+             "B9 29 00 00 00" \
+             "BA 0D 00 00 00" \
+             "CD 80" \
+             "E9 02 00 00 00" \
+             "89 C8" \
+             "B8 01 00 00 00" \
+             "BB 00 00 00 00" \
+             "CD 80" \
+             "48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 ".replace(' ', '')
     binary = binascii.unhexlify(binary)
 
     pr.enable()
@@ -16,8 +26,6 @@ if __name__ == "__main__":
     #vm.execute_file('test_stack_jmp_int')
     #vm.execute_file('test_call_ret')
     pr.disable()
-
-    print(VM.to_int(vm.reg.get(1, 4)))
 
 
     def Stats():
