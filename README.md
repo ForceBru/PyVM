@@ -9,7 +9,7 @@ PyVM is a Python module that allows to execute x86 bytecode on any hardware wher
 * 32-, 16- and 8-bit registers
 * stack
 * user memory
-* stdin and stdout
+* stdin, stdout and stderr
 
 ## Instructions currently supported
 
