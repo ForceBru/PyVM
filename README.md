@@ -2,7 +2,7 @@
 
 ------------------
 
-PyVM is a Python module that allows to execute x86 bytecode on any hardware where Python can run, with no external dependencies.
+PyVM is a Python module that allows to execute x86 32-bit bytecode on any hardware where Python can run, with no external dependencies.
 
 ## Features
 
@@ -16,6 +16,7 @@ PyVM is a Python module that allows to execute x86 bytecode on any hardware wher
 The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the comments in `VM/__init__.py`.
 
 * `add` (*)
+* `sub` (*)
 * `call` (*)
 * `int`
 * `jmp` (*)
