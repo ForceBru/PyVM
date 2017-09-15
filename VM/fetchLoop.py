@@ -30,6 +30,8 @@ def execute_opcode(self, op: int):
         debug('ret success')
     elif self._add(op):
         debug('add success')
+    elif self._sub(op):
+        debug('sub success')
     else:
         raise ValueError('Unknown opcode: "{}"'.format(hex(op)))
 
@@ -54,6 +56,7 @@ def run(self, offset=0):
             debug('Mode switch begin -> {}'.format(self.modes[self.current_mode]))
 
             self.eip += 1
+            opcode = self.mem.get(self.eip, 1)[0]
             self.execute_opcode(opcode)
 
             self.current_mode = not self.current_mode

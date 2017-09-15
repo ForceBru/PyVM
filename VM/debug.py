@@ -1,2 +1,2 @@
-DEBUG = True
+DEBUG = False
 debug = print if DEBUG else lambda x: ...

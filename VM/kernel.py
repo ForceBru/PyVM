@@ -22,5 +22,7 @@ def _VM__sys_write(self):
     data_addr = to_int(self.reg.get(1, 4))  # ECX
     count = to_int(self.reg.get(2, 4), signed=1)  # EDX
 
-    debug('sys_write({}, {}, {})'.format(fd, data_addr, count))
-    self.descriptors[fd].write(self.mem.get(data_addr, count).decode(errors='replace'))
+    data = self.mem.get(data_addr, count)
+
+    debug('sys_write({}, {}({}), {})'.format(fd, data_addr, data, count))
+    self.descriptors[fd].write(data.decode(errors='replace'))

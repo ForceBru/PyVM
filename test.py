@@ -23,8 +23,11 @@ if __name__ == "__main__":
     pr.enable()
     vm.mem.set(0, binary)
     vm.run()
-    #vm.execute_file('test_stack_jmp_int')
-    #vm.execute_file('test_call_ret')
+
+    # vm.execute_file('asm/test_jmp_int')
+    # vm.execute_file('asm/test_push_pop') -> doesn't work
+    # vm.execute_file('asm/test_call_ret')
+    # vm.execute_file('asm/test_add_sub')
     pr.disable()
 
 

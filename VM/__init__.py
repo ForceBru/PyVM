@@ -28,9 +28,9 @@ class VM(CPU32):
     from .fetchLoop import execute_opcode, run, execute_file
     from .misc import process_ModRM
     from .internals import \
-        __mov_r_imm, __mov_rm_imm, __mov_rm_r, __mov_r_rm, \
+        __mov_r_imm, __mov_rm_imm, __mov_rm_r, __mov_r_rm, __mov_eax_moffs, __mov_moffs_eax, \
         __jmp_rel, \
-        __add_al_imm, __add_rm_imm, __add_rm_r, __add_r_rm
+        __addsub_al_imm, __addsub_rm_imm, __addsub_rm_r, __addsub_r_rm
 
     from .kernel import __sys_exit, __sys_read, __sys_write
 
@@ -42,7 +42,7 @@ class VM(CPU32):
         self.default_mode = 0  # 0 == 32-bit mode; 1 == 16-bit mode
         self.current_mode = self.default_mode
 
-        self.fmt = '\t[{:0' + str(len(str(self.mem.size))) + 'd}]: 0x{:02x}'
+        self.fmt = '\t[0x{:0' + str(len(str(self.mem.size))//16) + 'x}]: 0x{:02x}'
 
         self.descriptors = [sys.stdin, sys.stdout, sys.stderr]
         self.running = True
@@ -108,6 +108,15 @@ class VM(CPU32):
             raise RuntimeError('Segment registers not implemented yet')
         elif op in valid_op['sreg,rm16']:
             raise RuntimeError('Segment registers not implemented yet')
+        elif op in valid_op['al,moffs8']:
+            # TODO: I should be reading 1 byte here, but NASM outputs a bit-switch byte and 4-bytes moffs. WTF??
+            self.__mov_eax_moffs(1)
+        elif op in valid_op['ax,moffs']:
+            self.__mov_eax_moffs(sz)
+        elif op in valid_op['moffs8,al']:
+            self.__mov_moffs_eax(1)
+        elif op in valid_op['moffs,ax']:
+            self.__mov_moffs_eax(sz)
         else:
             return False
         return True
@@ -314,7 +323,7 @@ class VM(CPU32):
         return True
 
     def _add(self, op: int):
-        # TODO: handle overflows and sign
+        # TODO: handle overflows
         valid_op = {
             'al,imm8' : [0x04],
             'ax,imm'  : [0x05],
@@ -329,24 +338,60 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['al,imm8']:
-            self.__add_al_imm(1)
+            self.__addsub_al_imm(1)
         elif op in valid_op['ax,imm']:
-            self.__add_al_imm(sz)
+            self.__addsub_al_imm(sz)
         elif op in valid_op['rm8,imm8']:
-            return self.__add_rm_imm(1)
+            return self.__addsub_rm_imm(1, 1)
         elif op in valid_op['rm,imm']:
-            return self.__add_rm_imm(sz)
+            return self.__addsub_rm_imm(sz, sz)
         elif op in valid_op['rm,imm8']:
-            # TODO: implement this
-            raise RuntimeError("Addition 'rm, imm8' not implemented yet")
+            return self.__addsub_rm_imm(sz, 1)
         elif op in valid_op['rm8,r8']:
-            self.__add_rm_r(1)
+            self.__addsub_rm_r(1)
         elif op in valid_op['rm,r']:
-            self.__add_rm_r(sz)
+            self.__addsub_rm_r(sz)
         elif op in valid_op['r8,rm8']:
-            self.__add_r_rm(1)
+            self.__addsub_r_rm(1)
         elif op in valid_op['r,rm']:
-            self.__add_r_rm(sz)
+            self.__addsub_r_rm(sz)
+        else:
+            return False
+        return True
+
+    def _sub(self, op: int):
+        # TODO: handle overflows
+        valid_op = {
+            'al,imm8' : [0x2C],
+            'ax,imm'  : [0x2D],
+            'rm8,imm8': [0x80],
+            'rm,imm'  : [0x81],
+            'rm,imm8' : [0x83],
+            'rm8,r8'  : [0x28],
+            'rm,r'    : [0x29],
+            'r8,rm8'  : [0x2A],
+            'r,rm'    : [0x2B]
+            }
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['al,imm8']:
+            self.__addsub_al_imm(1, True)
+        elif op in valid_op['ax,imm']:
+            self.__addsub_al_imm(sz, True)
+        elif op in valid_op['rm8,imm8']:
+            return self.__addsub_rm_imm(1, 1, True)
+        elif op in valid_op['rm,imm']:
+            return self.__addsub_rm_imm(sz, sz, True)
+        elif op in valid_op['rm,imm8']:
+            return self.__addsub_rm_imm(sz, 1, True)
+        elif op in valid_op['rm8,r8']:
+            self.__addsub_rm_r(1, True)
+        elif op in valid_op['rm,r']:
+            self.__addsub_rm_r(sz, True)
+        elif op in valid_op['r8,rm8']:
+            self.__addsub_r_rm(1, True)
+        elif op in valid_op['r,rm']:
+            self.__addsub_r_rm(sz, True)
         else:
             return False
         return True

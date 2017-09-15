@@ -11,6 +11,7 @@ def process_ModRM(self, size1, size2):
 				1 - address
 		'''
     ModRM = self.mem.get(self.eip, 1)[0]
+    # ModRM_orig = ModRM
     self.eip += 1
 
     RM = ModRM & 0b111
@@ -20,6 +21,10 @@ def process_ModRM(self, size1, size2):
     ModRM >>= 3
 
     MOD = ModRM
+
+    # ModRM_out = bin(ModRM_orig)[2:]
+    # ModRM_out = '0' * (8 - len(ModRM_out)) + ModRM_out
+    # print("ModR/M({}:{})".format(ModRM_out, hex(ModRM_orig)))
 
     if MOD == 0b11:
         return (0, RM, size1), (0, REG, size2)
@@ -60,7 +65,7 @@ def process_ModRM(self, size1, size2):
             else:
                 raise ValueError('Invalid MOD value')
         else:  # base != 0b101
-            addr = self.reg.get(base) + Cto_int(self.reg.get(index, 4), True) * (1 << scale)
+            addr = to_int(self.reg.get(base, 4), True) + to_int(self.reg.get(index, 4), True) * (1 << scale)
     else:  # RM != 0b100
         if MOD == 0:
             if RM == 0b101:
