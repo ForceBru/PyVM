@@ -18,8 +18,8 @@ _start:
     push BYTE 49 ; ASCII char '1'
 
     pop ax ; get two bytes, in reverse order
-    mov BYTE [output], ah
-    mov BYTE [output + 1], al
+    mov BYTE [output], al
+    mov BYTE [output + 1], ah
 
     mov eax, SYS_WRITE
     mov ebx, STDOUT

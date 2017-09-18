@@ -5,6 +5,8 @@ class Reg32:
     # TODO: implement segment registers
     names = "eax ecx edx ebx esp ebp esi edi".split()
 
+    CF, PF, AF, ZF, SF, TF, IF, DF, OF, = 0, 2, 4, *range(6, 12)  # EFLAGS bits
+
     def __init__(self):
         self.allowed_sizes = [4, 2, 1]
         self.registers = bytearray(self.allowed_sizes[0] * len(Reg32.names))

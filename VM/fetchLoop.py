@@ -32,6 +32,8 @@ def execute_opcode(self, op: int):
         debug('add success')
     elif self._sub(op):
         debug('sub success')
+    elif self._lea(op):
+        debug('lea success')
     else:
         raise ValueError('Unknown opcode: "{}"'.format(hex(op)))
 
@@ -52,15 +54,33 @@ def run(self, offset=0):
         opcode = self.mem.get(self.eip, 1)[0]
 
         if opcode == 0x66:
+            old_operand_size = self.operand_size
             self.current_mode = not self.current_mode
-            debug('Mode switch begin -> {}'.format(self.modes[self.current_mode]))
+            self.operand_size = self.sizes[self.current_mode]
+            debug('Operand-size override begin ({} -> {})'.format(old_operand_size, self.operand_size))
 
             self.eip += 1
             opcode = self.mem.get(self.eip, 1)[0]
             self.execute_opcode(opcode)
 
+            old_operand_size = self.operand_size
             self.current_mode = not self.current_mode
-            debug('Mode switch end -> {}'.format(self.modes[self.current_mode]))
+            self.operand_size = self.sizes[self.current_mode]
+            debug('Operand-size override end ({} -> {})'.format(old_operand_size, self.operand_size))
+        elif opcode == 0x67:
+            old_address_size = self.address_size
+            self.current_mode = not self.current_mode
+            self.address_size = self.sizes[self.current_mode]
+            debug('Address-size override begin ({} -> {})'.format(old_address_size, self.address_size))
+
+            self.eip += 1
+            opcode = self.mem.get(self.eip, 1)[0]
+            self.execute_opcode(opcode)
+
+            old_address_size = self.address_size
+            self.current_mode = not self.current_mode
+            self.address_size = self.sizes[self.current_mode]
+            debug('Address-size override end ({} -> {})'.format(old_address_size, self.address_size))
         else:
             self.execute_opcode(opcode)
 

@@ -41,6 +41,8 @@ class VM(CPU32):
         self.sizes = (4, 2)  # number of bytes
         self.default_mode = 0  # 0 == 32-bit mode; 1 == 16-bit mode
         self.current_mode = self.default_mode
+        self.operand_size = self.sizes[self.current_mode]
+        self.address_size = self.sizes[self.current_mode]
 
         self.fmt = '\t[0x{:0' + str(len(str(self.mem.size))//16) + 'x}]: 0x{:02x}'
 
@@ -392,6 +394,32 @@ class VM(CPU32):
             self.__addsub_r_rm(1, True)
         elif op in valid_op['r,rm']:
             self.__addsub_r_rm(sz, True)
+        else:
+            return False
+        return True
+
+    def _lea(self, op: int):
+        valid_op = {
+            'r,m': [0x8D]
+            }
+
+        if op in valid_op['r,m']:
+            RM, R = self.process_ModRM(self.operand_size, self.operand_size)
+
+            type, loc, sz = RM
+
+            if (self.operand_size == 2) and (self.address_size == 2):
+                tmp = loc
+            elif (self.operand_size == 2) and (self.address_size == 4):
+                tmp = loc & 0xffff
+            elif (self.operand_size == 4) and (self.address_size == 2):
+                tmp = loc
+            elif (self.operand_size == 4) and (self.address_size == 4):
+                tmp = loc
+            else:
+                raise RuntimeError("Invalid operand size / address size")
+
+            self.reg.set(R[1], tmp.to_bytes(self.operand_size, byteorder))
         else:
             return False
         return True

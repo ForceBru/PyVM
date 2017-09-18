@@ -22,8 +22,15 @@ _start:
 
     call print
 
-    mov eax, SYS_WRITE
-    mov ebx, STDOUT
+    ; BEGIN restore registers
+    pop edx
+    pop ecx
+    pop eax
+    ; END restore registers
+
+    ; mov eax, SYS_WRITE
+    ; mov ebx, STDOUT
+    ; eax and ebx should've been restored
     mov ecx, message_success
     mov edx, message_success_len
     int 0x80

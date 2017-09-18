@@ -1,5 +1,6 @@
 from .debug import debug
 from .CPU import to_int, byteorder
+from .Registers import Reg32
 
 '''
 These are the implementations of various instructions grouped in a submodule to avoid code duplication.
@@ -75,8 +76,8 @@ def _VM__mov_r_rm(self, off):
 
 # There's probably a bug here
 def _VM__mov_eax_moffs(self, off):
-    loc = to_int(self.mem.get(self.eip, off))
-    self.eip += off
+    loc = to_int(self.mem.get(self.eip, self.address_size))
+    self.eip += self.address_size
 
     data = self.mem.get(loc, off)
     self.reg.set(0, data)
@@ -84,8 +85,8 @@ def _VM__mov_eax_moffs(self, off):
 
 
 def _VM__mov_moffs_eax(self, off):
-    loc = to_int(self.mem.get(self.eip, off))
-    self.eip += off
+    loc = to_int(self.mem.get(self.eip, self.address_size))
+    self.eip += self.address_size
 
     data = self.reg.get(0, off)
     self.mem.set(loc, data)
