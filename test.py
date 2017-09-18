@@ -28,6 +28,7 @@ if __name__ == "__main__":
     # vm.execute_file('asm/test_push_pop')
     # vm.execute_file('asm/test_call_ret')
     # vm.execute_file('asm/test_add_sub')
+    # vm.execute_file('asm/test_lea')
     pr.disable()
 
 
