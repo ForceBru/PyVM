@@ -17,11 +17,16 @@ class CPU32:
         self.eip = 0
         self.reg.set(esp, (memsize - 1).to_bytes(4, byteorder))
         self.reg.set(ebp, (memsize - 1).to_bytes(4, byteorder))
+        self.code_segment_end = 0
 
     def stack_push(self, value: bytes) -> None:
         size = len(value)
 
         new_esp = to_int(self.reg.get(esp, 4)) - size
+
+        if new_esp < self.code_segment_end:
+            raise RuntimeError("The stack cannot grow larger than {}".format(self.code_segment_end))
+
         self.mem.set(new_esp, value)
         self.reg.set(esp, new_esp.to_bytes(4, byteorder))
 

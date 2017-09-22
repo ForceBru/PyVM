@@ -65,7 +65,10 @@ def process_ModRM(self, size1, size2):
             else:
                 raise ValueError('Invalid MOD value')
         else:  # base != 0b101
-            addr = to_int(self.reg.get(base, 4), True) + to_int(self.reg.get(index, 4), True) * (1 << scale)
+            addr = to_int(self.reg.get(base, 4), True)
+
+            if index != 0b100:  # there is an index
+                addr += to_int(self.reg.get(index, 4), True) * (1 << scale)
     else:  # RM != 0b100
         if MOD == 0:
             if RM == 0b101:

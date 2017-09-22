@@ -21,14 +21,16 @@ if __name__ == "__main__":
     binary = binascii.unhexlify(binary)
 
     pr.enable()
-    vm.mem.set(0, binary)
-    vm.run()
+    vm.execute_bytes(binary)
 
-    # vm.execute_file('asm/test_jmp_int')
-    # vm.execute_file('asm/test_push_pop')
-    # vm.execute_file('asm/test_call_ret')
-    # vm.execute_file('asm/test_add_sub')
-    # vm.execute_file('asm/test_lea')
+    #vm.execute_file('asm/test_jmp_int.bin')
+    #vm.execute_file('asm/test_push_pop.bin')
+    #vm.execute_file('asm/test_call_ret.bin')
+    #vm.execute_file('asm/test_add_sub.bin')
+    #vm.execute_file('asm/test_lea.bin')
+    #vm.execute_file('asm/test_cmp_jcc.bin')
+
+    #vm.execute_file('asm/c_pointers.bin')
     pr.disable()
 
 

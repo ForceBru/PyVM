@@ -16,15 +16,18 @@ PyVM is a Python module that allows to execute x86 32-bit bytecode on any hardwa
 The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the comments in `VM/__init__.py`.
 
 * `add` (*)
-* `sub` (*)
 * `call` (*)
-* `int`
+* `cmp`
+* `jcc` (*) (only 8-bit relative addressing)
 * `jmp` (*)
-* `mov` (*)
+* `int`
 * `lea`
+* `mov` (*)
 * `pop` (*)
 * `push` (*)
 * `ret` (*)
+* `sub` (*)
+
 
 ## Example
 

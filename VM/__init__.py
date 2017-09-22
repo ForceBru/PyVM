@@ -2,6 +2,7 @@ import sys
 
 from .CPU import CPU32, to_int, byteorder
 from .debug import debug
+from .Registers import Reg32
 
 __all__ = ['VM']
 
@@ -25,7 +26,7 @@ class VM(CPU32):
     there must be only one corresponding function called `_<mnemonic>` that should accept only one argument - the opcode.
     Each of these functions must return `True` if the opcode equals one of the `valid_op`codes and `False` otherwise.
     """
-    from .fetchLoop import execute_opcode, run, execute_file
+    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file
     from .misc import process_ModRM
     from .internals import \
         __mov_r_imm, __mov_rm_imm, __mov_rm_r, __mov_r_rm, __mov_eax_moffs, __mov_moffs_eax, \
@@ -267,8 +268,10 @@ class VM(CPU32):
         if op in valid_op['rel']:  # near, relative, displacement relative to next instr
             dest = self.mem.get(self.eip, sz)
             self.eip += sz
-            dest = to_int(dest, True) & ((1 << sz * 8) - 1)
+            dest = to_int(dest, True)# & ((1 << sz * 8) - 1)
             tmpEIP = self.eip + dest
+
+            assert tmpEIP in self.mem.bounds
 
             self.stack_push(self.eip.to_bytes(sz, CPU.byteorder, signed=True))
             self.eip = tmpEIP
@@ -283,7 +286,7 @@ class VM(CPU32):
                     dest = self.reg.get(loc, sz)
                 else:
                     dest = self.mem.get(loc, sz)
-                tmpEIP = to_int(dest, True) & ((1 << sz * 8) - 1)
+                tmpEIP = to_int(dest, False) & ((1 << sz * 8) - 1)
                 self.stack_push(self.eip.to_bytes(sz, CPU.byteorder, signed=True))
                 self.eip = tmpEIP
                 debug("call {}{}({})".format('rm'[type], sz * 8, self.eip))
@@ -308,10 +311,10 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['near']:
-            self.eip = to_int(self.stack_pop(sz), True) & ((1 << sz * 8) - 1)
+            self.eip = to_int(self.stack_pop(sz), True)# & ((1 << sz * 8) - 1)
             debug("ret ({})".format(self.eip))
         elif op in valid_op['near_imm']:
-            self.eip = to_int(self.stack_pop(sz), True) & ((1 << sz * 8) - 1)
+            self.eip = to_int(self.stack_pop(sz), True)# & ((1 << sz * 8) - 1)
             nbytes_to_pop = self.mem.get(self.eip, sz)
             nbytes_to_pop = to_int(nbytes_to_pop)
             self.eip += sz
@@ -420,6 +423,154 @@ class VM(CPU32):
                 raise RuntimeError("Invalid operand size / address size")
 
             self.reg.set(R[1], tmp.to_bytes(self.operand_size, byteorder))
+        else:
+            return False
+        return True
+
+    def _cmp(self, op: int):
+        valid_op = {
+            'al,imm8': [0x3C],
+            'ax,imm': [0x3D],
+            'rm8,imm8': [0x80],
+            'rm,imm': [0x81],
+            'rm,imm8': [0x83],
+            'rm8,r8': [0x38],
+            'rm,r': [0x39],
+            'r8,rm8': [0x3A],
+            'r,rm': [0x3B]
+            }
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['al,imm8']:
+            self.__addsub_al_imm(1, True, True)
+        elif op in valid_op['ax,imm']:
+            self.__addsub_al_imm(sz, True, True)
+        elif op in valid_op['rm8,imm8']:
+            return self.__addsub_rm_imm(1, 1, True, True)
+        elif op in valid_op['rm,imm']:
+            return self.__addsub_rm_imm(sz, sz, True, True)
+        elif op in valid_op['rm,imm8']:
+            return self.__addsub_rm_imm(sz, 1, True, True)
+        elif op in valid_op['rm8,r8']:
+            self.__addsub_rm_r(1, True, True)
+        elif op in valid_op['rm,r']:
+            self.__addsub_rm_r(sz, True, True)
+        elif op in valid_op['r8,rm8']:
+            self.__addsub_r_rm(1, True, True)
+        elif op in valid_op['r,rm']:
+            self.__addsub_r_rm(sz, True, True)
+        else:
+            return False
+        return True
+
+    def _jcc(self, op: int):
+        valid_op = {
+            'JPO': [123], # TODO: parity
+            'JNLE': [127],
+            'JNC': [115], # TODO: carry
+            'JNL': [0x7D],
+            'JNO': [113],
+            'JNS': [121],
+            'JPE': [122], # TODO: parity
+            'JO': [112],
+            'JNGE': [124],
+            'JECXZ': [227],
+            'JNBE': [119],
+            'JNZ': [117],
+            'JZ': [116],
+            'JS': [120],
+            'JNA': [118],
+            'JNG': [0x7E],
+            'JNAE': [114]
+            }
+
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['JPO']:
+            if not self.reg.eflags_get(Reg32.PF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1  # pretend that we've read one byte
+        elif op in valid_op['JNLE']:
+            if not self.reg.eflags_get(Reg32.PF) and self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNC']:
+            if not self.reg.eflags_get(Reg32.CF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNL']:
+            if self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNO']:
+            if not self.reg.eflags_get(Reg32.OF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNS']:
+            if not self.reg.eflags_get(Reg32.SF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JPE']:
+            if self.reg.eflags_get(Reg32.PF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JO']:
+            if self.reg.eflags_get(Reg32.PF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNGE']:
+            if self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JECXZ']:
+            if not to_int(self.reg.get(0, sz), CPU.byteorder):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNBE']:
+            if not self.reg.eflags_get(Reg32.CF) and not self.reg.eflags_get(Reg32.ZF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNZ']:
+            if not self.reg.eflags_get(Reg32.ZF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JZ']:
+            if self.reg.eflags_get(Reg32.ZF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JS']:
+            if self.reg.eflags_get(Reg32.SF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNA']:
+            if self.reg.eflags_get(Reg32.CF) or self.reg.eflags_get(Reg32.ZF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNG']:
+            if self.reg.eflags_get(Reg32.ZF) or self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
+        elif op in valid_op['JNAE']:
+            if self.reg.eflags_get(Reg32.CF):
+                self.__jmp_rel(1)
+            else:
+                self.eip += 1
         else:
             return False
         return True

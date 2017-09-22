@@ -34,20 +34,22 @@ def execute_opcode(self, op: int):
         debug('sub success')
     elif self._lea(op):
         debug('lea success')
+    elif self._cmp(op):
+        debug('cmp success')
+    elif self._jcc(op):
+        debug('jcc success')
     else:
         raise ValueError('Unknown opcode: "{}"'.format(hex(op)))
 
 
-def run(self, offset=0):
+def run(self):
     """
     Implements the basic CPU instruction cycle (https://en.wikipedia.org/wiki/Instruction_cycle)
     :param self: passed implicitly
     :param offset: location of the first opcode
     :return: None
     """
-    assert offset in self.mem.bounds
 
-    self.eip = offset
     self.running = True
 
     while self.running and self.eip + 1 in self.mem.bounds:
@@ -85,8 +87,19 @@ def run(self, offset=0):
             self.execute_opcode(opcode)
 
 
+def execute_bytes(self, data: bytes):
+    self.mem.set(0, data)
+    self.code_segment_end = len(data) - 1
+    self.eip = 0
+    self.run()
+
+
 def execute_file(self, fname: str):
     with open(fname, 'rb') as f:
-        self.mem.set(0, f.read())
+        data = f.read()
+        self.mem.set(0, data)
 
+    self.code_segment_end = len(data) - 1
+    del data
+    self.eip = 0
     self.run()
