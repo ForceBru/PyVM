@@ -206,7 +206,7 @@ def _VM__addsub_rm_r(self, off, sub=False, cmp=False):
 
         tmp = a + (b if not sub else MAXVALS[off] + 1 - b)
 
-        sself.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+        self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
         self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
 
         tmp &= MAXVALS[off]

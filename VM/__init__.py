@@ -273,7 +273,7 @@ class VM(CPU32):
 
             assert tmpEIP in self.mem.bounds
 
-            self.stack_push(self.eip.to_bytes(sz, CPU.byteorder, signed=True))
+            self.stack_push(self.eip.to_bytes(sz, byteorder, signed=True))
             self.eip = tmpEIP
             debug("call rel{}({})".format(sz * 8, self.eip))
         elif op in valid_op['rm']:
@@ -287,7 +287,7 @@ class VM(CPU32):
                 else:
                     dest = self.mem.get(loc, sz)
                 tmpEIP = to_int(dest, False) & ((1 << sz * 8) - 1)
-                self.stack_push(self.eip.to_bytes(sz, CPU.byteorder, signed=True))
+                self.stack_push(self.eip.to_bytes(sz, byteorder, signed=True))
                 self.eip = tmpEIP
                 debug("call {}{}({})".format('rm'[type], sz * 8, self.eip))
             elif R[1] == 3:  # far, abs, indirect, addr in m
@@ -532,7 +532,7 @@ class VM(CPU32):
             else:
                 self.eip += 1
         elif op in valid_op['JECXZ']:
-            if not to_int(self.reg.get(0, sz), CPU.byteorder):
+            if not to_int(self.reg.get(0, sz), byteorder):
                 self.__jmp_rel(1)
             else:
                 self.eip += 1
