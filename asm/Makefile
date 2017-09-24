@@ -1,14 +1,8 @@
 ASM=nasm
 ASMFLAGS=-f bin
 
-NAMES=test_jmp_int.s test_call_ret.s test_lea.s \
-	test_cmp_jcc.s test_test.s \
-	test_push_pop.s \
-	test_add_sub.s \
-	test_bitwise.s \
-	c_pointers.s
-
-BINARIES=$(NAMES:.s=.bin)
+SOURCES=$(sort $(wildcard test_*.s) $(wildcard c_*.s))
+BINARIES=$(SOURCES:.s=.bin)
 
 .PHONY: all clean
 

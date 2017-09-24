@@ -5,7 +5,7 @@ ASMFLAGS=-f bin
 CFLAGS=-S -O0 -mllvm --x86-asm-syntax=intel -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -target i386-linux-gnu -nobuiltininc
 LDFLAGS=--oformat binary -arch i386
 
-C_SOURCES=pointers.c
+C_SOURCES=$(sort $(wildcard *.c))
 ASM_SOURCES=$(C_SOURCES:.c=.s)
 
 .PHONY: all clean
