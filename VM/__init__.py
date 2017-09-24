@@ -38,7 +38,7 @@ class VM(CPU32):
 
     from .kernel import __sys_exit, __sys_read, __sys_write
 
-    def __init__(self, memsize):
+    def __init__(self, memsize: int):
         super().__init__(memsize)
 
         self.modes = (32, 16)  # number of bits

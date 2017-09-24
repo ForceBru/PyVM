@@ -166,16 +166,12 @@ def _VM__addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
     if not type:
         a = to_int(self.reg.get(loc, off))
 
-        #print(a, imm)
-
         tmp = a + (imm if not sub else MAXVALS[off] + 1 - imm)
 
         self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
         self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
 
         tmp &= MAXVALS[off]
-
-        #print(tmp)
 
         self.reg.eflags_set(Reg32.ZF, tmp == 0)
 

@@ -5,7 +5,7 @@ class Reg32:
     # TODO: implement segment registers
     names = "eax ecx edx ebx esp ebp esi edi".split()
 
-    CF, PF, AF, ZF, SF, TF, IF, DF, OF, = 0, 2, 4, *range(6, 12)  # EFLAGS bits
+    CF, PF, AF, ZF, SF, TF, IF, DF, OF = 0, 2, 4, *range(6, 12)  # EFLAGS bits
 
     def __init__(self):
         self.allowed_sizes = [4, 2, 1]
@@ -65,7 +65,7 @@ class Reg32:
         """
         assert bit in self.eflags_bounds
 
-        return self.eflags & (1 << bit)
+        return (self.eflags >> bit) & 1
 
     def eflags_set(self, bit: int, value: bool) -> None:
         """

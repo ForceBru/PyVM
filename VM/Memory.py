@@ -17,7 +17,7 @@ class Memory:
 
         self.memory[offset:offset + size] = value
 
-    def fill(self, offset: int, value: int):
+    def fill(self, offset: int, value: int) -> None:
         assert offset in self.bounds
         assert value in range(256)
 

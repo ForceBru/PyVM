@@ -99,19 +99,18 @@ def run(self):
             self.execute_opcode(opcode)
 
 
-def execute_bytes(self, data: bytes):
-    self.mem.set(0, data)
-    self.code_segment_end = len(data) - 1
-    self.eip = 0
+def execute_bytes(self, data: bytes, offset=0):
+    self.mem.set(offset, data)
+    self.code_segment_end = offset + len(data) - 1
+    self.eip = offset
     self.run()
 
 
-def execute_file(self, fname: str):
+def execute_file(self, fname: str, offset=0):
     with open(fname, 'rb') as f:
         data = f.read()
-        self.mem.set(0, data)
+        self.mem.set(offset, data)
 
-    self.code_segment_end = len(data) - 1
-    del data
-    self.eip = 0
+    self.code_segment_end = offset + len(data) - 1
+    self.eip = offset
     self.run()
