@@ -74,7 +74,7 @@ There are only 3 user-level functions:
 * `execute_bytes(data: bytes, offset=0)` - load the given data into memory starting from address `offset` and execute it.
 * `execute_file(file_name: str, offset=0)` - load the contents of the given file into memory starting from address `offset` and execute it.
 
-The individual instructions are implemented as functions in `VM/__init__.py` and `VM.internals.py`.
+The individual instructions are implemented as functions in `VM/__init__.py` and `VM/internals.py`.
 
 
 ## Example
