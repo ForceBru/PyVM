@@ -38,6 +38,18 @@ def execute_opcode(self, op: int):
         debug('cmp success')
     elif self._jcc(op):
         debug('jcc success')
+    elif self._and(op):
+        debug('and success')
+    elif self._or(op):
+        debug('or success')
+    elif self._xor(op):
+        debug('xor success')
+    elif self._neg(op):
+        debug('neg success')
+    elif self._not(op):
+        debug('not success')
+    elif self._test(op):
+        debug('test success')
     else:
         raise ValueError('Unknown opcode: "{}"'.format(hex(op)))
 

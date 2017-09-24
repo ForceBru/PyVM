@@ -1,4 +1,5 @@
 import sys
+import operator
 
 from .CPU import CPU32, to_int, byteorder
 from .debug import debug
@@ -31,7 +32,9 @@ class VM(CPU32):
     from .internals import \
         __mov_r_imm, __mov_rm_imm, __mov_rm_r, __mov_r_rm, __mov_eax_moffs, __mov_moffs_eax, \
         __jmp_rel, \
-        __addsub_al_imm, __addsub_rm_imm, __addsub_rm_r, __addsub_r_rm
+        __addsub_al_imm, __addsub_rm_imm, __addsub_rm_r, __addsub_r_rm, \
+        __bitwise_al_imm, __bitwise_rm_imm, __bitwise_rm_r, __bitwise_r_rm, \
+        __negnot_rm
 
     from .kernel import __sys_exit, __sys_read, __sys_write
 
@@ -365,7 +368,6 @@ class VM(CPU32):
         return True
 
     def _sub(self, op: int):
-        # TODO: handle overflows
         valid_op = {
             'al,imm8' : [0x2C],
             'ax,imm'  : [0x2D],
@@ -484,7 +486,6 @@ class VM(CPU32):
             'JNAE': [114]
             }
 
-
         sz = self.sizes[self.current_mode]
         if op in valid_op['JPO']:
             if not self.reg.eflags_get(Reg32.PF):
@@ -571,6 +572,172 @@ class VM(CPU32):
                 self.__jmp_rel(1)
             else:
                 self.eip += 1
+        else:
+            return False
+        return True
+
+    def _and(self, op: int):
+        valid_op = {
+            'al,imm8': [0x24],
+            'ax,imm': [0x25],
+            'rm8,imm8': [0x80],
+            'rm,imm': [0x81],
+            'rm,imm8': [0x83],
+            'rm8,r8': [0x20],
+            'rm,r': [0x21],
+            'r8,rm8': [0x22],
+            'r,rm': [0x23]
+            }
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['al,imm8']:
+            self.__bitwise_al_imm(1, operator.and_)
+        elif op in valid_op['ax,imm']:
+            self.__bitwise_al_imm(sz, operator.and_)
+        elif op in valid_op['rm8,imm8']:
+            return self.__bitwise_rm_imm(1, 1, operator.and_)
+        elif op in valid_op['rm,imm']:
+            return self.__bitwise_rm_imm(sz, sz, operator.and_)
+        elif op in valid_op['rm,imm8']:
+            return self.__bitwise_rm_imm(sz, 1, operator.and_)
+        elif op in valid_op['rm8,r8']:
+            self.__bitwise_rm_r(1, operator.and_)
+        elif op in valid_op['rm,r']:
+            self.__bitwise_rm_r(sz, operator.and_)
+        elif op in valid_op['r8,rm8']:
+            self.__bitwise_rm_r(1, operator.and_)
+        elif op in valid_op['r,rm']:
+            self.__bitwise_rm_r(sz, operator.and_)
+        else:
+            return False
+        return True
+
+    def _or(self, op: int):
+        valid_op = {
+            'al,imm8': [0x0C],
+            'ax,imm': [0x0D],
+            'rm8,imm8': [0x80],
+            'rm,imm': [0x81],
+            'rm,imm8': [0x83],
+            'rm8,r8': [0x08],
+            'rm,r': [0x09],
+            'r8,rm8': [0x0A],
+            'r,rm': [0x0B]
+            }
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['al,imm8']:
+            self.__bitwise_al_imm(1, operator.or_)
+        elif op in valid_op['ax,imm']:
+            self.__bitwise_al_imm(sz, operator.or_)
+        elif op in valid_op['rm8,imm8']:
+            return self.__bitwise_rm_imm(1, 1, operator.or_)
+        elif op in valid_op['rm,imm']:
+            return self.__bitwise_rm_imm(sz, sz, operator.or_)
+        elif op in valid_op['rm,imm8']:
+            return self.__bitwise_rm_imm(sz, 1, operator.or_)
+        elif op in valid_op['rm8,r8']:
+            self.__bitwise_rm_r(1, operator.or_)
+        elif op in valid_op['rm,r']:
+            self.__bitwise_rm_r(sz, operator.or_)
+        elif op in valid_op['r8,rm8']:
+            self.__bitwise_rm_r(1, operator.or_)
+        elif op in valid_op['r,rm']:
+            self.__bitwise_rm_r(sz, operator.or_)
+        else:
+            return False
+        return True
+
+    def _xor(self, op: int):
+        valid_op = {
+            'al,imm8': [0x34],
+            'ax,imm': [0x35],
+            'rm8,imm8': [0x80],
+            'rm,imm': [0x81],
+            'rm,imm8': [0x83],
+            'rm8,r8': [0x30],
+            'rm,r': [0x31],
+            'r8,rm8': [0x32],
+            'r,rm': [0x33]
+            }
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['al,imm8']:
+            self.__bitwise_al_imm(1, operator.xor)
+        elif op in valid_op['ax,imm']:
+            self.__bitwise_al_imm(sz, operator.xor)
+        elif op in valid_op['rm8,imm8']:
+            return self.__bitwise_rm_imm(1, 1, operator.xor)
+        elif op in valid_op['rm,imm']:
+            return self.__bitwise_rm_imm(sz, sz, operator.xor)
+        elif op in valid_op['rm,imm8']:
+            return self.__bitwise_rm_imm(sz, 1, operator.xor)
+        elif op in valid_op['rm8,r8']:
+            self.__bitwise_rm_r(1, operator.xor)
+        elif op in valid_op['rm,r']:
+            self.__bitwise_rm_r(sz, operator.xor)
+        elif op in valid_op['r8,rm8']:
+            self.__bitwise_rm_r(1, operator.xor)
+        elif op in valid_op['r,rm']:
+            self.__bitwise_rm_r(sz, operator.xor)
+        else:
+            return False
+        return True
+
+    def _neg(self, op: int):
+        valid_op = {
+            'rm8': [0xF8],
+            'rm': [0xF7]
+            }
+        NEG = 0
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['rm8']:
+            return self.__negnot_rm(1, NEG)
+        elif op in valid_op['rm']:
+            return self.__negnot_rm(sz, NEG)
+        else:
+            return False
+
+    def _not(self, op: int):
+        valid_op = {
+            'rm8': [0xF6],
+            'rm': [0xF7]
+            }
+
+        NOT = 1
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['rm8']:
+            return self.__negnot_rm(1, NOT)
+        elif op in valid_op['rm']:
+            return self.__negnot_rm(sz, NOT)
+        else:
+            return False
+
+    def _test(self, op: int):
+        valid_op = {
+            'al,imm8' : [0xA8],
+            'ax,imm'  : [0xA9],
+            'rm8,imm8': [0xF6],
+            'rm,imm'  : [0xF7],
+            'rm8,r8'  : [0x84],
+            'rm,r'    : [0x85]
+            }
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['al,imm8']:
+            self.__bitwise_al_imm(1, operator.and_, True)
+        elif op in valid_op['ax,imm']:
+            self.__bitwise_al_imm(sz, operator.and_, True)
+        elif op in valid_op['rm8,imm8']:
+            return self.__bitwise_rm_imm(1, 1, operator.and_, True)
+        elif op in valid_op['rm,imm']:
+            return self.__bitwise_rm_imm(sz, sz, operator.and_, True)
+        elif op in valid_op['rm8,r8']:
+            self.__bitwise_rm_r(1, operator.and_, True)
+        elif op in valid_op['rm,r']:
+            self.__bitwise_rm_r(sz, operator.and_, True)
         else:
             return False
         return True

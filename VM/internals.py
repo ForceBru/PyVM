@@ -1,4 +1,6 @@
+import operator
 from .debug import debug
+from .misc import sign_extend
 from .CPU import to_int, byteorder
 from .Registers import Reg32
 
@@ -105,6 +107,8 @@ def _VM__jmp_rel(self, off):
     debug('jmp rel{}({})'.format(off * 8, self.eip))
 
 
+# TODO: deal with PF flag!
+
 ####################
 # ADD/SUB instructions
 ####################
@@ -136,12 +140,14 @@ def _VM__addsub_al_imm(self, off, sub=False, cmp=False):
 
 
 def _VM__addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
+    assert off >= imm_sz
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
 
     imm = self.mem.get(self.eip, imm_sz)
     self.eip += imm_sz
+    imm = sign_extend(imm, off)
     imm = to_int(imm)
 
     if (not sub) and (R[1] != 0):
@@ -160,12 +166,16 @@ def _VM__addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
     if not type:
         a = to_int(self.reg.get(loc, off))
 
+        #print(a, imm)
+
         tmp = a + (imm if not sub else MAXVALS[off] + 1 - imm)
 
         self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
         self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
 
         tmp &= MAXVALS[off]
+
+        #print(tmp)
 
         self.reg.eflags_set(Reg32.ZF, tmp == 0)
 
@@ -264,12 +274,10 @@ def _VM__addsub_r_rm(self, off, sub=False, cmp=False):
     else:
         a = to_int(self.mem.get(loc, off))
         b = to_int(self.reg.get(R[1], off))
-        if not sub:
-            tmp = a + b
-        else:
-            tmp = a + MAXVALS[off] + 1 - b
 
-            self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+        tmp = a + (b if not sub else MAXVALS[off] + 1 - b)
+
+        self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
         self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
 
         tmp &= MAXVALS[off]
@@ -281,3 +289,250 @@ def _VM__addsub_r_rm(self, off, sub=False, cmp=False):
 
         name = 'sub' if sub else 'add'
         debug('{0} r{1}({2}),m{1}({3})'.format('cmp' if cmp else name, off * 8, R[1], loc))
+
+
+####################
+# AND/OR/XOR instructions
+####################
+def _VM__bitwise_al_imm(self, off, operation, test=False):
+    imm = self.mem.get(self.eip, off)
+    self.eip += off
+    imm = to_int(imm)
+
+    a = to_int(self.reg.get(0, off))
+
+    self.reg.eflags_set(Reg32.OF, 0)
+    self.reg.eflags_set(Reg32.CF, 0)
+
+    tmp = operation(a, imm)
+
+    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+
+    tmp &= MAXVALS[off]
+
+    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+
+    if not test:
+        name = operation.__name__
+        self.reg.set(0, tmp.to_bytes(off, byteorder))
+    else:
+        name = 'test'
+
+    debug('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][off], off * 8, imm))
+
+
+def _VM__bitwise_rm_imm(self, off, imm_sz, operation, test=False):
+    old_eip = self.eip
+
+    RM, R = self.process_ModRM(off, off)
+
+    imm = self.mem.get(self.eip, imm_sz)
+    self.eip += imm_sz
+    imm = to_int(imm)
+
+    if (operation == operator.and_) and (R[1] != 4):
+        self.eip = old_eip
+        return False  # this is not AND
+    elif (operation == operator.or_) and (R[1] != 1):
+        self.eip = old_eip
+        return False  # this is not OR
+    elif (operation == operator.xor) and (R[1] != 6):
+        self.eip = old_eip
+        return False  # this is not XOR
+
+
+    type, loc, _ = RM
+
+    self.reg.eflags_set(Reg32.OF, 0)
+    self.reg.eflags_set(Reg32.CF, 0)
+
+    if not type:
+        a = to_int(self.reg.get(loc, off))
+
+        tmp = operation(a, imm)
+
+        self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+
+        tmp &= MAXVALS[off]
+
+        self.reg.eflags_set(Reg32.ZF, tmp == 0)
+
+        if not test:
+            name = operation.__name__
+            self.reg.set(loc, tmp.to_bytes(off, byteorder))
+        else:
+            name = 'test'
+
+        debug('{} r{}({}),imm{}({})'.format(name, off * 8, loc, imm_sz * 8, imm))
+    else:
+        a = to_int(self.mem.get(loc, off))
+
+        tmp = operation(a, imm)
+
+        self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+
+        tmp &= MAXVALS[off]
+
+        self.reg.eflags_set(Reg32.ZF, tmp == 0)
+
+        if not test:
+            name = operation.__name__
+            self.mem.set(loc, tmp.to_bytes(off, byteorder))
+        else:
+            name = 'test'
+
+        debug('{} m{}({}),imm{}({})'.format(name, off * 8, loc, imm_sz * 8, imm))
+
+    return True
+
+
+def _VM__bitwise_rm_r(self, off, operation, test=False):
+    RM, R = self.process_ModRM(off, off)
+
+    type, loc, _ = RM
+
+    self.reg.eflags_set(Reg32.OF, 0)
+    self.reg.eflags_set(Reg32.CF, 0)
+
+    if not type:
+        a = to_int(self.reg.get(loc, off))
+        b = to_int(self.reg.get(R[1], off))
+
+        tmp = operation(a, b)
+
+        self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+
+        tmp &= MAXVALS[off]
+
+        self.reg.eflags_set(Reg32.ZF, tmp == 0)
+
+        if not test:
+            name = operation.__name__
+            self.reg.set(loc, tmp.to_bytes(off, byteorder))
+        else:
+            name = 'test'
+
+        debug('{0} _r{1}({2}),r{1}({3})'.format(name, off * 8, loc, R[1]))
+    else:
+        a = to_int(self.mem.get(loc, off))
+        b = to_int(self.reg.get(R[1], off))
+
+        tmp = operation(a, b)
+
+        self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+
+        tmp &= MAXVALS[off]
+
+        self.reg.eflags_set(Reg32.ZF, tmp == 0)
+
+        if not test:
+            name = operation.__name__
+            self.mem.set(loc, tmp.to_bytes(off, byteorder))
+        else:
+            name = 'test'
+
+        debug('{0} m{1}({2}),r{1}({3})'.format(name, off * 8, loc, R[1]))
+
+
+def _VM__bitwise_r_rm(self, off, operation, test=False):
+    RM, R = self.process_ModRM(off, off)
+
+    type, loc, _ = RM
+
+    self.reg.eflags_set(Reg32.OF, 0)
+    self.reg.eflags_set(Reg32.CF, 0)
+
+    if not type:
+        a = to_int(self.reg.get(loc, off))
+        b = to_int(self.reg.get(R[1], off))
+
+        tmp = operation(a, b)
+
+        self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+
+        tmp &= MAXVALS[off]
+
+        self.reg.eflags_set(Reg32.ZF, tmp == 0)
+
+        if not test:
+            name = operation.__name__
+            self.reg.set(R[1], tmp.to_bytes(off, byteorder))
+        else:
+            name = 'test'
+
+        debug('{0} r{1}({2}),_r{1}({3})'.format(operation.__name__, off * 8, R[1], loc))
+    else:
+        a = to_int(self.mem.get(loc, off))
+        b = to_int(self.reg.get(R[1], off))
+
+        tmp = operation(a, b)
+
+        self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+
+        tmp &= MAXVALS[off]
+
+        self.reg.eflags_set(Reg32.ZF, tmp == 0)
+
+        if not test:
+            name = operation.__name__
+            self.reg.set(R[1], tmp.to_bytes(off, byteorder))
+        else:
+            name = 'test'
+
+        debug('{0} r{1}({2}),m{1}({3})'.format(name, off * 8, R[1], loc))
+
+
+####################
+# NEG/NOT instructions
+####################
+def operation_not(a, off):
+    return MAXVALS[off] - a
+
+def operation_neg(a, off):
+    return operation_not(a, off) + 1
+
+def _VM__negnot_rm(self, off, operation):
+    old_eip = self.eip
+
+    RM, R = self.process_ModRM(off, off)
+
+    if operation == 0:  # NEG
+        if R[1] != 3:
+            self.eip = old_eip
+            return False  # this is not NEG
+        operation = operation_neg
+    elif operation == 1:  # NOT
+        if R[1] != 2:
+            self.eip = old_eip
+            return False  # this is not NOT
+        operation = operation_not
+    else:
+        raise ValueError("Invalid argument to __negnot_rm: this is an error in the VM")
+
+    type, loc, _ = RM
+
+    if not type:
+        a = to_int(self.reg.get(loc, off))
+
+        if operation == operation_neg:
+            self.reg.eflags_set(Reg32.CF, a == 0)
+
+        tmp = operation(a, off) & MAXVALS[off]
+
+        self.reg.set(loc, tmp.to_bytes(off, byteorder))
+
+        debug('{} r{}({})'.format(operation.__name__, off * 8, loc))
+    else:
+        a = to_int(self.mem.get(loc, off))
+
+        if operation == operation_neg:
+            self.reg.eflags_set(Reg32.CF, a == 0)
+
+        tmp = operation(a, off) & MAXVALS[off]
+
+        self.mem.set(loc, tmp.to_bytes(off, byteorder))
+
+        debug('{} m{}({})'.format(operation.__name__, off * 8, loc))
+
+
+    return True

@@ -15,18 +15,24 @@ PyVM is a Python module that allows to execute x86 32-bit bytecode on any hardwa
 
 The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the comments in `VM/__init__.py`.
 
-* `add` (*)
+* `add`  (*)
+* `and`  (*)
 * `call` (*)
-* `cmp`
-* `jcc` (*) (only 8-bit relative addressing)
-* `jmp` (*)
+* `cmp`  (*)
+* `jcc`  (*) (only 8-bit relative addressing supported)
+* `jmp`  (*)
 * `int`
 * `lea`
-* `mov` (*)
-* `pop` (*)
+* `mov`  (*)
+* `neg`  (*)
+* `not`  (*)
+* `or`   (*)
+* `pop`  (*)
 * `push` (*)
-* `ret` (*)
-* `sub` (*)
+* `ret`  (*)
+* `sub`  (*)
+* `test` (*)
+* `xor`  (*)
 
 
 ## Example
@@ -38,7 +44,7 @@ Before running this you may consider setting `debug = False` in `VM/debug.py`.
 	import VM
 
 	binary = "B8 04 00 00 00" \
-             "BB 01 00 00 00" \
+	         "BB 01 00 00 00" \
              "B9 29 00 00 00" \
              "BA 0E 00 00 00" \
              "CD 80" \
@@ -48,13 +54,18 @@ Before running this you may consider setting `debug = False` in `VM/debug.py`.
              "BB 00 00 00 00" \
              "CD 80" \
              "48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A".replace(' ', '')
-             
+
+    # convert the hexadecimal representation above to bytes
     binary = binascii.unhexlify(binary)
 
+    # initialize the VM with 1024 bytes of memory
     vm = VM.VM(1024)
 
-    vm.mem.set(0, binary)
-    vm.run()  # output: Hello, world!
+    vm.execute_bytes(binary)
+
+    # output:
+    # Hello, world!
+    # [!] Process exited with code 0
 
 ## TODO
 
