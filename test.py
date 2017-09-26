@@ -23,16 +23,16 @@ if __name__ == "__main__":
     pr.enable()
     vm.execute_bytes(binary)
 
-    #vm.execute_file('asm/test_jmp_int.bin')
-    #vm.execute_file('asm/test_push_pop.bin')
-    #vm.execute_file('asm/test_call_ret.bin')
-    #vm.execute_file('asm/test_add_sub.bin')
-    #vm.execute_file('asm/test_lea.bin')
-    #vm.execute_file('asm/test_cmp_jcc.bin')
-    #vm.execute_file('asm/test_bitwise.bin')
-    #vm.execute_file('asm/test_test.bin')
+    vm.execute_file('asm/test_jmp_int.bin')
+    vm.execute_file('asm/test_push_pop.bin')
+    vm.execute_file('asm/test_call_ret.bin')
+    vm.execute_file('asm/test_add_sub.bin')
+    vm.execute_file('asm/test_lea.bin')
+    vm.execute_file('asm/test_cmp_jcc.bin')
+    vm.execute_file('asm/test_bitwise.bin')
+    vm.execute_file('asm/test_test.bin')
 
-    #vm.execute_file('asm/c_pointers.bin')
+    vm.execute_file('asm/c_pointers.bin')
     pr.disable()
 
 

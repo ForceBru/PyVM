@@ -20,23 +20,25 @@ class VM(CPU32):
         3) `kernel`    - implements some basic routines, usually provided by the Linux kernel
         4) `misc`      - miscellaneous parsing routines
 
-    The names of the functions in the `internals` module begin with `_VM__<function name>`, thus, they should be imported
-    as `__<function name>`.
-
     Functions that begin with a single underscore implement a single instruction, and for each mnemonic (e.g. `mov`, `add`)
     there must be only one corresponding function called `_<mnemonic>` that should accept only one argument - the opcode.
     Each of these functions must return `True` if the opcode equals one of the `valid_op`codes and `False` otherwise.
     """
     from .fetchLoop import execute_opcode, run, execute_bytes, execute_file
     from .misc import process_ModRM
-    from .internals import \
-        __mov_r_imm, __mov_rm_imm, __mov_rm_r, __mov_r_rm, __mov_eax_moffs, __mov_moffs_eax, \
-        __jmp_rel, \
-        __addsub_al_imm, __addsub_rm_imm, __addsub_rm_r, __addsub_r_rm, \
-        __bitwise_al_imm, __bitwise_rm_imm, __bitwise_rm_r, __bitwise_r_rm, \
-        __negnot_rm
+    
+    from .instructions import \
+        mov_r_imm, mov_rm_imm, mov_rm_r, mov_r_rm, mov_eax_moffs, mov_moffs_eax, \
+        jmp_rel, jmp_rm, jmp_m, \
+        call_rel, call_rm, call_m, \
+        ret_near, ret_near_imm, ret_far, ret_far_imm, \
+        int_3, int_imm, \
+        push_imm, push_rm, pop_rm, \
+        addsub_al_imm, addsub_rm_imm, addsub_rm_r, addsub_r_rm, \
+        bitwise_al_imm, bitwise_rm_imm, bitwise_rm_r, bitwise_r_rm, \
+        negnot_rm
 
-    from .kernel import __sys_exit, __sys_read, __sys_write
+    from .kernel import sys_exit, sys_read, sys_write
 
     def __init__(self, memsize: int):
         super().__init__(memsize)
@@ -56,21 +58,21 @@ class VM(CPU32):
     def interrupt(self, code: int):
         valid_codes = [0x80]
 
-        if code not in valid_codes:
-            raise RuntimeError('Invalid interrupt: {}'.format(hex(code)))
-
         if code == valid_codes[0]:  # syscall
             valid_syscalls = {
-                0x1: self.__sys_exit,
-                0x3: self.__sys_read,
-                0x4: self.__sys_write
+                0x1: self.sys_exit,
+                0x3: self.sys_read,
+                0x4: self.sys_write
                 }
 
             syscall = to_int(self.reg.get(0, 4))  # EAX
 
-            valid_syscalls[syscall]()
+            try:
+                valid_syscalls[syscall]()
+            except KeyError:
+                raise RuntimeError('System call 0x{:02x} is not supported yet'.format(syscall))
         else:
-            ...
+            raise RuntimeError('Interrupt 0x{:02x} is not supported yet'.format(code))
 
     def _mov(self, op: int):
         valid_op = {
@@ -95,34 +97,33 @@ class VM(CPU32):
         sz = self.sizes[self.current_mode]
 
         if op in valid_op['r8,imm8']:
-            self.__mov_r_imm(1, op)
+            self.mov_r_imm(1, op)
         elif op in valid_op['r,imm']:
-            self.__mov_r_imm(sz, op)
+            self.mov_r_imm(sz, op)
         elif op in valid_op['rm8,imm8']:
-            return self.__mov_rm_imm(1)
+            return self.mov_rm_imm(1)
         elif op in valid_op['rm,imm']:
-            return self.__mov_rm_imm(sz)
+            return self.mov_rm_imm(sz)
         elif op in valid_op['rm8,r8']:
-            self.__mov_rm_r(1)
+            self.mov_rm_r(1)
         elif op in valid_op['rm,r']:
-            self.__mov_rm_r(sz)
+            self.mov_rm_r(sz)
         elif op in valid_op['r8,rm8']:
-            self.__mov_r_rm(1)
+            self.mov_r_rm(1)
         elif op in valid_op['r,rm']:
-            self.__mov_r_rm(sz)
+            self.mov_r_rm(sz)
         elif op in valid_op['rm16,sreg']:
             raise RuntimeError('Segment registers not implemented yet')
         elif op in valid_op['sreg,rm16']:
             raise RuntimeError('Segment registers not implemented yet')
         elif op in valid_op['al,moffs8']:
-            # TODO: I should be reading 1 byte here, but NASM outputs a bit-switch byte and 4-bytes moffs. WTF??
-            self.__mov_eax_moffs(1)
+            self.mov_eax_moffs(1)
         elif op in valid_op['ax,moffs']:
-            self.__mov_eax_moffs(sz)
+            self.mov_eax_moffs(sz)
         elif op in valid_op['moffs8,al']:
-            self.__mov_moffs_eax(1)
+            self.mov_moffs_eax(1)
         elif op in valid_op['moffs,ax']:
-            self.__mov_moffs_eax(sz)
+            self.mov_moffs_eax(sz)
         else:
             return False
         return True
@@ -139,24 +140,13 @@ class VM(CPU32):
         sz = self.sizes[self.current_mode]
 
         if op in valid_op['rel8']:
-            self.__jmp_rel(1)
+            self.jmp_rel(1)
         elif op in valid_op['rel']:
-            self.__jmp_rel(sz)
+            self.jmp_rel(sz)
         elif op in valid_op['rm/m16']:
-            RM, R = self.process_ModRM(sz, sz)
-
-            if R[1] == 4:  # R/M
-                d = self.mem.get(self.eip, sz)
-                self.eip = to_int(d) & ((1 << sz * 8) - 1)
-                debug('jmp rm{}({})'.format(sz * 8, self.eip))
-            elif R[1] == 5:  # M
-                _d = self.mem.get(self.eip, sz)
-                _d = to_int(_d)
-                d = self.mem.get(_d, sz)
-                self.eip = to_int(d) & ((1 << sz * 8) - 1)
-                debug('jmp m{}({})'.format(sz * 8, self.eip))
-            else:
-                return False
+            if not self.jmp_rm(sz):
+                return self.jmp_m(sz)
+            return True
         elif op in valid_op['ptr16']:
             raise RuntimeError('Jumps to pointers not implemented yet')
         else:
@@ -170,13 +160,9 @@ class VM(CPU32):
             }
 
         if op in valid_op['3']:
-            sys.stderr.write("[!] It's a trap! (literally)")
+            self.int_3(0)
         elif op in valid_op['imm8']:
-            imm = self.mem.get(self.eip, 1)
-            imm = to_int(imm)
-            self.eip += 1
-
-            self.interrupt(imm)
+            self.int_imm(1)
         else:
             return False
         return True
@@ -192,37 +178,16 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['rm']:
-            RM, R = self.process_ModRM(sz, sz)
-
-            if R[1] != 6:
-                return False
-
-            type, loc, _ = RM
-
-            if not type:
-                data = self.reg.get(loc, sz)
-                debug('push r{}({})'.format(sz * 8, data))
-            else:
-                # relative address!
-                data = self.mem.get(loc, sz)
-                debug('push m{}({})'.format(sz * 8, data))
-
-            self.stack_push(data)
+            return self.push_rm(sz)
         elif op in valid_op['r']:
             loc = op & 0b111
             data = self.reg.get(loc, sz)
             debug('push r{}({})'.format(sz * 8, loc))
             self.stack_push(data)
         elif op in valid_op['imm8']:
-            data = self.mem.get(self.eip, 1)
-            self.eip += 1
-            debug('push imm8({})'.format(data))
-            self.stack_push(data)
+            self.push_imm(1)
         elif op in valid_op['imm']:
-            data = self.mem.get(self.eip, sz)
-            self.eip += sz
-            debug('push imm{}({})'.format(sz * 8, data))
-            self.stack_push(data)
+            self.push_imm(sz)
         else:
             return False
         return True
@@ -236,20 +201,7 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['rm']:
-            RM, R = self.process_ModRM(sz, sz)
-
-            if R[1] != 0:
-                return False
-
-            type, loc, _ = RM
-            data = self.stack_pop(sz)
-
-            if not type:
-                self.reg.set(loc, data)
-                debug('pop _r{}({})'.format(sz * 8, data))
-            else:
-                self.reg.set(loc, data)
-                debug('pop m{}({})'.format(sz * 8, data))
+            return self.pop_rm(sz)
         elif op in valid_op['r']:
             loc = op & 0b111
             data = self.stack_pop(sz)
@@ -269,34 +221,11 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['rel']:  # near, relative, displacement relative to next instr
-            dest = self.mem.get(self.eip, sz)
-            self.eip += sz
-            dest = to_int(dest, True)# & ((1 << sz * 8) - 1)
-            tmpEIP = self.eip + dest
-
-            assert tmpEIP in self.mem.bounds
-
-            self.stack_push(self.eip.to_bytes(sz, byteorder, signed=True))
-            self.eip = tmpEIP
-            debug("call rel{}({})".format(sz * 8, self.eip))
+            self.call_rel(sz)
         elif op in valid_op['rm']:
-            RM, R = self.process_ModRM(sz, sz)
-
-            type, loc, _ = RM
-
-            if R[1] == 2:  # near, abs, indirect, addr in r/m
-                if not type:
-                    dest = self.reg.get(loc, sz)
-                else:
-                    dest = self.mem.get(loc, sz)
-                tmpEIP = to_int(dest, False) & ((1 << sz * 8) - 1)
-                self.stack_push(self.eip.to_bytes(sz, byteorder, signed=True))
-                self.eip = tmpEIP
-                debug("call {}{}({})".format('rm'[type], sz * 8, self.eip))
-            elif R[1] == 3:  # far, abs, indirect, addr in m
-                raise RuntimeError("far calls (mem) not implemented yet")
-            else:
-                return False
+            if not self.call_rm(sz):
+                return self.call_m(sz)
+            return True
         elif op in valid_op['ptr']:
             raise RuntimeError("far calls (ptr) not implemented yet")
         else:
@@ -314,18 +243,13 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['near']:
-            self.eip = to_int(self.stack_pop(sz), True)# & ((1 << sz * 8) - 1)
-            debug("ret ({})".format(self.eip))
+            self.ret_near(sz)
         elif op in valid_op['near_imm']:
-            self.eip = to_int(self.stack_pop(sz), True)# & ((1 << sz * 8) - 1)
-            nbytes_to_pop = self.mem.get(self.eip, sz)
-            nbytes_to_pop = to_int(nbytes_to_pop)
-            self.eip += sz
-            self.stack_pop(nbytes_to_pop)
+            self.ret_near_imm(sz)
         elif op in valid_op['far']:
-            raise RuntimeError("far returns not implemented yet")
+            self.ret_far(sz)
         elif op in valid_op['far_imm']:
-            raise RuntimeError("far returns (imm) not implemented yet")
+            self.ret_far_imm(sz)
         else:
             return False
         return True
@@ -346,23 +270,23 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['al,imm8']:
-            self.__addsub_al_imm(1)
+            self.addsub_al_imm(1)
         elif op in valid_op['ax,imm']:
-            self.__addsub_al_imm(sz)
+            self.addsub_al_imm(sz)
         elif op in valid_op['rm8,imm8']:
-            return self.__addsub_rm_imm(1, 1)
+            return self.addsub_rm_imm(1, 1)
         elif op in valid_op['rm,imm']:
-            return self.__addsub_rm_imm(sz, sz)
+            return self.addsub_rm_imm(sz, sz)
         elif op in valid_op['rm,imm8']:
-            return self.__addsub_rm_imm(sz, 1)
+            return self.addsub_rm_imm(sz, 1)
         elif op in valid_op['rm8,r8']:
-            self.__addsub_rm_r(1)
+            self.addsub_rm_r(1)
         elif op in valid_op['rm,r']:
-            self.__addsub_rm_r(sz)
+            self.addsub_rm_r(sz)
         elif op in valid_op['r8,rm8']:
-            self.__addsub_r_rm(1)
+            self.addsub_r_rm(1)
         elif op in valid_op['r,rm']:
-            self.__addsub_r_rm(sz)
+            self.addsub_r_rm(sz)
         else:
             return False
         return True
@@ -382,23 +306,23 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['al,imm8']:
-            self.__addsub_al_imm(1, True)
+            self.addsub_al_imm(1, True)
         elif op in valid_op['ax,imm']:
-            self.__addsub_al_imm(sz, True)
+            self.addsub_al_imm(sz, True)
         elif op in valid_op['rm8,imm8']:
-            return self.__addsub_rm_imm(1, 1, True)
+            return self.addsub_rm_imm(1, 1, True)
         elif op in valid_op['rm,imm']:
-            return self.__addsub_rm_imm(sz, sz, True)
+            return self.addsub_rm_imm(sz, sz, True)
         elif op in valid_op['rm,imm8']:
-            return self.__addsub_rm_imm(sz, 1, True)
+            return self.addsub_rm_imm(sz, 1, True)
         elif op in valid_op['rm8,r8']:
-            self.__addsub_rm_r(1, True)
+            self.addsub_rm_r(1, True)
         elif op in valid_op['rm,r']:
-            self.__addsub_rm_r(sz, True)
+            self.addsub_rm_r(sz, True)
         elif op in valid_op['r8,rm8']:
-            self.__addsub_r_rm(1, True)
+            self.addsub_r_rm(1, True)
         elif op in valid_op['r,rm']:
-            self.__addsub_r_rm(sz, True)
+            self.addsub_r_rm(sz, True)
         else:
             return False
         return True
@@ -444,23 +368,23 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['al,imm8']:
-            self.__addsub_al_imm(1, True, True)
+            self.addsub_al_imm(1, True, True)
         elif op in valid_op['ax,imm']:
-            self.__addsub_al_imm(sz, True, True)
+            self.addsub_al_imm(sz, True, True)
         elif op in valid_op['rm8,imm8']:
-            return self.__addsub_rm_imm(1, 1, True, True)
+            return self.addsub_rm_imm(1, 1, True, True)
         elif op in valid_op['rm,imm']:
-            return self.__addsub_rm_imm(sz, sz, True, True)
+            return self.addsub_rm_imm(sz, sz, True, True)
         elif op in valid_op['rm,imm8']:
-            return self.__addsub_rm_imm(sz, 1, True, True)
+            return self.addsub_rm_imm(sz, 1, True, True)
         elif op in valid_op['rm8,r8']:
-            self.__addsub_rm_r(1, True, True)
+            self.addsub_rm_r(1, True, True)
         elif op in valid_op['rm,r']:
-            self.__addsub_rm_r(sz, True, True)
+            self.addsub_rm_r(sz, True, True)
         elif op in valid_op['r8,rm8']:
-            self.__addsub_r_rm(1, True, True)
+            self.addsub_r_rm(1, True, True)
         elif op in valid_op['r,rm']:
-            self.__addsub_r_rm(sz, True, True)
+            self.addsub_r_rm(sz, True, True)
         else:
             return False
         return True
@@ -489,87 +413,87 @@ class VM(CPU32):
         sz = self.sizes[self.current_mode]
         if op in valid_op['JPO']:
             if not self.reg.eflags_get(Reg32.PF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1  # pretend that we've read one byte
         elif op in valid_op['JNLE']:
             if not self.reg.eflags_get(Reg32.PF) and self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNC']:
             if not self.reg.eflags_get(Reg32.CF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNL']:
             if self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNO']:
             if not self.reg.eflags_get(Reg32.OF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNS']:
             if not self.reg.eflags_get(Reg32.SF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JPE']:
             if self.reg.eflags_get(Reg32.PF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JO']:
             if self.reg.eflags_get(Reg32.PF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNGE']:
             if self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JECXZ']:
             if not to_int(self.reg.get(0, sz), byteorder):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNBE']:
             if not self.reg.eflags_get(Reg32.CF) and not self.reg.eflags_get(Reg32.ZF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNZ']:
             if not self.reg.eflags_get(Reg32.ZF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JZ']:
             if self.reg.eflags_get(Reg32.ZF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JS']:
             if self.reg.eflags_get(Reg32.SF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNA']:
             if self.reg.eflags_get(Reg32.CF) or self.reg.eflags_get(Reg32.ZF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNG']:
             if self.reg.eflags_get(Reg32.ZF) or self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         elif op in valid_op['JNAE']:
             if self.reg.eflags_get(Reg32.CF):
-                self.__jmp_rel(1)
+                self.jmp_rel(1)
             else:
                 self.eip += 1
         else:
@@ -591,23 +515,23 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['al,imm8']:
-            self.__bitwise_al_imm(1, operator.and_)
+            self.bitwise_al_imm(1, operator.and_)
         elif op in valid_op['ax,imm']:
-            self.__bitwise_al_imm(sz, operator.and_)
+            self.bitwise_al_imm(sz, operator.and_)
         elif op in valid_op['rm8,imm8']:
-            return self.__bitwise_rm_imm(1, 1, operator.and_)
+            return self.bitwise_rm_imm(1, 1, operator.and_)
         elif op in valid_op['rm,imm']:
-            return self.__bitwise_rm_imm(sz, sz, operator.and_)
+            return self.bitwise_rm_imm(sz, sz, operator.and_)
         elif op in valid_op['rm,imm8']:
-            return self.__bitwise_rm_imm(sz, 1, operator.and_)
+            return self.bitwise_rm_imm(sz, 1, operator.and_)
         elif op in valid_op['rm8,r8']:
-            self.__bitwise_rm_r(1, operator.and_)
+            self.bitwise_rm_r(1, operator.and_)
         elif op in valid_op['rm,r']:
-            self.__bitwise_rm_r(sz, operator.and_)
+            self.bitwise_rm_r(sz, operator.and_)
         elif op in valid_op['r8,rm8']:
-            self.__bitwise_rm_r(1, operator.and_)
+            self.bitwise_rm_r(1, operator.and_)
         elif op in valid_op['r,rm']:
-            self.__bitwise_rm_r(sz, operator.and_)
+            self.bitwise_rm_r(sz, operator.and_)
         else:
             return False
         return True
@@ -627,23 +551,23 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['al,imm8']:
-            self.__bitwise_al_imm(1, operator.or_)
+            self.bitwise_al_imm(1, operator.or_)
         elif op in valid_op['ax,imm']:
-            self.__bitwise_al_imm(sz, operator.or_)
+            self.bitwise_al_imm(sz, operator.or_)
         elif op in valid_op['rm8,imm8']:
-            return self.__bitwise_rm_imm(1, 1, operator.or_)
+            return self.bitwise_rm_imm(1, 1, operator.or_)
         elif op in valid_op['rm,imm']:
-            return self.__bitwise_rm_imm(sz, sz, operator.or_)
+            return self.bitwise_rm_imm(sz, sz, operator.or_)
         elif op in valid_op['rm,imm8']:
-            return self.__bitwise_rm_imm(sz, 1, operator.or_)
+            return self.bitwise_rm_imm(sz, 1, operator.or_)
         elif op in valid_op['rm8,r8']:
-            self.__bitwise_rm_r(1, operator.or_)
+            self.bitwise_rm_r(1, operator.or_)
         elif op in valid_op['rm,r']:
-            self.__bitwise_rm_r(sz, operator.or_)
+            self.bitwise_rm_r(sz, operator.or_)
         elif op in valid_op['r8,rm8']:
-            self.__bitwise_rm_r(1, operator.or_)
+            self.bitwise_rm_r(1, operator.or_)
         elif op in valid_op['r,rm']:
-            self.__bitwise_rm_r(sz, operator.or_)
+            self.bitwise_rm_r(sz, operator.or_)
         else:
             return False
         return True
@@ -663,23 +587,23 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['al,imm8']:
-            self.__bitwise_al_imm(1, operator.xor)
+            self.bitwise_al_imm(1, operator.xor)
         elif op in valid_op['ax,imm']:
-            self.__bitwise_al_imm(sz, operator.xor)
+            self.bitwise_al_imm(sz, operator.xor)
         elif op in valid_op['rm8,imm8']:
-            return self.__bitwise_rm_imm(1, 1, operator.xor)
+            return self.bitwise_rm_imm(1, 1, operator.xor)
         elif op in valid_op['rm,imm']:
-            return self.__bitwise_rm_imm(sz, sz, operator.xor)
+            return self.bitwise_rm_imm(sz, sz, operator.xor)
         elif op in valid_op['rm,imm8']:
-            return self.__bitwise_rm_imm(sz, 1, operator.xor)
+            return self.bitwise_rm_imm(sz, 1, operator.xor)
         elif op in valid_op['rm8,r8']:
-            self.__bitwise_rm_r(1, operator.xor)
+            self.bitwise_rm_r(1, operator.xor)
         elif op in valid_op['rm,r']:
-            self.__bitwise_rm_r(sz, operator.xor)
+            self.bitwise_rm_r(sz, operator.xor)
         elif op in valid_op['r8,rm8']:
-            self.__bitwise_rm_r(1, operator.xor)
+            self.bitwise_rm_r(1, operator.xor)
         elif op in valid_op['r,rm']:
-            self.__bitwise_rm_r(sz, operator.xor)
+            self.bitwise_rm_r(sz, operator.xor)
         else:
             return False
         return True
@@ -693,9 +617,9 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['rm8']:
-            return self.__negnot_rm(1, NEG)
+            return self.negnot_rm(1, NEG)
         elif op in valid_op['rm']:
-            return self.__negnot_rm(sz, NEG)
+            return self.negnot_rm(sz, NEG)
         else:
             return False
 
@@ -709,9 +633,9 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['rm8']:
-            return self.__negnot_rm(1, NOT)
+            return self.negnot_rm(1, NOT)
         elif op in valid_op['rm']:
-            return self.__negnot_rm(sz, NOT)
+            return self.negnot_rm(sz, NOT)
         else:
             return False
 
@@ -727,17 +651,17 @@ class VM(CPU32):
 
         sz = self.sizes[self.current_mode]
         if op in valid_op['al,imm8']:
-            self.__bitwise_al_imm(1, operator.and_, True)
+            self.bitwise_al_imm(1, operator.and_, True)
         elif op in valid_op['ax,imm']:
-            self.__bitwise_al_imm(sz, operator.and_, True)
+            self.bitwise_al_imm(sz, operator.and_, True)
         elif op in valid_op['rm8,imm8']:
-            return self.__bitwise_rm_imm(1, 1, operator.and_, True)
+            return self.bitwise_rm_imm(1, 1, operator.and_, True)
         elif op in valid_op['rm,imm']:
-            return self.__bitwise_rm_imm(sz, sz, operator.and_, True)
+            return self.bitwise_rm_imm(sz, sz, operator.and_, True)
         elif op in valid_op['rm8,r8']:
-            self.__bitwise_rm_r(1, operator.and_, True)
+            self.bitwise_rm_r(1, operator.and_, True)
         elif op in valid_op['rm,r']:
-            self.__bitwise_rm_r(sz, operator.and_, True)
+            self.bitwise_rm_r(sz, operator.and_, True)
         else:
             return False
         return True
