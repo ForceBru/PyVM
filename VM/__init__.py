@@ -35,6 +35,7 @@ class VM(CPU32):
         int_3, int_imm, \
         push_imm, push_rm, pop_rm, \
         addsub_al_imm, addsub_rm_imm, addsub_rm_r, addsub_r_rm, \
+        incdec_rm, incdec_r, \
         bitwise_al_imm, bitwise_rm_imm, bitwise_rm_r, bitwise_r_rm, \
         negnot_rm
 
@@ -662,6 +663,44 @@ class VM(CPU32):
             self.bitwise_rm_r(1, operator.and_, True)
         elif op in valid_op['rm,r']:
             self.bitwise_rm_r(sz, operator.and_, True)
+        else:
+            return False
+        return True
+        
+    
+    def _inc(self, op: int):
+        valid_op = {
+            'rm8': [0xFE],
+            'rm' : [0xFF],
+            'r'  : [0x40]
+        }
+        
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['rm8']:
+            return self.incdec_rm(1)
+        elif op in valid_op['rm']:
+            return self.incdec_rm(sz)
+        elif op in valid_op['r']:
+            self.incdec_r(sz, op)
+        else:
+            return False
+        return True
+    
+    
+    def _dec(self, op: int):
+        valid_op = {
+            'rm8': [0xFE],
+            'rm' : [0xFF],
+            'r'  : [0x48]
+        }
+        
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['rm8']:
+            return self.incdec_rm(1, dec=True)
+        elif op in valid_op['rm']:
+            return self.incdec_rm(sz, dec=True)
+        elif op in valid_op['r']:
+            self.incdec_r(sz, op, dec=True)
         else:
             return False
         return True

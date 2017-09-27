@@ -583,3 +583,56 @@ def negnot_rm(self, off, operation):
     debug('{0} {3}{1}({2})'.format(operation.__name__, off * 8, loc, ('m' if type else '_r')))
 
     return True
+    
+    
+
+####################
+# INC / DEC
+####################
+def incdec_rm(self, off, dec=False):
+    old_eip = self.eip
+
+    RM, R = self.process_ModRM(off, off)
+
+    if (not dec) and (R[1] != 0):
+        self.eip = old_eip
+        return False  # this is not INC
+    elif dec and (R[1] != 1):
+        self.eip = old_eip
+        return False  # this is not DEC
+
+    type, loc, _ = RM
+    
+    a = to_int((self.mem if type else self.reg).get(loc, off))
+    
+    tmp = a + (1 if not dec else MAXVALS[off])
+    
+    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+    self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
+
+    tmp &= MAXVALS[off]
+
+    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    (self.mem if type else self.reg).set(tmp.to_bytes(off, byteorder))
+    debug('{3} {0}{1}({2})'.format('m' if type else '_r', off * 8, loc, 'dec' if dec else 'inc'))
+    
+    return True
+    
+    
+def incdec_r(self, off, op, dec=False):
+    loc = op & 0b111
+    
+    a = to_int(self.reg.get(loc, off))
+    
+    tmp = a + (1 if not sub else MAXVALS[off])
+    
+    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+    self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
+
+    tmp &= MAXVALS[off]
+
+    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    self.reg.set(tmp.to_bytes(off, byteorder))
+    debug('{3} {0}{1}({2})'.format('r', off * 8, loc, 'dec' if dec else 'inc'))
