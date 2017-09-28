@@ -410,93 +410,100 @@ class VM(CPU32):
             'JNG': [0x7E],
             'JNAE': [114]
             }
-
-        sz = self.sizes[self.current_mode]
+            
+        sz = 1
+        if op == 0x0F:
+            for key, val in valid_op.items():
+                valid_op[key] = [val[0] + 0x10]
+            sz = self.sizes[self.current_mode]
+            op = self.mem.get(self.eip, 1)[0]
+            self.eip += 1
+        	
         if op in valid_op['JPO']:
             if not self.reg.eflags_get(Reg32.PF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1  # pretend that we've read one byte
+                self.eip += sz  # pretend that we've read some bytes
         elif op in valid_op['JNLE']:
             if not self.reg.eflags_get(Reg32.PF) and self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNC']:
             if not self.reg.eflags_get(Reg32.CF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNL']:
             if self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNO']:
             if not self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNS']:
             if not self.reg.eflags_get(Reg32.SF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JPE']:
             if self.reg.eflags_get(Reg32.PF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JO']:
             if self.reg.eflags_get(Reg32.PF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNGE']:
             if self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JECXZ']:
             if not to_int(self.reg.get(0, sz), byteorder):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNBE']:
             if not self.reg.eflags_get(Reg32.CF) and not self.reg.eflags_get(Reg32.ZF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNZ']:
             if not self.reg.eflags_get(Reg32.ZF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JZ']:
             if self.reg.eflags_get(Reg32.ZF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JS']:
             if self.reg.eflags_get(Reg32.SF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNA']:
             if self.reg.eflags_get(Reg32.CF) or self.reg.eflags_get(Reg32.ZF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNG']:
             if self.reg.eflags_get(Reg32.ZF) or self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         elif op in valid_op['JNAE']:
             if self.reg.eflags_get(Reg32.CF):
-                self.jmp_rel(1)
+                self.jmp_rel(sz)
             else:
-                self.eip += 1
+                self.eip += sz
         else:
             return False
         return True
@@ -672,7 +679,7 @@ class VM(CPU32):
         valid_op = {
             'rm8': [0xFE],
             'rm' : [0xFF],
-            'r'  : [0x40]
+            'r'  : range(0x40, 0x48)
         }
         
         sz = self.sizes[self.current_mode]
@@ -691,7 +698,7 @@ class VM(CPU32):
         valid_op = {
             'rm8': [0xFE],
             'rm' : [0xFF],
-            'r'  : [0x48]
+            'r'  : range(0x48, 0x50)
         }
         
         sz = self.sizes[self.current_mode]

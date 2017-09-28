@@ -17,8 +17,8 @@ if __name__ == "__main__":
              "B8 01 00 00 00" \
              "BB 00 00 00 00" \
              "CD 80" \
-             "48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A".replace(' ', '')
-    binary = binascii.unhexlify(binary)
+             "48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A"
+    binary = bytearray.fromhex(binary)
 
     pr.enable()
     vm.execute_bytes(binary)
@@ -31,6 +31,7 @@ if __name__ == "__main__":
     #vm.execute_file('asm/test_cmp_jcc.bin')
     #vm.execute_file('asm/test_bitwise.bin')
     #vm.execute_file('asm/test_test.bin')
+    #vm.execute_file('asm/test_inc_dec.bin')
 
     #vm.execute_file('asm/c_pointers.bin')
     pr.disable()

@@ -20,7 +20,7 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 3.  `call` (*)
 4.  `cmp`  (*)
 5.  `dec`  (*)
-5.  `jcc`  (*) (only 8-bit relative addressing supported)
+5.  `jcc`  (*)
 6.  `jmp`  (*)
 7.  `inc`  (*)
 7.  `int`

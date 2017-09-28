@@ -94,8 +94,11 @@ def jmp_rel(self, off):
     d = self.mem.get(self.eip, off)
     d = to_int(d, True)
     self.eip += off
-
+    
     self.eip += d
+    
+    assert self.eip in self.mem.bounds
+    
     debug('jmp rel{}({})'.format(off * 8, self.eip))
 
 
