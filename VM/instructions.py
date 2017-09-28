@@ -93,13 +93,11 @@ SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]
 def jmp_rel(self, off):
     d = self.mem.get(self.eip, off)
     d = to_int(d, True)
-    self.eip += off
-    
-    self.eip += d
+    self.eip += off + d
     
     assert self.eip in self.mem.bounds
     
-    debug('jmp rel{}({})'.format(off * 8, self.eip))
+    debug('jmp rel{}({})'.format(off * 8, hex(self.eip)))
 
 
 def jmp_rm(self, off):
@@ -452,9 +450,13 @@ def bitwise_rm_imm(self, off, imm_sz, operation, test=False):
     self.eip += imm_sz
     imm = to_int(imm)
 
-    if (operation == operator.and_) and (R[1] != 4):
-        self.eip = old_eip
-        return False  # this is not AND
+    if (operation == operator.and_):
+        if (not test) and (R[1] != 4):
+            self.eip = old_eip
+            return False  # this is not AND
+        elif test and (R[1] != 0):
+            self.eip = old_eip
+            return False  # this is not TEST
     elif (operation == operator.or_) and (R[1] != 1):
         self.eip = old_eip
         return False  # this is not OR
