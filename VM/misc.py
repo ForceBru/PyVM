@@ -1,4 +1,4 @@
-from .CPU import to_int
+from .CPU import to_int, byteorder
 
 def process_ModRM(self, size1, size2):
     '''
@@ -97,18 +97,8 @@ def process_ModRM(self, size1, size2):
     return (1, addr, size1), (0, REG, size2)
 
 def sign_extend(number: bytes, nbytes: int):
-    l = len(number)
+    return int.from_bytes(number, byteorder, signed=True).to_bytes(nbytes, byteorder, signed=True)
 
-    if l > nbytes:
-        raise RuntimeError('Cannot extend a {}-bytes value to {} bytes'.format(l, nbytes))
-
-    if l == nbytes:
-        return number
-
-    sign = (number[0] >> 7) & 0xff
-
-    return number + (b'\xff' if sign else b'\x00') * (nbytes - l)
-    
 
 def parity(num: int, nbytes: int) -> bool:
 	'Calculate the parity of a byte'
