@@ -1,6 +1,6 @@
 import operator
 from .debug import debug
-from .misc import sign_extend
+from .misc import sign_extend, parity as calc_PF
 from .CPU import to_int, byteorder
 from .Registers import Reg32
 
@@ -292,11 +292,9 @@ def ret_far_imm(self, off):
     raise RuntimeError("far returns (imm) not implemented yet")
     # the same as above, but adjust SP
 
-# TODO: deal with PF flag!
-
 ####################
 # ADD / SUB
-####################
+####################	
 def addsub_al_imm(self, off, sub=False, cmp=False):
     imm = self.mem.get(self.eip, off)
     self.eip += off
@@ -313,8 +311,11 @@ def addsub_al_imm(self, off, sub=False, cmp=False):
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
 
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
     if not cmp:
-        self.reg.set(0, tmp.to_bytes(off, byteorder))
+        self.reg.set(0, tmp)
 
     name = 'sub' if sub else 'add'
     debug('{} {}, imm{}({})'.format('cmp' if cmp else name, [0, 'al', 'ax', 0, 'eax'][off], off * 8, imm))
@@ -353,9 +354,13 @@ def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
     tmp &= MAXVALS[off]
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
 
     if not cmp:
-        (self.mem if type else self.reg).set(loc, tmp.to_bytes(off, byteorder))
+        (self.mem if type else self.reg).set(loc, tmp)
 
     name = 'sub' if sub else 'add'
     debug('{0} {5}{1}({2}),imm{3}({4})'.format('cmp' if cmp else name, off * 8, loc, imm_sz * 8, imm, ('m' if type else 'r')))
@@ -379,9 +384,13 @@ def addsub_rm_r(self, off, sub=False, cmp=False):
     tmp &= MAXVALS[off]
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
 
     if not cmp:
-        (self.mem if type else self.reg).set(loc, tmp.to_bytes(off, byteorder))
+        (self.mem if type else self.reg).set(loc, tmp)
 
     name = 'sub' if sub else 'add'
     debug('{0} {4}{1}({2}),r{1}({3})'.format('cmp' if cmp else name, off * 8, loc, R[1], ('m' if type else '_r')))
@@ -403,9 +412,13 @@ def addsub_r_rm(self, off, sub=False, cmp=False):
     tmp &= MAXVALS[off]
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
 
     if not cmp:
-        self.reg.set(R[1], tmp.to_bytes(off, byteorder))
+        self.reg.set(R[1], tmp)
 
     name = 'sub' if sub else 'add'
     debug('{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, off * 8, R[1], loc, ('m' if type else '_r')))
@@ -431,10 +444,14 @@ def bitwise_al_imm(self, off, operation, test=False):
     tmp &= MAXVALS[off]
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
 
     if not test:
         name = operation.__name__
-        self.reg.set(0, tmp.to_bytes(off, byteorder))
+        self.reg.set(0, tmp)
     else:
         name = 'test'
 
@@ -478,10 +495,14 @@ def bitwise_rm_imm(self, off, imm_sz, operation, test=False):
     tmp &= MAXVALS[off]
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
 
     if not test:
         name = operation.__name__
-        (self.mem if type else self.reg).set(loc, tmp.to_bytes(off, byteorder))
+        (self.mem if type else self.reg).set(loc, tmp)
     else:
         name = 'test'
 
@@ -508,10 +529,14 @@ def bitwise_rm_r(self, off, operation, test=False):
     tmp &= MAXVALS[off]
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
 
     if not test:
         name = operation.__name__
-        (self.mem if type else self.reg).set(loc, tmp.to_bytes(off, byteorder))
+        (self.mem if type else self.reg).set(loc, tmp)
     else:
         name = 'test'
 
@@ -536,10 +561,14 @@ def bitwise_r_rm(self, off, operation, test=False):
     tmp &= MAXVALS[off]
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
 
     if not test:
         name = operation.__name__
-        self.reg.set(R[1], tmp.to_bytes(off, byteorder))
+        self.reg.set(R[1], tmp)
     else:
         name = 'test'
 
@@ -619,7 +648,11 @@ def incdec_rm(self, off, dec=False):
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
     
-    (self.mem if type else self.reg).set(loc, tmp.to_bytes(off, byteorder))
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    
+    (self.mem if type else self.reg).set(loc, tmp)
     debug('{3} {0}{1}({2})'.format('m' if type else '_r', off * 8, loc, 'dec' if dec else 'inc'))
     
     return True
@@ -639,5 +672,9 @@ def incdec_r(self, off, op, dec=False):
 
     self.reg.eflags_set(Reg32.ZF, tmp == 0)
     
-    self.reg.set(loc, tmp.to_bytes(off, byteorder))
+    tmp = tmp.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    
+    self.reg.set(loc, tmp)
     debug('{3} {0}{1}({2})'.format('r', off * 8, loc, 'dec' if dec else 'inc'))

@@ -108,3 +108,10 @@ def sign_extend(number: bytes, nbytes: int):
     sign = (number[0] >> 7) & 0xff
 
     return number + (b'\xff' if sign else b'\x00') * (nbytes - l)
+    
+
+def parity(num: int, nbytes: int) -> bool:
+	'Calculate the parity of a byte'
+	assert 0 <= num <= 255
+	
+	return (((num * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1

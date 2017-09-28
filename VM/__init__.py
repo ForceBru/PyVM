@@ -392,13 +392,13 @@ class VM(CPU32):
 
     def _jcc(self, op: int):
         valid_op = {
-            'JPO': [123], # TODO: parity
+            'JPO': [123],
             'JNLE': [127],
             'JNC': [115], # TODO: carry
             'JNL': [0x7D],
             'JNO': [113],
             'JNS': [121],
-            'JPE': [122], # TODO: parity
+            'JPE': [122],
             'JO': [112],
             'JNGE': [124],
             'JECXZ': [227],
