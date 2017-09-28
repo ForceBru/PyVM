@@ -50,6 +50,10 @@ def execute_opcode(self, op: int):
         debug('not success')
     elif self._test(op):
         debug('test success')
+    elif self._inc(op):
+        debug('inc success')
+    elif self._dec(op):
+        debug('dec success')
     else:
         raise ValueError('Unknown opcode: "{}"'.format(hex(op)))
 
