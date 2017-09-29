@@ -32,6 +32,7 @@ class VM(CPU32):
         jmp_rel, jmp_rm, jmp_m, \
         call_rel, call_rm, call_m, \
         ret_near, ret_near_imm, ret_far, ret_far_imm, \
+        leave, \
         int_3, int_imm, \
         push_imm, push_rm, pop_rm, \
         addsub_al_imm, addsub_rm_imm, addsub_rm_r, addsub_r_rm, \
@@ -393,8 +394,8 @@ class VM(CPU32):
         valid_op = {
             'JPO': [123],
             'JNLE': [127],
-            'JNC': [115], # TODO: carry
-            'JNL': [0x7D], # doesn't seem to work
+            'JNC': [115],
+            'JNL': [0x7D],
             'JNO': [113],
             'JNS': [121],
             'JPE': [122],
@@ -672,8 +673,7 @@ class VM(CPU32):
         else:
             return False
         return True
-        
-    
+
     def _inc(self, op: int):
         valid_op = {
             'rm8': [0xFE],
@@ -691,8 +691,7 @@ class VM(CPU32):
         else:
             return False
         return True
-    
-    
+
     def _dec(self, op: int):
         valid_op = {
             'rm8': [0xFE],
@@ -707,6 +706,89 @@ class VM(CPU32):
             return self.incdec_rm(sz, dec=True)
         elif op in valid_op['r']:
             self.incdec_r(sz, op, dec=True)
+        else:
+            return False
+        return True
+
+    def _adc(self, op: int):
+        valid_op = {
+            'al,imm8':  [0x14],
+            'ax,imm':   [0x15],
+            'rm8,imm8': [0x80],
+            'rm,imm':   [0x81],
+            'rm,imm8':  [0x83],
+            'rm8,r8':   [0x10],
+            'rm,r':     [0x11],
+            'r8,rm8':   [0x12],
+            'r,rm':     [0x13]
+        }
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['al,imm8']:
+            self.addsub_al_imm(1, carry=True)
+        elif op in valid_op['ax,imm']:
+            self.addsub_al_imm(sz, carry=True)
+        elif op in valid_op['rm8,imm8']:
+            return self.addsub_rm_imm(1, 1, carry=True)
+        elif op in valid_op['rm,imm']:
+            return self.addsub_rm_imm(sz, sz, carry=True)
+        elif op in valid_op['rm,imm8']:
+            return self.addsub_rm_imm(sz, 1, carry=True)
+        elif op in valid_op['rm8,r8']:
+            self.addsub_rm_r(1, carry=True)
+        elif op in valid_op['rm,r']:
+            self.addsub_rm_r(sz, carry=True)
+        elif op in valid_op['r8,rm8']:
+            self.addsub_r_rm(1, carry=True)
+        elif op in valid_op['r,rm']:
+            self.addsub_r_rm(sz, carry=True)
+        else:
+            return False
+        return True
+
+    def _sbb(self, op: int):
+        valid_op = {
+            'al,imm8':  [0x1C],
+            'ax,imm':   [0x1D],
+            'rm8,imm8': [0x80],
+            'rm,imm':   [0x81],
+            'rm,imm8':  [0x83],
+            'rm8,r8':   [0x18],
+            'rm,r':     [0x19],
+            'r8,rm8':   [0x1A],
+            'r,rm':     [0x1B]
+        }
+
+        sz = self.sizes[self.current_mode]
+        if op in valid_op['al,imm8']:
+            self.addsub_al_imm(1, sub=True, carry=True)
+        elif op in valid_op['ax,imm']:
+            self.addsub_al_imm(sz, sub=True, carry=True)
+        elif op in valid_op['rm8,imm8']:
+            return self.addsub_rm_imm(1, 1, sub=True, carry=True)
+        elif op in valid_op['rm,imm']:
+            return self.addsub_rm_imm(sz, sz, sub=True, carry=True)
+        elif op in valid_op['rm,imm8']:
+            return self.addsub_rm_imm(sz, 1, sub=True, carry=True)
+        elif op in valid_op['rm8,r8']:
+            self.addsub_rm_r(1, sub=True, carry=True)
+        elif op in valid_op['rm,r']:
+            self.addsub_rm_r(sz, sub=True, carry=True)
+        elif op in valid_op['r8,rm8']:
+            self.addsub_r_rm(1, sub=True, carry=True)
+        elif op in valid_op['r,rm']:
+            self.addsub_r_rm(sz, sub=True, carry=True)
+        else:
+            return False
+        return True
+
+    def _leave(self, op: int):
+        valid_op = {
+            'none': [0xC9]
+        }
+
+        if op in valid_op['none']:
+            self.leave()
         else:
             return False
         return True

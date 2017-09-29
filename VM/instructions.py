@@ -20,7 +20,7 @@ Each block of functions (i.e., functions implementing the same instruction) shou
 ####################
 # MOV
 ####################
-def mov_r_imm(self, off, op):
+def mov_r_imm(self, off, op) -> None:
     imm = self.mem.get(self.eip, off)
     self.eip += off
 
@@ -29,7 +29,7 @@ def mov_r_imm(self, off, op):
     debug('mov r{0}({1}),imm{0}({2})'.format(off * 8, r, imm))
 
 
-def mov_rm_imm(self, off):
+def mov_rm_imm(self, off) -> bool:
     RM, R = self.process_ModRM(off, off)
     if R[1] != 0:
         return False
@@ -44,7 +44,7 @@ def mov_rm_imm(self, off):
     return True
 
 
-def mov_rm_r(self, off):
+def mov_rm_r(self, off) -> None:
     RM, R = self.process_ModRM(off, off)
 
     type, loc, _ = RM
@@ -55,7 +55,7 @@ def mov_rm_r(self, off):
     debug('mov {0}{1}({2}),r{1}({3})'.format(('m' if type else '_r'), off * 8, loc, data))
 
 
-def mov_r_rm(self, off):
+def mov_r_rm(self, off) -> None:
     RM, R = self.process_ModRM(off, off)
 
     type, loc, sz = RM
@@ -66,7 +66,7 @@ def mov_r_rm(self, off):
     debug('mov r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), off * 8, R[1], data))
 
 
-def mov_eax_moffs(self, off):
+def mov_eax_moffs(self, off) -> None:
     loc = to_int(self.mem.get(self.eip, self.address_size))
     self.eip += self.address_size
 
@@ -75,7 +75,7 @@ def mov_eax_moffs(self, off):
     debug('mov {}, moffs{}({}:{})'.format({1: 'al', 2: 'ax', 4: 'eax'}[off], off * 8, loc, data))
 
 
-def mov_moffs_eax(self, off):
+def mov_moffs_eax(self, off) -> None:
     loc = to_int(self.mem.get(self.eip, self.address_size))
     self.eip += self.address_size
 
@@ -90,7 +90,7 @@ SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]
 ####################
 # JMP
 ####################	
-def jmp_rel(self, off):
+def jmp_rel(self, off) -> None:
     d = self.mem.get(self.eip, off)
     d = to_int(d, True)
     self.eip += off + d
@@ -100,7 +100,7 @@ def jmp_rel(self, off):
     debug('jmp rel{}({})'.format(off * 8, hex(self.eip)))
 
 
-def jmp_rm(self, off):
+def jmp_rm(self, off) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -111,12 +111,15 @@ def jmp_rm(self, off):
 
     disp = self.mem.get(self.eip, off)
     self.eip = to_int(disp) & MAXVALS[off]
+
+    assert self.eip in self.mem.bounds
+
     debug('jmp rm{}({})'.format(off * 8, self.eip))
 
     return True
 
 
-def jmp_m(self, off):
+def jmp_m(self, off) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -128,6 +131,9 @@ def jmp_m(self, off):
     addr = to_int(self.mem.get(self.eip, self.address_size))
     disp = self.mem.get(addr, off)
     self.eip = to_int(disp) & MAXVALS[off]
+
+    assert self.eip in self.mem.bounds
+
     debug('jmp m{}({})'.format(off * 8, self.eip))
 
     return True
@@ -136,11 +142,11 @@ def jmp_m(self, off):
 ####################
 # INT
 ####################
-def int_3(self, off):
+def int_3(self, off) -> None:
     self.descriptors[2].write("[!] It's a trap! (literally)")
 
 
-def int_imm(self, off):
+def int_imm(self, off) -> None:
     imm = self.mem.get(self.eip, off)
     imm = to_int(imm)
     self.eip += off
@@ -151,7 +157,7 @@ def int_imm(self, off):
 ####################
 # PUSH
 ####################
-def push_rm(self, off):
+def push_rm(self, off) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -166,9 +172,10 @@ def push_rm(self, off):
     self.stack_push(data)
 
     debug('push {2}{0}({1})'.format(off * 8, data, ('m' if type else '_r')))
+    return True
 
 
-def push_imm(self, off):
+def push_imm(self, off) -> None:
     data = self.mem.get(self.eip, off)
     self.eip += off
 
@@ -180,7 +187,7 @@ def push_imm(self, off):
 ####################
 # POP
 ####################
-def pop_rm(self, off):
+def pop_rm(self, off) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -203,7 +210,7 @@ def pop_rm(self, off):
 ####################
 # CALL
 ####################
-def call_rel(self, off):
+def call_rel(self, off) -> None:
     dest = self.mem.get(self.eip, off)
     self.eip += off
     dest = to_int(dest, True)
@@ -217,7 +224,7 @@ def call_rel(self, off):
     debug("call rel{}({})".format(off * 8, self.eip))
 
 
-def call_rm(self, off):
+def call_rm(self, off) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -239,7 +246,7 @@ def call_rm(self, off):
     return True
 
 
-def call_m(self, off):
+def call_m(self, off) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -265,13 +272,13 @@ def call_m(self, off):
 ####################
 # RET
 ####################
-def ret_near(self, off):
+def ret_near(self, off) -> None:
     self.eip = to_int(self.stack_pop(off), True)
 
     debug("ret ({})".format(self.eip))
 
 
-def ret_near_imm(self, off):
+def ret_near_imm(self, off) -> None:
     self.eip = to_int(self.stack_pop(off), True)
 
     imm = to_int(self.mem.get(self.eip, off))
@@ -282,24 +289,27 @@ def ret_near_imm(self, off):
     debug("ret ({})".format(self.eip))
 
 
-def ret_far(self, off):
+def ret_far(self, off) -> None:
     raise RuntimeError("far returns not implemented yet")
     self.eip = to_int(self.stack_pop(off), True)
     # self.reg.CS = to_int(self.stack_pop(off), True)  and discard high-order 16 bits if necessary
 
 
-def ret_far_imm(self, off):
+def ret_far_imm(self, off) -> None:
     raise RuntimeError("far returns (imm) not implemented yet")
     # the same as above, but adjust SP
 
 ####################
 # ADD / SUB
 ####################
-def addsub_al_imm(self, off, sub=False, cmp=False):
+def addsub_al_imm(self, off, sub=False, cmp=False, carry=False) -> None:
     "c <- a op b"
     b = self.mem.get(self.eip, off)
     self.eip += off
     b = to_int(b)
+
+    if carry:
+        b += self.reg.eflags_get(Reg32.CF)
 
     a = to_int(self.reg.get(0, off))
 
@@ -311,8 +321,10 @@ def addsub_al_imm(self, off, sub=False, cmp=False):
     
     if not sub:
         self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, c > MAXVALS[off])
     else:
         self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, b > a)
         
     self.reg.eflags_set(Reg32.SF, sign_c)
 
@@ -331,28 +343,40 @@ def addsub_al_imm(self, off, sub=False, cmp=False):
     debug('{} {}, imm{}({})'.format('cmp' if cmp else name, [0, 'al', 'ax', 0, 'eax'][off], off * 8, b))
 
 
-def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
+def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False, carry=False) -> bool:
     "c <- a op b"
     assert off >= imm_sz
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
 
-    if (not sub) and (R[1] != 0):
-        self.eip = old_eip
-        return False  # this is not ADD
+    if not sub:
+        if (not carry) and (R[1] != 0):
+            self.eip = old_eip
+            return False  # this is not ADD
+        elif carry and (R[1] != 2):
+            self.eip = old_eip
+            return False  # this is not ADC
     elif sub:
-        if not cmp and (R[1] != 5):
-            self.eip = old_eip
-            return False  # this is not SUB
-        elif cmp and (R[1] != 7):
-            self.eip = old_eip
-            return False  # this is not CMP
+        if not carry:
+            if not cmp and (R[1] != 5):
+                self.eip = old_eip
+                return False  # this is not SUB
+            elif cmp and (R[1] != 7):
+                self.eip = old_eip
+                return False  # this is not CMP
+        else:
+            if R[1] != 3:
+                self.eip = old_eip
+                return False  # this is not SBB
 
     b = self.mem.get(self.eip, imm_sz)
     self.eip += imm_sz
     b = sign_extend(b, off)
     b = to_int(b)
+
+    if carry:
+        b += self.reg.eflags_get(Reg32.CF)
     
     type, loc, _ = RM
 
@@ -365,8 +389,10 @@ def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
     
     if not sub:
         self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, c > MAXVALS[off])
     else:
         self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, b > a)
         
     self.reg.eflags_set(Reg32.SF, sign_c)
 
@@ -387,7 +413,7 @@ def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
     return True
 
 
-def addsub_rm_r(self, off, sub=False, cmp=False):
+def addsub_rm_r(self, off, sub=False, cmp=False, carry=False) -> None:
     "c <- a op b"
     RM, R = self.process_ModRM(off, off)
 
@@ -395,6 +421,9 @@ def addsub_rm_r(self, off, sub=False, cmp=False):
 
     a = to_int((self.mem if type else self.reg).get(loc, off))
     b = to_int(self.reg.get(R[1], off))
+
+    if carry:
+        b += self.reg.eflags_get(Reg32.CF)
 
     c = a + (b if not sub else MAXVALS[off] + 1 - b)
 
@@ -404,8 +433,10 @@ def addsub_rm_r(self, off, sub=False, cmp=False):
     
     if not sub:
         self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, c > MAXVALS[off])
     else:
         self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, b > a)
         
     self.reg.eflags_set(Reg32.SF, sign_c)
 
@@ -424,7 +455,7 @@ def addsub_rm_r(self, off, sub=False, cmp=False):
     debug('{0} {4}{1}({2}),r{1}({3})'.format('cmp' if cmp else name, off * 8, loc, R[1], ('m' if type else '_r')))
 
 
-def addsub_r_rm(self, off, sub=False, cmp=False):
+def addsub_r_rm(self, off, sub=False, cmp=False, carry=False) -> None:
     "c <- a op b"
     RM, R = self.process_ModRM(off, off)
 
@@ -432,6 +463,9 @@ def addsub_r_rm(self, off, sub=False, cmp=False):
 
     a = to_int((self.mem if type else self.reg).get(loc, off))
     b = to_int(self.reg.get(R[1], off))
+
+    if carry:
+        b += self.reg.eflags_get(Reg32.CF)
 
     c = a + (b if not sub else MAXVALS[off] + 1 - b)
 
@@ -441,8 +475,10 @@ def addsub_r_rm(self, off, sub=False, cmp=False):
     
     if not sub:
         self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, c > MAXVALS[off])
     else:
         self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, b > a)
         
     self.reg.eflags_set(Reg32.SF, sign_c)
 
@@ -464,7 +500,7 @@ def addsub_r_rm(self, off, sub=False, cmp=False):
 ####################
 # AND / OR / XOR
 ####################
-def bitwise_al_imm(self, off, operation, test=False):
+def bitwise_al_imm(self, off, operation, test=False) -> None:
     "c <- a op b"
     b = self.mem.get(self.eip, off)
     self.eip += off
@@ -496,7 +532,7 @@ def bitwise_al_imm(self, off, operation, test=False):
     debug('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][off], off * 8, b))
 
 
-def bitwise_rm_imm(self, off, imm_sz, operation, test=False):
+def bitwise_rm_imm(self, off, imm_sz, operation, test=False) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -517,6 +553,7 @@ def bitwise_rm_imm(self, off, imm_sz, operation, test=False):
 
     b = self.mem.get(self.eip, imm_sz)
     self.eip += imm_sz
+    b = sign_extend(b, off)
     b = to_int(b)
 
     type, loc, _ = RM
@@ -548,7 +585,7 @@ def bitwise_rm_imm(self, off, imm_sz, operation, test=False):
     return True
 
 
-def bitwise_rm_r(self, off, operation, test=False):
+def bitwise_rm_r(self, off, operation, test=False) -> None:
     RM, R = self.process_ModRM(off, off)
 
     type, loc, _ = RM
@@ -580,7 +617,7 @@ def bitwise_rm_r(self, off, operation, test=False):
     debug('{0} {4}{1}({2}),r{1}({3})'.format(name, off * 8, loc, R[1], ('m' if type else '_r')))
 
 
-def bitwise_r_rm(self, off, operation, test=False):
+def bitwise_r_rm(self, off, operation, test=False) -> None:
     RM, R = self.process_ModRM(off, off)
 
     type, loc, _ = RM
@@ -623,7 +660,7 @@ def operation_neg(a, off):
     return operation_not(a, off) + 1
 
 
-def negnot_rm(self, off, operation):
+def negnot_rm(self, off, operation) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -660,7 +697,7 @@ def negnot_rm(self, off, operation):
 ####################
 # INC / DEC
 ####################
-def incdec_rm(self, off, dec=False):
+def incdec_rm(self, off, dec=False) -> bool:
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -685,8 +722,10 @@ def incdec_rm(self, off, dec=False):
     
     if not dec:
         self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, c > MAXVALS[off])
     else:
         self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, b > a)
         
     self.reg.eflags_set(Reg32.SF, sign_c)
 
@@ -704,7 +743,7 @@ def incdec_rm(self, off, dec=False):
     return True
     
     
-def incdec_r(self, off, op, dec=False):
+def incdec_r(self, off, op, dec=False) -> None:
     loc = op & 0b111
     
     a = to_int(self.reg.get(loc, off))
@@ -718,8 +757,10 @@ def incdec_r(self, off, op, dec=False):
     
     if not dec:
         self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, c > MAXVALS[off])
     else:
         self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        self.reg.eflags_set(Reg32.CF, b > a)
         
     self.reg.eflags_set(Reg32.SF, sign_c)
 
@@ -733,3 +774,14 @@ def incdec_r(self, off, op, dec=False):
     
     self.reg.set(loc, c)
     debug('{3} {0}{1}({2})'.format('r', off * 8, loc, 'dec' if dec else 'inc'))
+
+
+
+####################
+# LEAVE
+####################
+def leave(self) -> None:
+    ESP, EBP = 4, 5  # depends on 'self.address_size' and 'self.operand_size'
+
+    self.reg.set(ESP, self.reg.get(EBP, self.address_size))
+    self.reg.set(EBP, self.stack_pop(self.operand_size))

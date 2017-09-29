@@ -1,3 +1,4 @@
+USE32
 
 _start:
 	mov eax, 1

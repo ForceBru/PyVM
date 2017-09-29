@@ -54,8 +54,14 @@ def execute_opcode(self, op: int):
         debug('inc success')
     elif self._dec(op):
         debug('dec success')
+    elif self._adc(op):
+        debug('adc success')
+    elif self._sbb(op):
+        debug('sbb success')
+    elif self._leave(op):
+        debug('leave success')
     else:
-        raise ValueError('Unknown opcode: "{}"'.format(hex(op)))
+        raise ValueError('Unknown opcode: 0x{:02x}'.format(op))
 
 
 def run(self):

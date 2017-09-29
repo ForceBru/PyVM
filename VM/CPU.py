@@ -17,6 +17,7 @@ class CPU32:
         self.eip = 0
         self.reg.set(esp, (memsize - 1).to_bytes(4, byteorder))
         self.reg.set(ebp, (memsize - 1).to_bytes(4, byteorder))
+
         self.code_segment_end = 0
 
     def stack_push(self, value: bytes) -> None:

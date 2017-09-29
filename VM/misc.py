@@ -67,6 +67,21 @@ def process_ModRM(self, size1, size2):
         else:  # base != 0b101
             addr = to_int(self.reg.get(base, 4), True)
 
+            if MOD == 0:
+                ...
+            elif MOD == 1:
+                d8 = self.mem.get(self.eip, 1)
+                self.eip += 1
+                d8 = to_int(d8, True)
+                addr += d8
+            elif MOD == 2:
+                d32 = self.mem.get(self.eip, 4)
+                self.eip += 4
+                d32 = to_int(d32, True)
+                addr += d32
+            else:
+                raise ValueError('Invalid MOD value')
+
             if index != 0b100:  # there is an index
                 addr += to_int(self.reg.get(index, 4), True) * (1 << scale)
     else:  # RM != 0b100
@@ -101,7 +116,7 @@ def sign_extend(number: bytes, nbytes: int):
 
 
 def parity(num: int, nbytes: int) -> bool:
-	'Calculate the parity of a byte'
-	assert 0 <= num <= 255
-	
-	return (((num * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1
+    'Calculate the parity of a byte'
+    assert 0 <= num <= 255
+
+    return (((num * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1
