@@ -294,43 +294,49 @@ def ret_far_imm(self, off):
 
 ####################
 # ADD / SUB
-####################	
+####################
 def addsub_al_imm(self, off, sub=False, cmp=False):
-    imm = self.mem.get(self.eip, off)
+    "c <- a op b"
+    b = self.mem.get(self.eip, off)
     self.eip += off
-    imm = to_int(imm)
+    b = to_int(b)
 
     a = to_int(self.reg.get(0, off))
 
-    tmp = a + (imm if not sub else MAXVALS[off] + 1 - imm)
-
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
-    self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
-
-    tmp &= MAXVALS[off]
-
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
-
-    tmp = tmp.to_bytes(off, byteorder)
+    c = a + (b if not sub else MAXVALS[off] + 1 - b)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    sign_a = (a >> (off * 8 - 1)) & 1
+    sign_b = (b >> (off * 8 - 1)) & 1
+    sign_c = (c >> (off * 8 - 1)) & 1
+    
+    if not sub:
+        self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+    else:
+        self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        
+    self.reg.eflags_set(Reg32.SF, sign_c)
+
+    c &= MAXVALS[off]
+
+    self.reg.eflags_set(Reg32.ZF, c == 0)
+
+    c = c.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    
     if not cmp:
-        self.reg.set(0, tmp)
+        self.reg.set(0, c)
 
     name = 'sub' if sub else 'add'
-    debug('{} {}, imm{}({})'.format('cmp' if cmp else name, [0, 'al', 'ax', 0, 'eax'][off], off * 8, imm))
+    debug('{} {}, imm{}({})'.format('cmp' if cmp else name, [0, 'al', 'ax', 0, 'eax'][off], off * 8, b))
 
 
 def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
+    "c <- a op b"
     assert off >= imm_sz
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
-
-    imm = self.mem.get(self.eip, imm_sz)
-    self.eip += imm_sz
-    imm = sign_extend(imm, off)
-    imm = to_int(imm)
 
     if (not sub) and (R[1] != 0):
         self.eip = old_eip
@@ -343,32 +349,46 @@ def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False):
             self.eip = old_eip
             return False  # this is not CMP
 
+    b = self.mem.get(self.eip, imm_sz)
+    self.eip += imm_sz
+    b = sign_extend(b, off)
+    b = to_int(b)
+    
     type, loc, _ = RM
 
     a = to_int((self.mem if type else self.reg).get(loc, off))
-    tmp = a + (imm if not sub else MAXVALS[off] + 1 - imm)
-
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
-    self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
-
-    tmp &= MAXVALS[off]
-
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    c = a + (b if not sub else MAXVALS[off] + 1 - b)
     
-    tmp = tmp.to_bytes(off, byteorder)
+    sign_a = (a >> (off * 8 - 1)) & 1
+    sign_b = (b >> (off * 8 - 1)) & 1
+    sign_c = (c >> (off * 8 - 1)) & 1
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    if not sub:
+        self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+    else:
+        self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        
+    self.reg.eflags_set(Reg32.SF, sign_c)
+
+    c &= MAXVALS[off]
+
+    self.reg.eflags_set(Reg32.ZF, c == 0)
+    
+    c = c.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
 
     if not cmp:
-        (self.mem if type else self.reg).set(loc, tmp)
+        (self.mem if type else self.reg).set(loc, c)
 
     name = 'sub' if sub else 'add'
-    debug('{0} {5}{1}({2}),imm{3}({4})'.format('cmp' if cmp else name, off * 8, loc, imm_sz * 8, imm, ('m' if type else 'r')))
+    debug('{0} {5}{1}({2}),imm{3}({4})'.format('cmp' if cmp else name, off * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
 
     return True
 
 
 def addsub_rm_r(self, off, sub=False, cmp=False):
+    "c <- a op b"
     RM, R = self.process_ModRM(off, off)
 
     type, loc, _ = RM
@@ -376,27 +396,36 @@ def addsub_rm_r(self, off, sub=False, cmp=False):
     a = to_int((self.mem if type else self.reg).get(loc, off))
     b = to_int(self.reg.get(R[1], off))
 
-    tmp = a + (b if not sub else MAXVALS[off] + 1 - b)
+    c = a + (b if not sub else MAXVALS[off] + 1 - b)
 
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
-    self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
-
-    tmp &= MAXVALS[off]
-
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    sign_a = (a >> (off * 8 - 1)) & 1
+    sign_b = (b >> (off * 8 - 1)) & 1
+    sign_c = (c >> (off * 8 - 1)) & 1
     
-    tmp = tmp.to_bytes(off, byteorder)
+    if not sub:
+        self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+    else:
+        self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        
+    self.reg.eflags_set(Reg32.SF, sign_c)
+
+    c &= MAXVALS[off]
+
+    self.reg.eflags_set(Reg32.ZF, c == 0)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    c = c.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
 
     if not cmp:
-        (self.mem if type else self.reg).set(loc, tmp)
+        (self.mem if type else self.reg).set(loc, c)
 
     name = 'sub' if sub else 'add'
     debug('{0} {4}{1}({2}),r{1}({3})'.format('cmp' if cmp else name, off * 8, loc, R[1], ('m' if type else '_r')))
 
 
 def addsub_r_rm(self, off, sub=False, cmp=False):
+    "c <- a op b"
     RM, R = self.process_ModRM(off, off)
 
     type, loc, _ = RM
@@ -404,21 +433,29 @@ def addsub_r_rm(self, off, sub=False, cmp=False):
     a = to_int((self.mem if type else self.reg).get(loc, off))
     b = to_int(self.reg.get(R[1], off))
 
-    tmp = a + (b if not sub else MAXVALS[off] + 1 - b)
+    c = a + (b if not sub else MAXVALS[off] + 1 - b)
 
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
-    self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
-
-    tmp &= MAXVALS[off]
-
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    sign_a = (a >> (off * 8 - 1)) & 1
+    sign_b = (b >> (off * 8 - 1)) & 1
+    sign_c = (c >> (off * 8 - 1)) & 1
     
-    tmp = tmp.to_bytes(off, byteorder)
+    if not sub:
+        self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+    else:
+        self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        
+    self.reg.eflags_set(Reg32.SF, sign_c)
+
+    c &= MAXVALS[off]
+
+    self.reg.eflags_set(Reg32.ZF, c == 0)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    c = c.to_bytes(off, byteorder)
+    
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
 
     if not cmp:
-        self.reg.set(R[1], tmp)
+        self.reg.set(R[1], c)
 
     name = 'sub' if sub else 'add'
     debug('{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, off * 8, R[1], loc, ('m' if type else '_r')))
@@ -428,44 +465,41 @@ def addsub_r_rm(self, off, sub=False, cmp=False):
 # AND / OR / XOR
 ####################
 def bitwise_al_imm(self, off, operation, test=False):
-    imm = self.mem.get(self.eip, off)
+    "c <- a op b"
+    b = self.mem.get(self.eip, off)
     self.eip += off
-    imm = to_int(imm)
+    b = to_int(b)
 
     a = to_int(self.reg.get(0, off))
 
     self.reg.eflags_set(Reg32.OF, 0)
     self.reg.eflags_set(Reg32.CF, 0)
 
-    tmp = operation(a, imm)
+    c = operation(a, b)
 
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+    self.reg.eflags_set(Reg32.SF, (c >> (off * 8 - 1)) & 1)
 
-    tmp &= MAXVALS[off]
+    c &= MAXVALS[off]
 
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    self.reg.eflags_set(Reg32.ZF, c == 0)
     
-    tmp = tmp.to_bytes(off, byteorder)
+    c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
 
     if not test:
         name = operation.__name__
-        self.reg.set(0, tmp)
+        self.reg.set(0, c)
     else:
         name = 'test'
 
-    debug('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][off], off * 8, imm))
+    debug('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][off], off * 8, b))
 
 
 def bitwise_rm_imm(self, off, imm_sz, operation, test=False):
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
-
-    imm = self.mem.get(self.eip, imm_sz)
-    self.eip += imm_sz
-    imm = to_int(imm)
 
     if (operation == operator.and_):
         if (not test) and (R[1] != 4):
@@ -481,6 +515,9 @@ def bitwise_rm_imm(self, off, imm_sz, operation, test=False):
         self.eip = old_eip
         return False  # this is not XOR
 
+    b = self.mem.get(self.eip, imm_sz)
+    self.eip += imm_sz
+    b = to_int(b)
 
     type, loc, _ = RM
 
@@ -488,25 +525,25 @@ def bitwise_rm_imm(self, off, imm_sz, operation, test=False):
     self.reg.eflags_set(Reg32.CF, 0)
 
     a = to_int((self.mem if type else self.reg).get(loc, off))
-    tmp = operation(a, imm)
+    c = operation(a, b)
 
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+    self.reg.eflags_set(Reg32.SF, (c >> (off * 8 - 1)) & 1)
 
-    tmp &= MAXVALS[off]
+    c &= MAXVALS[off]
 
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    self.reg.eflags_set(Reg32.ZF, c == 0)
     
-    tmp = tmp.to_bytes(off, byteorder)
+    c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
 
     if not test:
         name = operation.__name__
-        (self.mem if type else self.reg).set(loc, tmp)
+        (self.mem if type else self.reg).set(loc, c)
     else:
         name = 'test'
 
-    debug('{0} {5}{1}({2}),imm{3}({4})'.format(name, off * 8, loc, imm_sz * 8, imm, ('m' if type else 'r')))
+    debug('{0} {5}{1}({2}),imm{3}({4})'.format(name, off * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
 
     return True
 
@@ -522,21 +559,21 @@ def bitwise_rm_r(self, off, operation, test=False):
     a = to_int((self.mem if type else self.reg).get(loc, off))
     b = to_int(self.reg.get(R[1], off))
 
-    tmp = operation(a, b)
+    c = operation(a, b)
 
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+    self.reg.eflags_set(Reg32.SF, (c >> (off * 8 - 1)) & 1)
 
-    tmp &= MAXVALS[off]
+    c &= MAXVALS[off]
 
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    self.reg.eflags_set(Reg32.ZF, c == 0)
     
-    tmp = tmp.to_bytes(off, byteorder)
+    c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
 
     if not test:
         name = operation.__name__
-        (self.mem if type else self.reg).set(loc, tmp)
+        (self.mem if type else self.reg).set(loc, c)
     else:
         name = 'test'
 
@@ -554,21 +591,21 @@ def bitwise_r_rm(self, off, operation, test=False):
     a = to_int((self.mem if type else self.reg).get(loc, off))
     b = to_int(self.reg.get(R[1], off))
 
-    tmp = operation(a, b)
+    c = operation(a, b)
 
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
+    self.reg.eflags_set(Reg32.SF, (c >> (off * 8 - 1)) & 1)
 
-    tmp &= MAXVALS[off]
+    c &= MAXVALS[off]
 
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    self.reg.eflags_set(Reg32.ZF, c == 0)
     
-    tmp = tmp.to_bytes(off, byteorder)
+    c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
 
     if not test:
         name = operation.__name__
-        self.reg.set(R[1], tmp)
+        self.reg.set(R[1], c)
     else:
         name = 'test'
 
@@ -638,21 +675,30 @@ def incdec_rm(self, off, dec=False):
     type, loc, _ = RM
     
     a = to_int((self.mem if type else self.reg).get(loc, off))
+    b = 1
     
-    tmp = a + (1 if not dec else MAXVALS[off])
+    c = a + (b if not dec else MAXVALS[off] - 1 + b)
     
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
-    self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
+    sign_a = (a >> (off * 8 - 1)) & 1
+    sign_b = (b >> (off * 8 - 1)) & 1
+    sign_c = (c >> (off * 8 - 1)) & 1
+    
+    if not dec:
+        self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+    else:
+        self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        
+    self.reg.eflags_set(Reg32.SF, sign_c)
 
-    tmp &= MAXVALS[off]
+    c &= MAXVALS[off]
 
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    self.reg.eflags_set(Reg32.ZF, c == 0)
     
-    tmp = tmp.to_bytes(off, byteorder)
+    c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
     
-    (self.mem if type else self.reg).set(loc, tmp)
+    (self.mem if type else self.reg).set(loc, c)
     debug('{3} {0}{1}({2})'.format('m' if type else '_r', off * 8, loc, 'dec' if dec else 'inc'))
     
     return True
@@ -662,19 +708,28 @@ def incdec_r(self, off, op, dec=False):
     loc = op & 0b111
     
     a = to_int(self.reg.get(loc, off))
+    b = 1
     
-    tmp = a + (1 if not dec else MAXVALS[off])
+    c = a + (b if not dec else MAXVALS[off] - 1 + b)
     
-    self.reg.eflags_set(Reg32.SF, (tmp >> (off * 8 - 1)) & 1)
-    self.reg.eflags_set(Reg32.OF, tmp > MAXVALS[off])
+    sign_a = (a >> (off * 8 - 1)) & 1
+    sign_b = (b >> (off * 8 - 1)) & 1
+    sign_c = (c >> (off * 8 - 1)) & 1
+    
+    if not dec:
+        self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
+    else:
+        self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        
+    self.reg.eflags_set(Reg32.SF, sign_c)
 
-    tmp &= MAXVALS[off]
+    c &= MAXVALS[off]
 
-    self.reg.eflags_set(Reg32.ZF, tmp == 0)
+    self.reg.eflags_set(Reg32.ZF, c == 0)
     
-    tmp = tmp.to_bytes(off, byteorder)
+    c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(tmp[0], off))
+    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
     
-    self.reg.set(loc, tmp)
+    self.reg.set(loc, c)
     debug('{3} {0}{1}({2})'.format('r', off * 8, loc, 'dec' if dec else 'inc'))

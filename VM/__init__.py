@@ -256,7 +256,6 @@ class VM(CPU32):
         return True
 
     def _add(self, op: int):
-        # TODO: handle overflows
         valid_op = {
             'al,imm8' : [0x04],
             'ax,imm'  : [0x05],
@@ -395,7 +394,7 @@ class VM(CPU32):
             'JPO': [123],
             'JNLE': [127],
             'JNC': [115], # TODO: carry
-            'JNL': [0x7D],
+            'JNL': [0x7D], # doesn't seem to work
             'JNO': [113],
             'JNS': [121],
             'JPE': [122],

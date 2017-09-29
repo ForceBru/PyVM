@@ -33,7 +33,8 @@ if __name__ == "__main__":
     #vm.execute_file('asm/test_test.bin')
     #vm.execute_file('asm/test_inc_dec.bin')
 
-    #vm.execute_file('asm/c_pointers.bin')
+    #vm.execute_file('asm/c_pointers.bin')  # exit code 1
+    #vm.execute_file('asm/c_loops.bin')  # exit code 10
     pr.disable()
 
 
