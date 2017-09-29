@@ -1,8 +1,8 @@
 import unittest
 import VM
 
-RUNS = 10
 MEMSZ = 1024 * 10
+
 
 class TestRegisters(unittest.TestCase):
     def setUp(self):
@@ -46,4 +46,3 @@ class TestRegisters(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-

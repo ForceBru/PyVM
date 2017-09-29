@@ -1,7 +1,7 @@
 from .debug import debug
 
 
-def execute_opcode(self, op: int):
+def execute_opcode(self, op: int) -> None:
     """
     Attempts to execute the current opcode `op`. The calls to `_<mnemonic name>` check whether the opcode corresponds to
     a mnemonic. This basically checks whether the opcode is supported and executes it if so.

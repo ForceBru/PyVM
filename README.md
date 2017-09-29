@@ -16,28 +16,28 @@ The instructions' opcodes as well as their operation algorithms have been taken 
 The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the comments in `VM/__init__.py`.
 
 1.  `adc`  (*)
-1.  `add`  (*)
-2.  `and`  (*)
-3.  `call` (*)
-4.  `cmp`  (*)
-5.  `dec`  (*)
-5.  `jcc`  (*)
-6.  `jmp`  (*)
-7.  `inc`  (*)
-7.  `int`
-8.  `lea`
-9.  `leave`
-9.  `mov`  (*)
-10. `neg`  (*)
-11. `not`  (*)
-12. `or`   (*)
-13. `pop`  (*)
-14. `push` (*)
-15. `ret`  (*)
-16. `sbb`  (*)
-16. `sub`  (*)
-17. `test` (*)
-18. `xor`  (*)
+2.  `add`  (*)
+3.  `and`  (*)
+4.  `call` (*)
+5.  `cmp`  (*)
+6.  `dec`  (*)
+7.  `jcc`  (*)
+8.  `jmp`  (*)
+9.  `inc`  (*)
+10. `int`
+11. `lea`
+12. `leave`
+13. `mov`  (*)
+14. `neg`  (*)
+15. `not`  (*)
+16. `or`   (*)
+17. `pop`  (*)
+18. `push` (*)
+19. `ret`  (*)
+20. `sbb`  (*)
+21. `sub`  (*)
+22. `test` (*)
+23. `xor`  (*)
 
 ## Documentation
 

@@ -1,6 +1,6 @@
 import operator
 from .debug import debug
-from .misc import sign_extend, parity as calc_PF
+from .misc import sign_extend, parity
 from .CPU import to_int, byteorder
 from .Registers import Reg32
 
@@ -303,6 +303,7 @@ def ret_far_imm(self, off) -> None:
 # ADD / SUB
 ####################
 def addsub_al_imm(self, off, sub=False, cmp=False, carry=False) -> None:
+    # TODO: add support for AF flag
     "c <- a op b"
     b = self.mem.get(self.eip, off)
     self.eip += off
@@ -334,7 +335,7 @@ def addsub_al_imm(self, off, sub=False, cmp=False, carry=False) -> None:
 
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
     
     if not cmp:
         self.reg.set(0, c)
@@ -344,6 +345,7 @@ def addsub_al_imm(self, off, sub=False, cmp=False, carry=False) -> None:
 
 
 def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False, carry=False) -> bool:
+    # TODO: add support for AF flag
     "c <- a op b"
     assert off >= imm_sz
     old_eip = self.eip
@@ -402,7 +404,7 @@ def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False, carry=False) -> bool:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
 
     if not cmp:
         (self.mem if type else self.reg).set(loc, c)
@@ -414,6 +416,7 @@ def addsub_rm_imm(self, off, imm_sz, sub=False, cmp=False, carry=False) -> bool:
 
 
 def addsub_rm_r(self, off, sub=False, cmp=False, carry=False) -> None:
+    # TODO: add support for AF flag
     "c <- a op b"
     RM, R = self.process_ModRM(off, off)
 
@@ -446,7 +449,7 @@ def addsub_rm_r(self, off, sub=False, cmp=False, carry=False) -> None:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
 
     if not cmp:
         (self.mem if type else self.reg).set(loc, c)
@@ -456,6 +459,7 @@ def addsub_rm_r(self, off, sub=False, cmp=False, carry=False) -> None:
 
 
 def addsub_r_rm(self, off, sub=False, cmp=False, carry=False) -> None:
+    # TODO: add support for AF flag
     "c <- a op b"
     RM, R = self.process_ModRM(off, off)
 
@@ -488,7 +492,7 @@ def addsub_r_rm(self, off, sub=False, cmp=False, carry=False) -> None:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
 
     if not cmp:
         self.reg.set(R[1], c)
@@ -501,6 +505,7 @@ def addsub_r_rm(self, off, sub=False, cmp=False, carry=False) -> None:
 # AND / OR / XOR
 ####################
 def bitwise_al_imm(self, off, operation, test=False) -> None:
+    # TODO: add support for AF flag
     "c <- a op b"
     b = self.mem.get(self.eip, off)
     self.eip += off
@@ -521,7 +526,7 @@ def bitwise_al_imm(self, off, operation, test=False) -> None:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
 
     if not test:
         name = operation.__name__
@@ -533,6 +538,7 @@ def bitwise_al_imm(self, off, operation, test=False) -> None:
 
 
 def bitwise_rm_imm(self, off, imm_sz, operation, test=False) -> bool:
+    # TODO: add support for AF flag
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -572,7 +578,7 @@ def bitwise_rm_imm(self, off, imm_sz, operation, test=False) -> bool:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
 
     if not test:
         name = operation.__name__
@@ -586,6 +592,7 @@ def bitwise_rm_imm(self, off, imm_sz, operation, test=False) -> bool:
 
 
 def bitwise_rm_r(self, off, operation, test=False) -> None:
+    # TODO: add support for AF flag
     RM, R = self.process_ModRM(off, off)
 
     type, loc, _ = RM
@@ -606,7 +613,7 @@ def bitwise_rm_r(self, off, operation, test=False) -> None:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
 
     if not test:
         name = operation.__name__
@@ -618,6 +625,7 @@ def bitwise_rm_r(self, off, operation, test=False) -> None:
 
 
 def bitwise_r_rm(self, off, operation, test=False) -> None:
+    # TODO: add support for AF flag
     RM, R = self.process_ModRM(off, off)
 
     type, loc, _ = RM
@@ -638,7 +646,7 @@ def bitwise_r_rm(self, off, operation, test=False) -> None:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
 
     if not test:
         name = operation.__name__
@@ -698,6 +706,12 @@ def negnot_rm(self, off, operation) -> bool:
 # INC / DEC
 ####################
 def incdec_rm(self, off, dec=False) -> bool:
+    # TODO: add support for AF flag
+    """
+    Increment r/m8/16/32
+
+    Flags affected: OF, SF, ZF, AF (!), PF
+    """
     old_eip = self.eip
 
     RM, R = self.process_ModRM(off, off)
@@ -722,10 +736,8 @@ def incdec_rm(self, off, dec=False) -> bool:
     
     if not dec:
         self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
-        self.reg.eflags_set(Reg32.CF, c > MAXVALS[off])
     else:
         self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-        self.reg.eflags_set(Reg32.CF, b > a)
         
     self.reg.eflags_set(Reg32.SF, sign_c)
 
@@ -735,7 +747,7 @@ def incdec_rm(self, off, dec=False) -> bool:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
     
     (self.mem if type else self.reg).set(loc, c)
     debug('{3} {0}{1}({2})'.format('m' if type else '_r', off * 8, loc, 'dec' if dec else 'inc'))
@@ -744,6 +756,12 @@ def incdec_rm(self, off, dec=False) -> bool:
     
     
 def incdec_r(self, off, op, dec=False) -> None:
+    # TODO: add support for AF flag
+    """
+        Increment r16/32
+
+        Flags affected: OF, SF, ZF, AF (!), PF
+        """
     loc = op & 0b111
     
     a = to_int(self.reg.get(loc, off))
@@ -757,10 +775,8 @@ def incdec_r(self, off, op, dec=False) -> None:
     
     if not dec:
         self.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
-        self.reg.eflags_set(Reg32.CF, c > MAXVALS[off])
     else:
         self.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-        self.reg.eflags_set(Reg32.CF, b > a)
         
     self.reg.eflags_set(Reg32.SF, sign_c)
 
@@ -770,7 +786,7 @@ def incdec_r(self, off, op, dec=False) -> None:
     
     c = c.to_bytes(off, byteorder)
     
-    self.reg.eflags_set(Reg32.PF, calc_PF(c[0], off))
+    self.reg.eflags_set(Reg32.PF, parity(c[0], off))
     
     self.reg.set(loc, c)
     debug('{3} {0}{1}({2})'.format('r', off * 8, loc, 'dec' if dec else 'inc'))
