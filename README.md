@@ -15,6 +15,7 @@ The instructions' opcodes as well as their operation algorithms have been taken 
 
 The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the comments in `VM/__init__.py`.
 
+1.  `adc`  (*)
 1.  `add`  (*)
 2.  `and`  (*)
 3.  `call` (*)
@@ -25,6 +26,7 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 7.  `inc`  (*)
 7.  `int`
 8.  `lea`
+9.  `leave`
 9.  `mov`  (*)
 10. `neg`  (*)
 11. `not`  (*)
@@ -32,6 +34,7 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 13. `pop`  (*)
 14. `push` (*)
 15. `ret`  (*)
+16. `sbb`  (*)
 16. `sub`  (*)
 17. `test` (*)
 18. `xor`  (*)
@@ -81,9 +84,7 @@ The individual instructions are implemented as functions in `VM/__init__.py` and
 
 ## Example
 
-Before running this you may consider setting `debug = False` in `VM/debug.py`.
-
-	import binascii
+Before running this you may consider setting `debug = False` in `VM/debug.py`, if it's not already set.
 
 	import VM
 
@@ -97,10 +98,10 @@ Before running this you may consider setting `debug = False` in `VM/debug.py`.
            "B8 01 00 00 00" \
            "BB 00 00 00 00" \
            "CD 80" \
-           "48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A".replace(' ', '')
+           "48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A"
 
     # convert the hexadecimal representation above to bytes
-    binary = binascii.unhexlify(binary)
+    binary = bytearray.fromhex(binary)
 
     # initialize the VM with 1024 bytes of memory
     vm = VM.VM(1024)
