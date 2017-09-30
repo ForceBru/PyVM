@@ -1,45 +1,133 @@
 import unittest
+import io
+import sys
+
 import VM
 
-MEMSZ = 1024 * 10
-
-
-class TestRegisters(unittest.TestCase):
+class TestInstructions(unittest.TestCase):
+    MEMSZ = 1024 * 10
+    EXIT_SUCCESS = 0
+    MSG_EXIT = '[!] Process exited with code {}\n'
+    FPATH = 'asm/{}.bin'
+    
     def setUp(self):
-        self.vm = VM.VM(MEMSZ)
+        self.stdin  = io.StringIO()
+        self.stdout = io.StringIO()
+        self.stderr = io.StringIO()
+        
+        self.vm = VM.VM(self.MEMSZ, self.stdin, self.stdout, self.stderr)
+        
+    def tearDown(self):
+        self.stdin.close()
+        self.stdout.close()
+        self.stderr.close()
+        
+        
+    def check_output(self, stdout, stderr):
+        stdout_ = self.stdout.getvalue()
+        stderr_ = self.stderr.getvalue()
+        
+        self.assertSequenceEqual(stdout_, stdout)
+        self.assertSequenceEqual(stderr_, stderr)
 
     def test_jmp_int(self):
-        self.vm.execute_file('asm/test_jmp_int.bin')
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'Testing unconditional jumps and interrupts...\nSuccess!\n',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
     def test_push_pop(self):
-        self.vm.execute_file('asm/test_push_pop.bin')
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'Testing push and pop...\n01\n',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
     def test_call_ret(self):
-        self.vm.execute_file('asm/test_call_ret.bin')
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'Testing call and ret...\nInside the function...\nInside _start again, great!\n',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
     def test_add_sub(self):
-        self.vm.execute_file('asm/test_add_sub.bin')
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'Testing add and sub...\nOK\nOH\nOK\n',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
     def test_lea(self):
-        self.vm.execute_file('asm/test_lea.bin')
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'Testing lea...\nSuccess!\n',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
-    def cmp_jcc(self):
-        self.vm.execute_file('asm/test_cmp_jcc.bin')
+    def test_cmp_jcc(self):
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'Testing cmp and jcc...\nSuccess!\nSuccess!\nSuccess!\n',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
     def test_bitwise(self):
-        self.vm.execute_file('asm/test_bitwise.bin')
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'Testing AND...\nTesting OR...\nTesting XOR...\nTesting NOT...\nTesting NEG...\nAll tests succeeded!!\n',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
     def test_test(self):
-        self.vm.execute_file('asm/test_test.bin')
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'Testing test...\nSuccess!\n',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
     def test_inc_dec(self):
-        self.vm.execute_file('asm/test_inc_dec.bin')
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'',
+        	self.MSG_EXIT.format(self.EXIT_SUCCESS)
+        	)
 
     def test__c_pointers(self):
-        self.vm.execute_file('asm/c_pointers.bin')  # exit code 1
+        fname = sys._getframe().f_code.co_name.split('__')[1]
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'',
+        	self.MSG_EXIT.format(1)
+        	)
 
     def test__c_loop(self):
-        self.vm.execute_file('asm/c_loop.bin')  # exit code 10
+        fname = sys._getframe().f_code.co_name.split('__')[1]
+        self.vm.execute_file(self.FPATH.format(fname))
+        
+        self.check_output(
+        	'',
+        	self.MSG_EXIT.format(10)
+        	)
 
     #def test__c_pow(self):
     #    self.vm.execute_file('asm/c_pow.bin')

@@ -1,8 +1,7 @@
 class Reg32:
     """
-    Provides all the 32- 16- and 8-bit registers of a IA-32 CPU.
+    Provides all the 32-, 16- and 8-bit registers of a IA-32 CPU.
     """
-    # TODO: implement segment registers
     names = "eax ecx edx ebx esp ebp esi edi".split()
 
     CF, PF, AF, ZF, SF, TF, IF, DF, OF = 0, 2, 4, *range(6, 12)  # EFLAGS bits
@@ -10,7 +9,8 @@ class Reg32:
     def __init__(self):
         self.allowed_sizes = [4, 2, 1]
         self.registers = bytearray(self.allowed_sizes[0] * len(Reg32.names))
-        self.eflags = 0x2  # initial value according to the Intel Software Development Manual
+        self.eflags = 0x02  # initial value according to the Intel Software Development Manual
+        self.CS, self.DS, self.SS, self.ES, self.FS, self.GS = [0] * 6  # segment registers
 
         self.bounds = range(len(Reg32.names))
 
@@ -26,7 +26,6 @@ class Reg32:
         :param size: the size of a register in bytes. This alllowes to distinguish between registers that have the same offset.
         :return: the value of the requested register.
         """
-        # offset is
         assert offset in self.bounds
         assert size in self.allowed_sizes
 
