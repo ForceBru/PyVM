@@ -34,7 +34,8 @@ class VM(CPU32):
         ret_near, ret_near_imm, ret_far, ret_far_imm, \
         leave, \
         int_3, int_imm, \
-        push_imm, push_rm, pop_rm, \
+        push_imm, push_rm, push_sreg, \
+        pop_rm, pop_sreg, \
         addsub_al_imm, addsub_rm_imm, addsub_rm_r, addsub_r_rm, \
         incdec_rm, incdec_r, \
         bitwise_al_imm, bitwise_rm_imm, bitwise_rm_r, bitwise_r_rm, \
@@ -174,11 +175,29 @@ class VM(CPU32):
             'rm'  : [0xFF],
             'r'   : range(0x50, 0x58),
             'imm8': [0x6A],
-            'imm' : [0x68]
-            # segment registers not supported
+            'imm' : [0x68],
+            'CS'  : [0x0E],
+            'SS'  : [0x16],
+            'DS'  : [0x1E],
+            'ES'  : [0x06],
             }
 
         sz = self.sizes[self.current_mode]
+        if op == 0x0F:
+            valid_op = {
+                'FS': [0xA0],
+                'GS': [0xA8]
+                }
+
+            op = self.mem.get(self.eip, 1)
+            self.eip += 1
+
+            for key in "FS GS".split():
+                if op in valid_op[key]:
+                    self.push_sreg(key,)
+                    return True
+            return False
+
         if op in valid_op['rm']:
             return self.push_rm(sz)
         elif op in valid_op['r']:
@@ -191,17 +210,38 @@ class VM(CPU32):
         elif op in valid_op['imm']:
             self.push_imm(sz)
         else:
+            for key in "CS SS DS ES".split():
+                if op in valid_op[key]:
+                    self.push_sreg(key)
+                    return True
             return False
         return True
 
     def _pop(self, op: int):
         valid_op = {
             'rm': [0x8F],
-            'r' : range(0x58, 0x58 + 8)
-            # segment registers not supported
+            'r' : range(0x58, 0x58 + 8),
+            'DS': [0x1F],
+            'ES': [0x07],
+            'SS': [0x17],
             }
 
         sz = self.sizes[self.current_mode]
+        if op == 0x0F:
+            valid_op = {
+                'FS': [0xA0],
+                'GS': [0xA8]
+                }
+
+            op = self.mem.get(self.eip, 1)
+            self.eip += 1
+
+            for key in "FS GS".split():
+                if op in valid_op[key]:
+                    self.pop_sreg(key, sz)
+                    return True
+            return False
+
         if op in valid_op['rm']:
             return self.pop_rm(sz)
         elif op in valid_op['r']:
@@ -210,6 +250,10 @@ class VM(CPU32):
             self.reg.set(loc, data)
             debug('pop r{}({})'.format(sz * 8, loc))
         else:
+            for key in "SS DS ES".split():
+                if op in valid_op[key]:
+                    self.pop_sreg(key, 2)
+                    return True
             return False
         return True
 

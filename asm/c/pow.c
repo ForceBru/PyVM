@@ -1,5 +1,7 @@
 long long abs(const long long a) {
-	return (a < 0)?(-a):a;
+	if (a < 0)
+        return -a;
+    return a;
 }
 
 // raise 'a' to a non-negative power 'b'
@@ -10,7 +12,8 @@ long long pow(long long a, long long b) {
 	if (b == 0)
 		return 1;
 
-	char sign = a < 0;
+	int sign = 0;
+    if (a < 0) sign = 1;
 	a = abs(a);
 
 	// there's no support for multiplication yet, so...
@@ -20,7 +23,7 @@ long long pow(long long a, long long b) {
 			a += a_orig;
 
 	if (sign && (b & 1))
-		a = -a;
+		return -a;
 
 	return a;
 }
