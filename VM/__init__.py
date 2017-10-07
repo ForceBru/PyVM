@@ -1,5 +1,7 @@
 import sys
 import operator
+from functools import partial as P
+from unittest.mock import MagicMock
 
 from .CPU import CPU32, to_int, byteorder
 from .debug import debug
@@ -24,21 +26,29 @@ class VM(CPU32):
     there must be only one corresponding function called `_<mnemonic>` that should accept only one argument - the opcode.
     Each of these functions must return `True` if the opcode equals one of the `valid_op`codes and `False` otherwise.
     """
+    # TODO: implement MOV with sreg
+    mov_rm_sreg = MagicMock(side_effect=RuntimeError('MOV does not support segment registers yet'))
+
+    # TODO: implement far returns
+    ret_far = MagicMock(side_effect=RuntimeError('RET far is not supported yet'))
+    ret_far_imm = MagicMock(side_effect=RuntimeError('RET far imm is not supported yet'))
+
     from .fetchLoop import execute_opcode, run, execute_bytes, execute_file
     from .misc import process_ModRM
     
     from .instructions import \
-        mov_r_imm, mov_rm_imm, mov_rm_r, mov_r_rm, mov_eax_moffs, mov_moffs_eax, \
+        mov_r_imm, mov_rm_imm, mov_rm_r, mov_r_rm, mov_r_moffs, \
+        lea, \
         jmp_rel, jmp_rm, jmp_m, \
         call_rel, call_rm, call_m, \
-        ret_near, ret_near_imm, ret_far, ret_far_imm, \
+        ret_near, ret_near_imm, \
         leave, \
         int_3, int_imm, \
-        push_imm, push_rm, push_sreg, \
-        pop_rm, pop_sreg, \
-        addsub_al_imm, addsub_rm_imm, addsub_rm_r, addsub_r_rm, \
+        push_imm, push_r, push_rm, push_sreg, \
+        pop_r, pop_rm, pop_sreg, \
+        addsub_r_imm, addsub_rm_imm, addsub_rm_r, addsub_r_rm, \
         incdec_rm, incdec_r, \
-        bitwise_al_imm, bitwise_rm_imm, bitwise_rm_r, bitwise_r_rm, \
+        bitwise_r_imm, bitwise_rm_imm, bitwise_rm_r, bitwise_r_rm, \
         negnot_rm
 
     from .kernel import sys_exit, sys_read, sys_write
@@ -79,57 +89,38 @@ class VM(CPU32):
 
     def _mov(self, op: int):
         valid_op = {
-            'r8,imm8'  : range(0xB0, 0xB8),
-            'r,imm'    : range(0xB8, 0xB8 + 8),
-            'rm8,imm8' : [0xC6],
-            'rm,imm'   : [0xC7],
+            0xB0: P(self.mov_r_imm, op, _8bit=True),
+            0xB8: P(self.mov_r_imm, op, _8bit=False),
 
-            'rm8,r8'   : [0x88],
-            'rm,r'     : [0x89],
-            'r8,rm8'   : [0x8A],
-            'r,rm'     : [0x8B],
-            'rm16,sreg': [0x8C],
-            'sreg,rm16': [0x8E],
+            0xC6: P(self.mov_rm_imm, _8bit=True),
+            0xC7: P(self.mov_rm_imm, _8bit=False),
 
-            'al,moffs8': [0xA0],
-            'ax,moffs' : [0xA1],
-            'moffs8,al': [0xA2],
-            'moffs,ax' : [0xA3]
-            }
+            0x88: P(self.mov_rm_r, _8bit=True),
+            0x89: P(self.mov_rm_r, _8bit=False),
 
-        sz = self.sizes[self.current_mode]
+            0x8A: P(self.mov_r_rm, _8bit=True),
+            0x8B: P(self.mov_r_rm, _8bit=False),
 
-        if op in valid_op['r8,imm8']:
-            self.mov_r_imm(1, op)
-        elif op in valid_op['r,imm']:
-            self.mov_r_imm(sz, op)
-        elif op in valid_op['rm8,imm8']:
-            return self.mov_rm_imm(1)
-        elif op in valid_op['rm,imm']:
-            return self.mov_rm_imm(sz)
-        elif op in valid_op['rm8,r8']:
-            self.mov_rm_r(1)
-        elif op in valid_op['rm,r']:
-            self.mov_rm_r(sz)
-        elif op in valid_op['r8,rm8']:
-            self.mov_r_rm(1)
-        elif op in valid_op['r,rm']:
-            self.mov_r_rm(sz)
-        elif op in valid_op['rm16,sreg']:
-            raise RuntimeError('Segment registers not implemented yet')
-        elif op in valid_op['sreg,rm16']:
-            raise RuntimeError('Segment registers not implemented yet')
-        elif op in valid_op['al,moffs8']:
-            self.mov_eax_moffs(1)
-        elif op in valid_op['ax,moffs']:
-            self.mov_eax_moffs(sz)
-        elif op in valid_op['moffs8,al']:
-            self.mov_moffs_eax(1)
-        elif op in valid_op['moffs,ax']:
-            self.mov_moffs_eax(sz)
-        else:
+            0x8C: P(self.mov_rm_sreg, reverse=False),
+            0x8E: P(self.mov_rm_sreg, reverse=True),
+
+            0xA0: P(self.mov_r_moffs, reverse=False, _8bit=True),
+            0xA1: P(self.mov_r_moffs, reverse=False, _8bit=False),
+
+            0xA2: P(self.mov_r_moffs, reverse=True, _8bit=True),
+            0xA3: P(self.mov_r_moffs, reverse=True, _8bit=False),
+        }
+
+        for x in range(0xB1, 0xB8):
+            valid_op[x] = valid_op[0xB0]
+
+        for x in range(0xB8, 0xB8 + 8):
+            valid_op[x] = valid_op[0xB8]
+
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _jmp(self, op: int):
         # TODO: implement jumps to pointers
@@ -158,104 +149,72 @@ class VM(CPU32):
 
     def _int(self, op: int):
         valid_op = {
-            '3'   : [0xCC],
-            'imm8': [0xCD]
+            0xCC: P(self.int_3),
+            0xCD: P(self.int_imm)
             }
 
-        if op in valid_op['3']:
-            self.int_3(0)
-        elif op in valid_op['imm8']:
-            self.int_imm(1)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _push(self, op: int):
         valid_op = {
-            'rm'  : [0xFF],
-            'r'   : range(0x50, 0x58),
-            'imm8': [0x6A],
-            'imm' : [0x68],
-            'CS'  : [0x0E],
-            'SS'  : [0x16],
-            'DS'  : [0x1E],
-            'ES'  : [0x06],
+            0xFF: P(self.push_rm),
+            0x50: P(self.push_r, op),
+
+            0x6A: P(self.push_imm, _8bit=True),
+            0x68: P(self.push_imm, _8bit=False),
+
+            0x0E: P(self.push_sreg, 'CS'),
+            0x16: P(self.push_sreg, 'SS'),
+            0x1E: P(self.push_sreg, 'DS'),
+            0x06: P(self.push_sreg, 'ES')
             }
 
-        sz = self.sizes[self.current_mode]
+        for x in range(0x51, 0x58):
+            valid_op[x] = valid_op[0x50]
+
         if op == 0x0F:
             valid_op = {
-                'FS': [0xA0],
-                'GS': [0xA8]
+                0xA0: P(self.push_sreg, 'FS'),
+                0xA8: P(self.push_sreg, 'GS')
                 }
 
             op = self.mem.get(self.eip, 1)
             self.eip += 1
 
-            for key in "FS GS".split():
-                if op in valid_op[key]:
-                    self.push_sreg(key,)
-                    return True
+        try:
+            return valid_op[op]()
+        except:
             return False
-
-        if op in valid_op['rm']:
-            return self.push_rm(sz)
-        elif op in valid_op['r']:
-            loc = op & 0b111
-            data = self.reg.get(loc, sz)
-            debug('push r{}({})'.format(sz * 8, loc))
-            self.stack_push(data)
-        elif op in valid_op['imm8']:
-            self.push_imm(1)
-        elif op in valid_op['imm']:
-            self.push_imm(sz)
-        else:
-            for key in "CS SS DS ES".split():
-                if op in valid_op[key]:
-                    self.push_sreg(key)
-                    return True
-            return False
-        return True
 
     def _pop(self, op: int):
         valid_op = {
-            'rm': [0x8F],
-            'r' : range(0x58, 0x58 + 8),
-            'DS': [0x1F],
-            'ES': [0x07],
-            'SS': [0x17],
+            0x8F: P(self.pop_rm),
+            0x58: P(self.pop_r, op),
+
+            0x1F: P(self.pop_sreg, 'DS'),
+            0x07: P(self.pop_sreg, 'ES'),
+            0x17: P(self.pop_sreg, 'SS'),
             }
 
-        sz = self.sizes[self.current_mode]
+        for x in range(0x59, 0x58 + 8):
+            valid_op[x] = valid_op[0x58]
+
         if op == 0x0F:
             valid_op = {
-                'FS': [0xA0],
-                'GS': [0xA8]
+                0xA1: P(self.pop_sreg, 'FS', _32bit=True),
+                0xA9: P(self.pop_sreg, 'GS', _32bit=True)
                 }
 
             op = self.mem.get(self.eip, 1)
             self.eip += 1
 
-            for key in "FS GS".split():
-                if op in valid_op[key]:
-                    self.pop_sreg(key, sz)
-                    return True
+        try:
+            return valid_op[op]()
+        except:
             return False
-
-        if op in valid_op['rm']:
-            return self.pop_rm(sz)
-        elif op in valid_op['r']:
-            loc = op & 0b111
-            data = self.stack_pop(sz)
-            self.reg.set(loc, data)
-            debug('pop r{}({})'.format(sz * 8, loc))
-        else:
-            for key in "SS DS ES".split():
-                if op in valid_op[key]:
-                    self.pop_sreg(key, 2)
-                    return True
-            return False
-        return True
 
     def _call(self, op: int):
         # TODO: implement far calls
@@ -279,160 +238,88 @@ class VM(CPU32):
         return True
 
     def _ret(self, op: int):
-        # TODO: implement far returns
         valid_op = {
-            'near'    : [0xC3],
-            'far'     : [0xCB],
-            'near_imm': [0xC2],
-            'far_imm' : [0xCA]
+            0xC3: P(self.ret_near),
+            0xCB: P(self.ret_far),
+
+            0xC2: P(self.ret_near_imm),
+            0xCA: P(self.ret_far_imm)
             }
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['near']:
-            self.ret_near(sz)
-        elif op in valid_op['near_imm']:
-            self.ret_near_imm(sz)
-        elif op in valid_op['far']:
-            self.ret_far(sz)
-        elif op in valid_op['far_imm']:
-            self.ret_far_imm(sz)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _add(self, op: int):
         valid_op = {
-            'al,imm8' : [0x04],
-            'ax,imm'  : [0x05],
-            'rm8,imm8': [0x80],
-            'rm,imm'  : [0x81],
-            'rm,imm8' : [0x83],
-            'rm8,r8'  : [0x00],
-            'rm,r'    : [0x01],
-            'r8,rm8'  : [0x02],
-            'r,rm'    : [0x03]
+            0x04: P(self.addsub_r_imm, _8bit=True),
+            0x05: P(self.addsub_r_imm, _8bit=False),
+
+            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True),
+            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False),
+            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True),
+
+            0x00: P(self.addsub_rm_r, _8bit=True),
+            0x01: P(self.addsub_rm_r, _8bit=False),
+            0x02: P(self.addsub_r_rm, _8bit=True),
+            0x03: P(self.addsub_r_rm, _8bit=False),
             }
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.addsub_al_imm(1)
-        elif op in valid_op['ax,imm']:
-            self.addsub_al_imm(sz)
-        elif op in valid_op['rm8,imm8']:
-            return self.addsub_rm_imm(1, 1)
-        elif op in valid_op['rm,imm']:
-            return self.addsub_rm_imm(sz, sz)
-        elif op in valid_op['rm,imm8']:
-            return self.addsub_rm_imm(sz, 1)
-        elif op in valid_op['rm8,r8']:
-            self.addsub_rm_r(1)
-        elif op in valid_op['rm,r']:
-            self.addsub_rm_r(sz)
-        elif op in valid_op['r8,rm8']:
-            self.addsub_r_rm(1)
-        elif op in valid_op['r,rm']:
-            self.addsub_r_rm(sz)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _sub(self, op: int):
         valid_op = {
-            'al,imm8' : [0x2C],
-            'ax,imm'  : [0x2D],
-            'rm8,imm8': [0x80],
-            'rm,imm'  : [0x81],
-            'rm,imm8' : [0x83],
-            'rm8,r8'  : [0x28],
-            'rm,r'    : [0x29],
-            'r8,rm8'  : [0x2A],
-            'r,rm'    : [0x2B]
+            0x2C: P(self.addsub_r_imm, _8bit=True, sub=True),
+            0x2D: P(self.addsub_r_imm, _8bit=False, sub=True),
+
+            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True, sub=True),
+            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False, sub=True),
+            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True, sub=True),
+
+            0x28: P(self.addsub_rm_r, _8bit=True, sub=True),
+            0x29: P(self.addsub_rm_r, _8bit=False, sub=True),
+            0x2A: P(self.addsub_r_rm, _8bit=True, sub=True),
+            0x2B: P(self.addsub_r_rm, _8bit=False, sub=True),
             }
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.addsub_al_imm(1, True)
-        elif op in valid_op['ax,imm']:
-            self.addsub_al_imm(sz, True)
-        elif op in valid_op['rm8,imm8']:
-            return self.addsub_rm_imm(1, 1, True)
-        elif op in valid_op['rm,imm']:
-            return self.addsub_rm_imm(sz, sz, True)
-        elif op in valid_op['rm,imm8']:
-            return self.addsub_rm_imm(sz, 1, True)
-        elif op in valid_op['rm8,r8']:
-            self.addsub_rm_r(1, True)
-        elif op in valid_op['rm,r']:
-            self.addsub_rm_r(sz, True)
-        elif op in valid_op['r8,rm8']:
-            self.addsub_r_rm(1, True)
-        elif op in valid_op['r,rm']:
-            self.addsub_r_rm(sz, True)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _lea(self, op: int):
         valid_op = {
-            'r,m': [0x8D]
+            0x8D: P(self.lea)
             }
 
-        if op in valid_op['r,m']:
-            RM, R = self.process_ModRM(self.operand_size, self.operand_size)
-
-            type, loc, sz = RM
-
-            if (self.operand_size == 2) and (self.address_size == 2):
-                tmp = loc
-            elif (self.operand_size == 2) and (self.address_size == 4):
-                tmp = loc & 0xffff
-            elif (self.operand_size == 4) and (self.address_size == 2):
-                tmp = loc
-            elif (self.operand_size == 4) and (self.address_size == 4):
-                tmp = loc
-            else:
-                raise RuntimeError("Invalid operand size / address size")
-
-            self.reg.set(R[1], tmp.to_bytes(self.operand_size, byteorder))
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _cmp(self, op: int):
         valid_op = {
-            'al,imm8': [0x3C],
-            'ax,imm': [0x3D],
-            'rm8,imm8': [0x80],
-            'rm,imm': [0x81],
-            'rm,imm8': [0x83],
-            'rm8,r8': [0x38],
-            'rm,r': [0x39],
-            'r8,rm8': [0x3A],
-            'r,rm': [0x3B]
+            0x3C: P(self.addsub_r_imm, _8bit=True, sub=True, cmp=True),
+            0x3D: P(self.addsub_r_imm, _8bit=False, sub=True, cmp=True),
+
+            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True, sub=True, cmp=True),
+            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False, sub=True, cmp=True),
+            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True, sub=True, cmp=True),
+
+            0x38: P(self.addsub_rm_r, _8bit=True, sub=True, cmp=True),
+            0x39: P(self.addsub_rm_r, _8bit=False, sub=True, cmp=True),
+            0x3A: P(self.addsub_r_rm, _8bit=True, sub=True, cmp=True),
+            0x3B: P(self.addsub_r_rm, _8bit=False, sub=True, cmp=True),
             }
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.addsub_al_imm(1, True, True)
-        elif op in valid_op['ax,imm']:
-            self.addsub_al_imm(sz, True, True)
-        elif op in valid_op['rm8,imm8']:
-            return self.addsub_rm_imm(1, 1, True, True)
-        elif op in valid_op['rm,imm']:
-            return self.addsub_rm_imm(sz, sz, True, True)
-        elif op in valid_op['rm,imm8']:
-            return self.addsub_rm_imm(sz, 1, True, True)
-        elif op in valid_op['rm8,r8']:
-            self.addsub_rm_r(1, True, True)
-        elif op in valid_op['rm,r']:
-            self.addsub_rm_r(sz, True, True)
-        elif op in valid_op['r8,rm8']:
-            self.addsub_r_rm(1, True, True)
-        elif op in valid_op['r,rm']:
-            self.addsub_r_rm(sz, True, True)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _jcc(self, op: int):
         valid_op = {
@@ -554,285 +441,184 @@ class VM(CPU32):
 
     def _and(self, op: int):
         valid_op = {
-            'al,imm8': [0x24],
-            'ax,imm': [0x25],
-            'rm8,imm8': [0x80],
-            'rm,imm': [0x81],
-            'rm,imm8': [0x83],
-            'rm8,r8': [0x20],
-            'rm,r': [0x21],
-            'r8,rm8': [0x22],
-            'r,rm': [0x23]
+            0x24: P(self.bitwise_r_imm, _8bit=True, operation=operator.and_),
+            0x25: P(self.bitwise_r_imm, _8bit=False, operation=operator.and_),
+
+            0x80: P(self.bitwise_rm_imm, _8bit=True, _8bit_imm=True, operation=operator.and_),
+            0x81: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=False, operation=operator.and_),
+            0x83: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=True, operation=operator.and_),
+
+            0x20: P(self.bitwise_rm_r, _8bit=True, operation=operator.and_),
+            0x21: P(self.bitwise_rm_r, _8bit=False, operation=operator.and_),
+
+            0x22: P(self.bitwise_r_rm, _8bit=True, operation=operator.and_),
+            0x23: P(self.bitwise_r_rm, _8bit=False, operation=operator.and_),
             }
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.bitwise_al_imm(1, operator.and_)
-        elif op in valid_op['ax,imm']:
-            self.bitwise_al_imm(sz, operator.and_)
-        elif op in valid_op['rm8,imm8']:
-            return self.bitwise_rm_imm(1, 1, operator.and_)
-        elif op in valid_op['rm,imm']:
-            return self.bitwise_rm_imm(sz, sz, operator.and_)
-        elif op in valid_op['rm,imm8']:
-            return self.bitwise_rm_imm(sz, 1, operator.and_)
-        elif op in valid_op['rm8,r8']:
-            self.bitwise_rm_r(1, operator.and_)
-        elif op in valid_op['rm,r']:
-            self.bitwise_rm_r(sz, operator.and_)
-        elif op in valid_op['r8,rm8']:
-            self.bitwise_rm_r(1, operator.and_)
-        elif op in valid_op['r,rm']:
-            self.bitwise_rm_r(sz, operator.and_)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _or(self, op: int):
         valid_op = {
-            'al,imm8': [0x0C],
-            'ax,imm': [0x0D],
-            'rm8,imm8': [0x80],
-            'rm,imm': [0x81],
-            'rm,imm8': [0x83],
-            'rm8,r8': [0x08],
-            'rm,r': [0x09],
-            'r8,rm8': [0x0A],
-            'r,rm': [0x0B]
+            0x0C: P(self.bitwise_r_imm, _8bit=True, operation=operator.or_),
+            0x0D: P(self.bitwise_r_imm, _8bit=False, operation=operator.or_),
+
+            0x80: P(self.bitwise_rm_imm, _8bit=True, _8bit_imm=True, operation=operator.or_),
+            0x81: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=False, operation=operator.or_),
+            0x83: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=True, operation=operator.or_),
+
+            0x08: P(self.bitwise_rm_r, _8bit=True, operation=operator.or_),
+            0x09: P(self.bitwise_rm_r, _8bit=False, operation=operator.or_),
+
+            0x0A: P(self.bitwise_r_rm, _8bit=True, operation=operator.or_),
+            0x0B: P(self.bitwise_r_rm, _8bit=False, operation=operator.or_),
             }
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.bitwise_al_imm(1, operator.or_)
-        elif op in valid_op['ax,imm']:
-            self.bitwise_al_imm(sz, operator.or_)
-        elif op in valid_op['rm8,imm8']:
-            return self.bitwise_rm_imm(1, 1, operator.or_)
-        elif op in valid_op['rm,imm']:
-            return self.bitwise_rm_imm(sz, sz, operator.or_)
-        elif op in valid_op['rm,imm8']:
-            return self.bitwise_rm_imm(sz, 1, operator.or_)
-        elif op in valid_op['rm8,r8']:
-            self.bitwise_rm_r(1, operator.or_)
-        elif op in valid_op['rm,r']:
-            self.bitwise_rm_r(sz, operator.or_)
-        elif op in valid_op['r8,rm8']:
-            self.bitwise_rm_r(1, operator.or_)
-        elif op in valid_op['r,rm']:
-            self.bitwise_rm_r(sz, operator.or_)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _xor(self, op: int):
         valid_op = {
-            'al,imm8': [0x34],
-            'ax,imm': [0x35],
-            'rm8,imm8': [0x80],
-            'rm,imm': [0x81],
-            'rm,imm8': [0x83],
-            'rm8,r8': [0x30],
-            'rm,r': [0x31],
-            'r8,rm8': [0x32],
-            'r,rm': [0x33]
+            0x34: P(self.bitwise_r_imm, _8bit=True, operation=operator.xor),
+            0x35: P(self.bitwise_r_imm, _8bit=False, operation=operator.xor),
+
+            0x80: P(self.bitwise_rm_imm, _8bit=True, _8bit_imm=True, operation=operator.xor),
+            0x81: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=False, operation=operator.xor),
+            0x83: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=True, operation=operator.xor),
+
+            0x30: P(self.bitwise_rm_r, _8bit=True, operation=operator.xor),
+            0x31: P(self.bitwise_rm_r, _8bit=False, operation=operator.xor),
+
+            0x32: P(self.bitwise_r_rm, _8bit=True, operation=operator.xor),
+            0x33: P(self.bitwise_r_rm, _8bit=False, operation=operator.xor),
             }
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.bitwise_al_imm(1, operator.xor)
-        elif op in valid_op['ax,imm']:
-            self.bitwise_al_imm(sz, operator.xor)
-        elif op in valid_op['rm8,imm8']:
-            return self.bitwise_rm_imm(1, 1, operator.xor)
-        elif op in valid_op['rm,imm']:
-            return self.bitwise_rm_imm(sz, sz, operator.xor)
-        elif op in valid_op['rm,imm8']:
-            return self.bitwise_rm_imm(sz, 1, operator.xor)
-        elif op in valid_op['rm8,r8']:
-            self.bitwise_rm_r(1, operator.xor)
-        elif op in valid_op['rm,r']:
-            self.bitwise_rm_r(sz, operator.xor)
-        elif op in valid_op['r8,rm8']:
-            self.bitwise_rm_r(1, operator.xor)
-        elif op in valid_op['r,rm']:
-            self.bitwise_rm_r(sz, operator.xor)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _neg(self, op: int):
         valid_op = {
-            'rm8': [0xF8],
-            'rm': [0xF7]
+            0xF6: P(self.negnot_rm, _8bit=True, operation=0),
+            0xF7: P(self.negnot_rm, _8bit=False, operation=0)
             }
-        NEG = 0
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['rm8']:
-            return self.negnot_rm(1, NEG)
-        elif op in valid_op['rm']:
-            return self.negnot_rm(sz, NEG)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
 
     def _not(self, op: int):
         valid_op = {
-            'rm8': [0xF6],
-            'rm': [0xF7]
+            0xF6: P(self.negnot_rm, _8bit=True, operation=1),
+            0xF7: P(self.negnot_rm, _8bit=False, operation=1)
             }
 
-        NOT = 1
-
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['rm8']:
-            return self.negnot_rm(1, NOT)
-        elif op in valid_op['rm']:
-            return self.negnot_rm(sz, NOT)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
 
     def _test(self, op: int):
         valid_op = {
-            'al,imm8' : [0xA8],
-            'ax,imm'  : [0xA9],
-            'rm8,imm8': [0xF6],
-            'rm,imm'  : [0xF7],
-            'rm8,r8'  : [0x84],
-            'rm,r'    : [0x85]
+            0xA8: P(self.bitwise_r_imm, _8bit=True, operation=operator.and_, test=True),
+            0xA9: P(self.bitwise_r_imm, _8bit=False, operation=operator.and_, test=True),
+
+            0xF6: P(self.bitwise_rm_imm, _8bit=True, _8bit_imm=True, operation=operator.and_, test=True),
+            0xF7: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=False, operation=operator.and_, test=True),
+
+            0x84: P(self.bitwise_rm_r, _8bit=True, operation=operator.and_, test=True),
+            0x85: P(self.bitwise_rm_r, _8bit=False, operation=operator.and_, test=True),
             }
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.bitwise_al_imm(1, operator.and_, True)
-        elif op in valid_op['ax,imm']:
-            self.bitwise_al_imm(sz, operator.and_, True)
-        elif op in valid_op['rm8,imm8']:
-            return self.bitwise_rm_imm(1, 1, operator.and_, True)
-        elif op in valid_op['rm,imm']:
-            return self.bitwise_rm_imm(sz, sz, operator.and_, True)
-        elif op in valid_op['rm8,r8']:
-            self.bitwise_rm_r(1, operator.and_, True)
-        elif op in valid_op['rm,r']:
-            self.bitwise_rm_r(sz, operator.and_, True)
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _inc(self, op: int):
         valid_op = {
-            'rm8': [0xFE],
-            'rm' : [0xFF],
-            'r'  : range(0x40, 0x48)
-        }
-        
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['rm8']:
-            return self.incdec_rm(1)
-        elif op in valid_op['rm']:
-            return self.incdec_rm(sz)
-        elif op in valid_op['r']:
-            self.incdec_r(sz, op)
-        else:
+            0xFE: P(self.incdec_rm, _8bit=True),
+            0xFF: P(self.incdec_rm, _8bit=False),
+
+            0x40: P(self.incdec_r, op, _8bit=False)
+            }
+
+        for x in range(0x41, 0x48):
+            valid_op[x] = valid_op[0x40]
+
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _dec(self, op: int):
         valid_op = {
-            'rm8': [0xFE],
-            'rm' : [0xFF],
-            'r'  : range(0x48, 0x50)
-        }
-        
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['rm8']:
-            return self.incdec_rm(1, dec=True)
-        elif op in valid_op['rm']:
-            return self.incdec_rm(sz, dec=True)
-        elif op in valid_op['r']:
-            self.incdec_r(sz, op, dec=True)
-        else:
+            0xFE: P(self.incdec_rm, _8bit=True, dec=True),
+            0xFF: P(self.incdec_rm, _8bit=False, dec=True),
+
+            0x48: P(self.incdec_r, op, _8bit=False, dec=True)
+            }
+
+        for x in range(0x49, 0x48 + 8):
+            valid_op[x] = valid_op[0x48]
+
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _adc(self, op: int):
         valid_op = {
-            'al,imm8':  [0x14],
-            'ax,imm':   [0x15],
-            'rm8,imm8': [0x80],
-            'rm,imm':   [0x81],
-            'rm,imm8':  [0x83],
-            'rm8,r8':   [0x10],
-            'rm,r':     [0x11],
-            'r8,rm8':   [0x12],
-            'r,rm':     [0x13]
-        }
+            0x14: P(self.addsub_r_imm, _8bit=True, carry=True),
+            0x15: P(self.addsub_r_imm, _8bit=False, carry=True),
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.addsub_al_imm(1, carry=True)
-        elif op in valid_op['ax,imm']:
-            self.addsub_al_imm(sz, carry=True)
-        elif op in valid_op['rm8,imm8']:
-            return self.addsub_rm_imm(1, 1, carry=True)
-        elif op in valid_op['rm,imm']:
-            return self.addsub_rm_imm(sz, sz, carry=True)
-        elif op in valid_op['rm,imm8']:
-            return self.addsub_rm_imm(sz, 1, carry=True)
-        elif op in valid_op['rm8,r8']:
-            self.addsub_rm_r(1, carry=True)
-        elif op in valid_op['rm,r']:
-            self.addsub_rm_r(sz, carry=True)
-        elif op in valid_op['r8,rm8']:
-            self.addsub_r_rm(1, carry=True)
-        elif op in valid_op['r,rm']:
-            self.addsub_r_rm(sz, carry=True)
-        else:
+            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True, carry=True),
+            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False, carry=True),
+            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True, carry=True),
+
+            0x10: P(self.addsub_rm_r, _8bit=True, carry=True),
+            0x11: P(self.addsub_rm_r, _8bit=False, carry=True),
+            0x12: P(self.addsub_r_rm, _8bit=True, carry=True),
+            0x13: P(self.addsub_r_rm, _8bit=False, carry=True),
+            }
+
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _sbb(self, op: int):
         valid_op = {
-            'al,imm8':  [0x1C],
-            'ax,imm':   [0x1D],
-            'rm8,imm8': [0x80],
-            'rm,imm':   [0x81],
-            'rm,imm8':  [0x83],
-            'rm8,r8':   [0x18],
-            'rm,r':     [0x19],
-            'r8,rm8':   [0x1A],
-            'r,rm':     [0x1B]
-        }
+            0x1C: P(self.addsub_r_imm, _8bit=True, sub=True, carry=True),
+            0x1D: P(self.addsub_r_imm, _8bit=False, sub=True, carry=True),
 
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['al,imm8']:
-            self.addsub_al_imm(1, sub=True, carry=True)
-        elif op in valid_op['ax,imm']:
-            self.addsub_al_imm(sz, sub=True, carry=True)
-        elif op in valid_op['rm8,imm8']:
-            return self.addsub_rm_imm(1, 1, sub=True, carry=True)
-        elif op in valid_op['rm,imm']:
-            return self.addsub_rm_imm(sz, sz, sub=True, carry=True)
-        elif op in valid_op['rm,imm8']:
-            return self.addsub_rm_imm(sz, 1, sub=True, carry=True)
-        elif op in valid_op['rm8,r8']:
-            self.addsub_rm_r(1, sub=True, carry=True)
-        elif op in valid_op['rm,r']:
-            self.addsub_rm_r(sz, sub=True, carry=True)
-        elif op in valid_op['r8,rm8']:
-            self.addsub_r_rm(1, sub=True, carry=True)
-        elif op in valid_op['r,rm']:
-            self.addsub_r_rm(sz, sub=True, carry=True)
-        else:
+            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True, sub=True, carry=True),
+            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False, sub=True, carry=True),
+            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True, sub=True, carry=True),
+
+            0x18: P(self.addsub_rm_r, _8bit=True, sub=True, carry=True),
+            0x19: P(self.addsub_rm_r, _8bit=False, sub=True, carry=True),
+            0x1A: P(self.addsub_r_rm, _8bit=True, sub=True, carry=True),
+            0x1B: P(self.addsub_r_rm, _8bit=False, sub=True, carry=True),
+            }
+
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
 
     def _leave(self, op: int):
         valid_op = {
-            'none': [0xC9]
-        }
+            0xC9: P(self.leave)
+            }
 
-        if op in valid_op['none']:
-            self.leave()
-        else:
+        try:
+            return valid_op[op]()
+        except:
             return False
-        return True
