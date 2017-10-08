@@ -64,6 +64,15 @@ def execute_opcode(self, op: int) -> None:
         raise ValueError('Unknown opcode: 0x{:02x}'.format(op))
 
 
+def override(self, name: str):
+    if not name:
+        return
+
+    old_size = getattr(self, name)
+    self.current_mode = not self.current_mode
+    setattr(self, name, self.sizes[self.current_mode])
+    debug('{} override ({} -> {})'.format(name, old_size, self.operand_size))
+
 def run(self):
     """
     Implements the basic CPU instruction cycle (https://en.wikipedia.org/wiki/Instruction_cycle)
@@ -75,38 +84,27 @@ def run(self):
     self.running = True
 
     while self.running and self.eip + 1 in self.mem.bounds:
+        override_name = ''
         opcode = self.mem.get(self.eip, 1)[0]
 
         if opcode == 0x66:
-            old_operand_size = self.operand_size
-            self.current_mode = not self.current_mode
-            self.operand_size = self.sizes[self.current_mode]
-            debug('Operand-size override begin ({} -> {})'.format(old_operand_size, self.operand_size))
+            override_name = 'operand_size'
+
+            self.override(override_name)
 
             self.eip += 1
             opcode = self.mem.get(self.eip, 1)[0]
-            self.execute_opcode(opcode)
-
-            old_operand_size = self.operand_size
-            self.current_mode = not self.current_mode
-            self.operand_size = self.sizes[self.current_mode]
-            debug('Operand-size override end ({} -> {})'.format(old_operand_size, self.operand_size))
         elif opcode == 0x67:
-            old_address_size = self.address_size
-            self.current_mode = not self.current_mode
-            self.address_size = self.sizes[self.current_mode]
-            debug('Address-size override begin ({} -> {})'.format(old_address_size, self.address_size))
+            override_name = 'address_size'
+
+            self.override(override_name)
 
             self.eip += 1
             opcode = self.mem.get(self.eip, 1)[0]
-            self.execute_opcode(opcode)
 
-            old_address_size = self.address_size
-            self.current_mode = not self.current_mode
-            self.address_size = self.sizes[self.current_mode]
-            debug('Address-size override end ({} -> {})'.format(old_address_size, self.address_size))
-        else:
-            self.execute_opcode(opcode)
+        self.execute_opcode(opcode)
+
+        self.override(override_name)
 
 
 def execute_bytes(self, data: bytes, offset=0):

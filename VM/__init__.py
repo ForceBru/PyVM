@@ -25,6 +25,20 @@ class VM(CPU32):
     Functions that begin with a single underscore implement a single instruction, and for each mnemonic (e.g. `mov`, `add`)
     there must be only one corresponding function called `_<mnemonic>` that should accept only one argument - the opcode.
     Each of these functions must return `True` if the opcode equals one of the `valid_op`codes and `False` otherwise.
+
+    Example:
+        def _mnemonic(self, op: int) -> bool:
+            valid_op = {  # valid opcodes
+                0xAB: P(self.mnemonic_implementation1, value1, value2, test1=value3),  # all the arguments are provided at once
+                0xBC: P(self.mnemonic_implementation2, value4, test2=value5),
+                # and so on
+            }
+
+            # this part is the same for all mnemonics
+            try:
+                return valid_op[op]()
+            except:
+                return False
     """
     # TODO: implement MOV with sreg
     mov_rm_sreg = MagicMock(side_effect=RuntimeError('MOV does not support segment registers yet'))
@@ -33,7 +47,7 @@ class VM(CPU32):
     ret_far = MagicMock(side_effect=RuntimeError('RET far is not supported yet'))
     ret_far_imm = MagicMock(side_effect=RuntimeError('RET far imm is not supported yet'))
 
-    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file
+    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, override
     from .misc import process_ModRM
     
     from .instructions import \
@@ -155,7 +169,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _push(self, op: int):
