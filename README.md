@@ -88,23 +88,25 @@ Before running this you may consider setting `debug = False` in `VM/debug.py`, i
 
 	import VM
 
-	binary = "B8 04 00 00 00" \
-           "BB 01 00 00 00" \
-           "B9 29 00 00 00" \
-           "BA 0E 00 00 00" \
-           "CD 80" \
-           "E9 02 00 00 00" \
-           "89 C8" \
-           "B8 01 00 00 00" \
-           "BB 00 00 00 00" \
-           "CD 80" \
-           "48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A"
+	code = """
+	B8 04 00 00 00
+    BB 01 00 00 00
+    B9 29 00 00 00
+    BA 0E 00 00 00
+    CD 80
+    E9 02 00 00 00
+    89 C8
+    B8 01 00 00 00
+    BB 00 00 00 00
+    CD 80
+    48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A
+    """
 
     # convert the hexadecimal representation above to bytes
-    binary = bytearray.fromhex(binary)
+    binary = bytearray.fromhex(code.strip('\n').replace('\n', ' '))
 
-    # initialize the VM with 1024 bytes of memory
-    vm = VM.VM(1024)
+    # initialize the VM with 128 bytes of memory
+    vm = VM.VM(128)
 
     vm.execute_bytes(binary)
 
