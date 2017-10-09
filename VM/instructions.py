@@ -1,6 +1,6 @@
 import operator
 from .debug import debug
-from .misc import sign_extend, parity
+from .misc import sign_extend, parity, Shift
 from .CPU import to_int, byteorder
 from .Registers import Reg32
 
@@ -130,7 +130,7 @@ SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]
 
 ####################
 # JMP
-####################	
+####################
 def jmp_rel(self, off) -> None:
     """
     Jump to a memory address.
@@ -1056,3 +1056,93 @@ def lea(self) -> True:
     self.reg.set(R[1], tmp.to_bytes(self.operand_size, byteorder))
 
     return True
+    
+
+####################
+# SAL / SAR / SHL / SHR
+####################
+def shift(self, operation, cnt, _8bit) -> True:
+	sz = 1 if _8bit else self.operand_size
+	old_eip = self.eip
+	
+	RM, R = self.process_ModRM(self.operand_size, self.operand_size)
+	
+	if (operation == Shift.SHL) and (R[1] != 4):
+		self.eip = old_eip
+		return False
+	elif (operation == Shift.SHR) and (R[1] != 5):
+		self.eip = old_eip
+		return False
+	elif (operation == Shift.SAR) and (R[1] != 7):
+		self.eip = old_eip
+		return False
+		
+	_cnt = cnt
+	
+	if cnt == Shift.C_ONE:
+		cnt = 1
+	elif cnt == Shift.C_CL:
+		cnt = to_int(self.reg.get(1, 1))
+	elif cnt == Shift.C_imm8:
+		cnt = to_int(self.mem.get(self.eip, 1))
+		self.eip += 1
+	else:
+		raise RuntimeError('Invalid count')
+		
+	tmp_cnt = cnt & 0x1F
+	type, loc, _ = RM
+	
+	dst = to_int((self.mem if type else self.reg).get(loc, sz), signed=(operation==Shift.SAR))
+	tmp_dst = dst
+	
+	if cnt == 0:
+		return True
+	
+	while tmp_cnt:
+		if operation == Shift.SHL:
+			self.reg.eflags_set(Reg32.CF, (dst >> (sz * 8)) & 1)
+			dst <<= 1
+		else:
+			self.reg.eflags_set(Reg32.CF, dst & 1)
+			dst >>= 1
+			
+		tmp_cnt -= 1
+		
+	if cnt & 0x1F == 1:
+		if operation == Shift.SHL:
+			self.reg.eflags_set(Reg32.OF, ((dst >> (sz * 8)) & 1) ^ self.reg.eflags_get(Reg32.CF))
+		elif operation == Shift.SAR:
+			self.reg.eflags_set(Reg32.OF, 0)
+		else:
+			self.reg.eflags_set(Reg32.OF, (tmp_dst >> (sz * 8)) & 1)
+	
+	sign_dst = (dst >> (sz * 8 - 1)) & 1
+	self.reg.eflags_set(Reg32.SF, sign_dst)
+	
+	dst &= MAXVALS[sz]
+
+	self.reg.eflags_set(Reg32.ZF, dst == 0)
+
+	dst = dst.to_bytes(sz, byteorder)
+
+	self.reg.eflags_set(Reg32.PF, parity(dst[0], sz))
+	
+	(self.mem if type else self.reg).set(loc, dst)
+	
+	if operation == Shift.SHL:
+		name = 'shl'
+	elif operation == Shift.SHR:
+		name = 'shr'
+	elif operation == Shift.SAR:
+		name = 'sar'
+		
+	if _cnt == Shift.C_ONE:
+		op = ''
+	elif _cnt == Shift.C_CL:
+		op = ',cl'
+	elif _cnt == Shift.C_imm8:
+		op = ',imm8'
+		
+	debug('{} {}{}{}'.format(name, 'm' if type else '_r', sz * 8, op))
+	
+	return True

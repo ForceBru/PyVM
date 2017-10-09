@@ -60,6 +60,12 @@ def execute_opcode(self, op: int) -> None:
         debug('sbb success')
     elif self._leave(op):
         debug('leave success')
+    elif self._shl(op):
+        debug('shl success')
+    elif self._shr(op):
+        debug('shr success')
+    elif self._sar(op):
+        debug('sar success')
     else:
         raise ValueError('Unknown opcode: 0x{:02x}'.format(op))
 

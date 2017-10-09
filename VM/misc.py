@@ -1,4 +1,15 @@
+import enum
 from .CPU import to_int, byteorder
+
+@enum.unique
+class Shift(enum.Enum):
+	C_ONE  = 1
+	C_CL   = 2
+	C_imm8 = 3
+	
+	SHL = 4
+	SHR = 5
+	SAR = 6
 
 def process_ModRM(self, size1, size2):
     '''

@@ -34,10 +34,14 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 17. `pop`
 18. `push`
 19. `ret`  (*)
-20. `sbb`
-21. `sub`
-22. `test`
-23. `xor`
+20. `sal`
+21. `sar`
+22. `sbb`
+23. `shl`
+24. `shr`
+25. `sub`
+26. `test`
+27. `xor`
 
 ## Documentation
 

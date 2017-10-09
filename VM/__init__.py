@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 from .CPU import CPU32, to_int, byteorder
 from .debug import debug
 from .Registers import Reg32
+from .misc import Shift
 
 __all__ = ['VM']
 
@@ -46,6 +47,9 @@ class VM(CPU32):
     # TODO: implement far returns
     ret_far = MagicMock(side_effect=RuntimeError('RET far is not supported yet'))
     ret_far_imm = MagicMock(side_effect=RuntimeError('RET far imm is not supported yet'))
+    
+    # TODO: implement shifts
+    shift = MagicMock(side_effect=RuntimeError('Shifts not implemented yet'))
 
     from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, override
     from .misc import process_ModRM
@@ -63,7 +67,8 @@ class VM(CPU32):
         addsub_r_imm, addsub_rm_imm, addsub_rm_r, addsub_r_rm, \
         incdec_rm, incdec_r, \
         bitwise_r_imm, bitwise_rm_imm, bitwise_rm_r, bitwise_r_rm, \
-        negnot_rm
+        negnot_rm, \
+        shift
 
     from .kernel import sys_exit, sys_read, sys_write
 
@@ -636,3 +641,28 @@ class VM(CPU32):
             return valid_op[op]()
         except:
             return False
+            
+    def do_shift(self, op: int, operation):
+    	valid_op = {
+    		0xD0: P(self.shift, operation=operation, cnt=Shift.C_ONE, _8bit=True),
+    		0xD2: P(self.shift, operation=operation, cnt=Shift.C_CL, _8bit=True),
+    		0xC0: P(self.shift, operation=operation, cnt=Shift.C_imm8, _8bit=True),
+    		
+    		0xD1: P(self.shift, operation=operation, cnt=Shift.C_ONE, _8bit=False),
+    		0xD3: P(self.shift, operation=operation, cnt=Shift.C_CL, _8bit=False),
+    		0xC1: P(self.shift, operation=operation, cnt=Shift.C_imm8, _8bit=False)
+    	}
+    	
+    	try:
+    		return valid_op[op]()
+    	except:
+    		return False
+    		
+    def _shl(self, op: int):
+    	return self.do_shift(op, Shift.SHL)
+    	
+    def _shr(self, op: int):
+    	return self.do_shift(op, Shift.SHR)
+    	
+    def _sar(self, op: int):
+    	return self.do_shift(op, Shift.SAR)
