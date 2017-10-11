@@ -66,6 +66,14 @@ def execute_opcode(self, op: int) -> None:
         debug('shr success')
     elif self._sar(op):
         debug('sar success')
+    elif self._clc(op):
+        debug('clc success')
+    elif self._cld(op):
+        debug('cld success')
+    elif self._stc(op):
+        debug('stc success')
+    elif self._std(op):
+        debug('std success')
     else:
         raise ValueError('Unknown opcode: 0x{:02x}'.format(op))
 
