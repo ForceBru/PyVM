@@ -666,3 +666,43 @@ class VM(CPU32):
     	
     def _sar(self, op: int):
     	return self.do_shift(op, Shift.SAR)
+    	
+    def _clc(self, op: int):
+    	valid_op = {
+    		0xF8: P(self.reg.eflags_set, Reg32.CF, 0)
+    	}
+    	
+    	try:
+    		return valid_op[op]()
+    	except:
+    		return False
+    		
+    def _cld(self, op: int):
+    	valid_op = {
+    		0xFC: P(self.reg.eflags_set, Reg32.DF, 0)
+    	}
+    	
+    	try:
+    		return valid_op[op]()
+    	except:
+    		return False
+    		
+    def _stc(self, op: int):
+    	valid_op = {
+    		0xF9: P(self.reg.eflags_set, Reg32.CF, 1)
+    	}
+    	
+    	try:
+    		return valid_op[op]()
+    	except:
+    		return False
+    		
+    def _std(self, op: int):
+    	valid_op = {
+    		0xFD: P(self.reg.eflags_set, Reg32.DF, 1)
+    	}
+    	
+    	try:
+    		return valid_op[op]()
+    	except:
+    		return False

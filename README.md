@@ -19,6 +19,8 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 2.  `add`
 3.  `and`
 4.  `call` (*)
+5.  `clc`
+6.  `cld`
 5.  `cmp`
 6.  `dec`
 7.  `jcc`  (*)
@@ -39,6 +41,8 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 22. `sbb`
 23. `shl`
 24. `shr`
+25. `stc`
+26. `std`
 25. `sub`
 26. `test`
 27. `xor`
