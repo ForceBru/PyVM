@@ -86,6 +86,13 @@ class VM(CPU32):
 
         self.descriptors = [stdin, stdout, stderr]
         self.running = True
+        self.instr = {}
+        
+    def load_instructions(self):
+    	if not self.instr:
+    		self.instr = {
+        	getattr(self, name) for name in dir(self) if name.startswith('_') and not name.startswith('__')
+        	}
 
     def interrupt(self, code: int):
         valid_codes = [0x80]

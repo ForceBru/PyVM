@@ -14,68 +14,14 @@ def execute_opcode(self, op: int) -> None:
 
     if op == 0x90:  # nop
         return
-    elif self._mov(op):
-        debug('mov success')
-    elif self._jmp(op):
-        debug('jmp success')
-    elif self._int(op):
-        debug('int success')
-    elif self._push(op):
-        debug('push success')
-    elif self._pop(op):
-        debug('pop success')
-    elif self._call(op):
-        debug('call success')
-    elif self._ret(op):
-        debug('ret success')
-    elif self._add(op):
-        debug('add success')
-    elif self._sub(op):
-        debug('sub success')
-    elif self._lea(op):
-        debug('lea success')
-    elif self._cmp(op):
-        debug('cmp success')
-    elif self._jcc(op):
-        debug('jcc success')
-    elif self._and(op):
-        debug('and success')
-    elif self._or(op):
-        debug('or success')
-    elif self._xor(op):
-        debug('xor success')
-    elif self._neg(op):
-        debug('neg success')
-    elif self._not(op):
-        debug('not success')
-    elif self._test(op):
-        debug('test success')
-    elif self._inc(op):
-        debug('inc success')
-    elif self._dec(op):
-        debug('dec success')
-    elif self._adc(op):
-        debug('adc success')
-    elif self._sbb(op):
-        debug('sbb success')
-    elif self._leave(op):
-        debug('leave success')
-    elif self._shl(op):
-        debug('shl success')
-    elif self._shr(op):
-        debug('shr success')
-    elif self._sar(op):
-        debug('sar success')
-    elif self._clc(op):
-        debug('clc success')
-    elif self._cld(op):
-        debug('cld success')
-    elif self._stc(op):
-        debug('stc success')
-    elif self._std(op):
-        debug('std success')
+        
+    for instruction in self.instr:
+    	if instruction(op):
+    		debug('{} success'.format(instruction.__name__[1:]))
+    		return
     else:
-        raise ValueError('Unknown opcode: 0x{:02x}'.format(op))
+    	raise ValueError('Unknown opcode: 0x{:02x}'.format(op))
+    
 
 
 def override(self, name: str):
@@ -95,6 +41,7 @@ def run(self):
     :return: None
     """
 
+    self.load_instructions()
     self.running = True
 
     while self.running and self.eip + 1 in self.mem.bounds:
