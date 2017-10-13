@@ -48,8 +48,9 @@ class VM(CPU32):
     ret_far = MagicMock(side_effect=RuntimeError('RET far is not supported yet'))
     ret_far_imm = MagicMock(side_effect=RuntimeError('RET far imm is not supported yet'))
     
-    # TODO: implement shifts
-    shift = MagicMock(side_effect=RuntimeError('Shifts not implemented yet'))
+    # TODO: implement jumps to pointers
+    jmp_ptr = MagicMock(side_effect=RuntimeError('Jumps to pointers not implemented yet'))
+    jmp_rm_m = MagicMock(side_effect=RuntimeError('Jumps to RM or memory locations not implemented yet'))
 
     from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, override
     from .misc import process_ModRM
@@ -86,11 +87,8 @@ class VM(CPU32):
 
         self.descriptors = [stdin, stdout, stderr]
         self.running = True
-        self.instr = {}
         
-    def load_instructions(self):
-    	if not self.instr:
-    		self.instr = {
+        self.instr = {
         	getattr(self, name) for name in dir(self) if name.startswith('_') and not name.startswith('__')
         	}
 
@@ -115,9 +113,14 @@ class VM(CPU32):
 
     def _mov(self, op: int):
         valid_op = {
-            0xB0: P(self.mov_r_imm, op, _8bit=True),
-            0xB8: P(self.mov_r_imm, op, _8bit=False),
-
+            **{
+            	o: P(self.mov_r_imm, op, _8bit=True)
+            	for o in range(0xB0, 0xB8)
+            	},
+            **{
+            	o: P(self.mov_r_imm, op, _8bit=False)
+            	for o in range(0xB8, 0xC0)
+            },
             0xC6: P(self.mov_rm_imm, _8bit=True),
             0xC7: P(self.mov_rm_imm, _8bit=False),
 
@@ -137,41 +140,24 @@ class VM(CPU32):
             0xA3: P(self.mov_r_moffs, reverse=True, _8bit=False),
         }
 
-        for x in range(0xB1, 0xB8):
-            valid_op[x] = valid_op[0xB0]
-
-        for x in range(0xB8, 0xB8 + 8):
-            valid_op[x] = valid_op[0xB8]
-
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _jmp(self, op: int):
-        # TODO: implement jumps to pointers
         valid_op = {
-            'rel8'  : [0xEB],
-            'rel'   : [0xE9],
-            'rm/m16': [0xFF],
-            'ptr16' : [0xEA]
-            }
+        	0xEB: P(self.jmp_rel, _8bit=True),
+        	0xE9: P(self.jmp_rel, _8bit=False),
+        	
+        	0xFF: P(self.jmp_rm_m, _8bit=False),
+        	0xEA: P(self.jmp_ptr, _8bit=False),
+        }
 
-        sz = self.sizes[self.current_mode]
-
-        if op in valid_op['rel8']:
-            self.jmp_rel(1)
-        elif op in valid_op['rel']:
-            self.jmp_rel(sz)
-        elif op in valid_op['rm/m16']:
-            if not self.jmp_rm(sz):
-                return self.jmp_m(sz)
-            return True
-        elif op in valid_op['ptr16']:
-            raise RuntimeError('Jumps to pointers not implemented yet')
-        else:
+        try:
+            return valid_op[op]()
+        except KeyError:
             return False
-        return True
 
     def _int(self, op: int):
         valid_op = {
@@ -186,8 +172,11 @@ class VM(CPU32):
 
     def _push(self, op: int):
         valid_op = {
+            **{
+            	o: P(self.push_r, op)
+            	for o in range(0x50, 0x58)
+            },
             0xFF: P(self.push_rm),
-            0x50: P(self.push_r, op),
 
             0x6A: P(self.push_imm, _8bit=True),
             0x68: P(self.push_imm, _8bit=False),
@@ -197,9 +186,6 @@ class VM(CPU32):
             0x1E: P(self.push_sreg, 'DS'),
             0x06: P(self.push_sreg, 'ES')
             }
-
-        for x in range(0x51, 0x58):
-            valid_op[x] = valid_op[0x50]
 
         if op == 0x0F:
             valid_op = {
@@ -212,21 +198,22 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _pop(self, op: int):
         valid_op = {
-            0x8F: P(self.pop_rm),
+            **{
+            	o: P(self.pop_r, op)
+            	for o in range(0x58, 0x60)
+            },
             0x58: P(self.pop_r, op),
+            0x8F: P(self.pop_rm),
 
             0x1F: P(self.pop_sreg, 'DS'),
             0x07: P(self.pop_sreg, 'ES'),
             0x17: P(self.pop_sreg, 'SS'),
             }
-
-        for x in range(0x59, 0x58 + 8):
-            valid_op[x] = valid_op[0x58]
 
         if op == 0x0F:
             valid_op = {
@@ -239,7 +226,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _call(self, op: int):
@@ -274,7 +261,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _add(self, op: int):
@@ -294,7 +281,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _sub(self, op: int):
@@ -314,7 +301,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _lea(self, op: int):
@@ -324,7 +311,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _cmp(self, op: int):
@@ -344,126 +331,45 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _jcc(self, op: int):
         valid_op = {
-            'JPO': [123],
-            'JNLE': [127],
-            'JNC': [115],
-            'JNL': [0x7D],
-            'JNO': [113],
-            'JNS': [121],
-            'JPE': [122],
-            'JO': [112],
-            'JNGE': [124],
-            'JECXZ': [227],
-            'JNBE': [119],
-            'JNZ': [117],
-            'JZ': [116],
-            'JS': [120],
-            'JNA': [118],
-            'JNG': [0x7E],
-            'JNAE': [114]
-            }
+        	0x7B: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.PF)'),
+        	0x7F: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.PF) and self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF)'),
+        	0x73: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.CF)'),
+        	0x7D: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF)'),
+        	0x71: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.OF)'),
+        	0x79: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.SF)'),
+        	0x7A: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.PF)'),
+        	0x70: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.PF)'),
+        	0x7C: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF)'),
+        	0xE3: P(self.jmp_rel, jump='not to_int(self.reg.get(0, sz), byteorder)'),
+        	0x77: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.CF) and not self.reg.eflags_get(Reg32.ZF)'),
+        	0x75: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.ZF)'),
+        	0x74: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.ZF)'),
+        	0x78: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.SF)'),
+        	0x76: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.CF) or self.reg.eflags_get(Reg32.ZF)'),
+        	0x7E: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.ZF) or self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF)'),
+        	0x72: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.CF)')
+        }
             
-        sz = 1
+        _8bit = True
         if op == 0x0F:
-            for key, val in valid_op.items():
-                valid_op[key] = [val[0] + 0x10]
-            sz = self.sizes[self.current_mode]
+            valid_op = {
+            	key + 0x10: val
+            	for key, val in valid_op.items()
+            }
+            _8bit = False
+            
             op = self.mem.get(self.eip, 1)[0]
             self.eip += 1
-        	
-        if op in valid_op['JPO']:
-            if not self.reg.eflags_get(Reg32.PF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz  # pretend that we've read some bytes
-        elif op in valid_op['JNLE']:
-            if not self.reg.eflags_get(Reg32.PF) and self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNC']:
-            if not self.reg.eflags_get(Reg32.CF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNL']:
-            if self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNO']:
-            if not self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNS']:
-            if not self.reg.eflags_get(Reg32.SF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JPE']:
-            if self.reg.eflags_get(Reg32.PF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JO']:
-            if self.reg.eflags_get(Reg32.PF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNGE']:
-            if self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JECXZ']:
-            if not to_int(self.reg.get(0, sz), byteorder):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNBE']:
-            if not self.reg.eflags_get(Reg32.CF) and not self.reg.eflags_get(Reg32.ZF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNZ']:
-            if not self.reg.eflags_get(Reg32.ZF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JZ']:
-            if self.reg.eflags_get(Reg32.ZF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JS']:
-            if self.reg.eflags_get(Reg32.SF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNA']:
-            if self.reg.eflags_get(Reg32.CF) or self.reg.eflags_get(Reg32.ZF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNG']:
-            if self.reg.eflags_get(Reg32.ZF) or self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        elif op in valid_op['JNAE']:
-            if self.reg.eflags_get(Reg32.CF):
-                self.jmp_rel(sz)
-            else:
-                self.eip += sz
-        else:
+        
+        try:
+            return valid_op[op](_8bit)
+        except KeyError:
             return False
-        return True
 
     def _and(self, op: int):
         valid_op = {
@@ -483,7 +389,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _or(self, op: int):
@@ -504,7 +410,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _xor(self, op: int):
@@ -525,7 +431,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _neg(self, op: int):
@@ -536,7 +442,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _not(self, op: int):
@@ -547,7 +453,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _test(self, op: int):
@@ -564,39 +470,37 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _inc(self, op: int):
         valid_op = {
+            **{
+            	o: P(self.incdec_r, op, _8bit=False)
+            	for o in range(0x40, 0x48)
+            },
             0xFE: P(self.incdec_rm, _8bit=True),
             0xFF: P(self.incdec_rm, _8bit=False),
-
-            0x40: P(self.incdec_r, op, _8bit=False)
             }
-
-        for x in range(0x41, 0x48):
-            valid_op[x] = valid_op[0x40]
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _dec(self, op: int):
         valid_op = {
+            **{
+            	o: P(self.incdec_r, op, _8bit=False, dec=True)
+            	for o in range(0x48, 0x50)
+            },
             0xFE: P(self.incdec_rm, _8bit=True, dec=True),
             0xFF: P(self.incdec_rm, _8bit=False, dec=True),
-
-            0x48: P(self.incdec_r, op, _8bit=False, dec=True)
             }
-
-        for x in range(0x49, 0x48 + 8):
-            valid_op[x] = valid_op[0x48]
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _adc(self, op: int):
@@ -616,7 +520,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _sbb(self, op: int):
@@ -636,7 +540,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
 
     def _leave(self, op: int):
@@ -646,7 +550,7 @@ class VM(CPU32):
 
         try:
             return valid_op[op]()
-        except:
+        except KeyError:
             return False
             
     def do_shift(self, op: int, operation):
@@ -662,7 +566,7 @@ class VM(CPU32):
     	
     	try:
     		return valid_op[op]()
-    	except:
+    	except KeyError:
     		return False
     		
     def _shl(self, op: int):
@@ -681,7 +585,7 @@ class VM(CPU32):
     	
     	try:
     		return valid_op[op]()
-    	except:
+    	except KeyError:
     		return False
     		
     def _cld(self, op: int):
@@ -691,7 +595,7 @@ class VM(CPU32):
     	
     	try:
     		return valid_op[op]()
-    	except:
+    	except KeyError:
     		return False
     		
     def _stc(self, op: int):
@@ -701,7 +605,7 @@ class VM(CPU32):
     	
     	try:
     		return valid_op[op]()
-    	except:
+    	except KeyError:
     		return False
     		
     def _std(self, op: int):
@@ -711,5 +615,5 @@ class VM(CPU32):
     	
     	try:
     		return valid_op[op]()
-    	except:
+    	except KeyError:
     		return False

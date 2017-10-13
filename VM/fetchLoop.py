@@ -41,7 +41,6 @@ def run(self):
     :return: None
     """
 
-    self.load_instructions()
     self.running = True
 
     while self.running and self.eip + 1 in self.mem.bounds:

@@ -131,20 +131,28 @@ SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]
 ####################
 # JMP
 ####################
-def jmp_rel(self, off) -> None:
+def jmp_rel(self, _8bit, jump='True') -> True:
     """
     Jump to a memory address.
 
     Operation:
         EIP = memory_location
     """
-    d = self.mem.get(self.eip, off)
+    sz = 1 if _8bit else self.operand_size
+    
+    d = self.mem.get(self.eip, sz)
     d = to_int(d, True)
-    self.eip += off + d
+    self.eip += sz
+    
+    if not eval(jump):
+    	return True
+    	
+    self.eip += d
     
     assert self.eip in self.mem.bounds
     
-    debug('jmp rel{}({})'.format(off * 8, hex(self.eip)))
+    debug('jmp rel{}({})'.format(sz * 8, hex(self.eip)))
+    return True
 
 
 def jmp_rm(self, off) -> bool:
