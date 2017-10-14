@@ -1,7 +1,6 @@
 import sys
 import operator
 from functools import partial as P
-from unittest.mock import MagicMock
 
 from .CPU import CPU32, to_int, byteorder
 from .debug import debug
@@ -23,53 +22,31 @@ class VM(CPU32):
         3) `kernel`    - implements some basic routines, usually provided by the Linux kernel
         4) `misc`      - miscellaneous parsing routines
 
-    Functions that begin with a single underscore implement a single instruction, and for each mnemonic (e.g. `mov`, `add`)
-    there must be only one corresponding function called `_<mnemonic>` that should accept only one argument - the opcode.
-    Each of these functions must return `True` if the opcode equals one of the `valid_op`codes and `False` otherwise.
+    The actual instructions are to be implemented in `instructions.py`. To add the instruction to the VM, add a dictionary
+    in the following format to `VM.__init__`:
 
-    Example:
-        def _mnemonic(self, op: int) -> bool:
-            valid_op = {  # valid opcodes
-                0xAB: P(self.mnemonic_implementation1, value1, value2, test1=value3),  # all the arguments are provided at once
-                0xBC: P(self.mnemonic_implementation2, value4, test2=value5),
-                # and so on
-            }
+        self._mnemonic = {
+            opcode1: P(self.OPCODE_IMPL.argtype1, arg1=value1, arg2=value2, ...),
+            opcode2: P(self.OPCODE_IMPL.argtype1, arg1=value3, arg2=value4, ...),
 
-            # this part is the same for all mnemonics
-            try:
-                return valid_op[op]()
-            except:
-                return False
+            opcode3: P(self.OPCODE_IMPL.argtype2, arg3=value5, arg4=value6, ...),
+            ...
+        }
+
+    This should be done in such a way that all the arguments to the instruction implementation are provided in this dictionary
+    and the call `self._mnemonic[valid_opcode]()` would work.
     """
-    # TODO: implement MOV with sreg
-    mov_rm_sreg = MagicMock(side_effect=RuntimeError('MOV does not support segment registers yet'))
-
-    # TODO: implement far returns
-    ret_far = MagicMock(side_effect=RuntimeError('RET far is not supported yet'))
-    ret_far_imm = MagicMock(side_effect=RuntimeError('RET far imm is not supported yet'))
-    
-    # TODO: implement jumps to pointers
-    jmp_ptr = MagicMock(side_effect=RuntimeError('Jumps to pointers not implemented yet'))
-    jmp_rm_m = MagicMock(side_effect=RuntimeError('Jumps to RM or memory locations not implemented yet'))
 
     from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, override
     from .misc import process_ModRM
     
     from .instructions import \
-        mov_r_imm, mov_rm_imm, mov_rm_r, mov_r_rm, mov_r_moffs, \
-        lea, \
-        jmp_rel, jmp_rm, jmp_m, \
-        call_rel, call_rm, call_m, \
-        ret_near, ret_near_imm, \
-        leave, \
-        int_3, int_imm, \
-        push_imm, push_r, push_rm, push_sreg, \
-        pop_r, pop_rm, pop_sreg, \
-        addsub_r_imm, addsub_rm_imm, addsub_rm_r, addsub_r_rm, \
-        incdec_rm, incdec_r, \
-        bitwise_r_imm, bitwise_rm_imm, bitwise_rm_r, bitwise_r_rm, \
-        negnot_rm, \
-        shift
+        MOV, lea, \
+        JMP, CALL, RET, leave, \
+        INT, \
+        PUSH, POP, \
+        ADDSUB, INCDEC, \
+        BITWISE, NEGNOT, shift
 
     from .kernel import sys_exit, sys_read, sys_write
 
@@ -87,10 +64,328 @@ class VM(CPU32):
 
         self.descriptors = [stdin, stdout, stderr]
         self.running = True
-        
-        self.instr = {
-        	getattr(self, name) for name in dir(self) if name.startswith('_') and not name.startswith('__')
-        	}
+
+        self._mov = {
+            **{
+                o: P(self.MOV.r_imm, self, _8bit=True)
+                for o in range(0xB0, 0xB8)
+                },
+            **{
+                o: P(self.MOV.r_imm, self, _8bit=False)
+                for o in range(0xB8, 0xC0)
+                },
+            0xC6: P(self.MOV.rm_imm, self, _8bit=True),
+            0xC7: P(self.MOV.rm_imm, self, _8bit=False),
+
+            0x88: P(self.MOV.rm_r, self, _8bit=True, reverse=False),
+            0x89: P(self.MOV.rm_r, self, _8bit=False, reverse=False),
+
+            0x8A: P(self.MOV.rm_r, self, _8bit=True, reverse=True),
+            0x8B: P(self.MOV.rm_r, self, _8bit=False, reverse=True),
+
+            0x8C: P(self.MOV.rm_sreg, self, reverse=False),
+            0x8E: P(self.MOV.rm_sreg, self, reverse=True),
+
+            0xA0: P(self.MOV.r_moffs, self, reverse=False, _8bit=True),
+            0xA1: P(self.MOV.r_moffs, self, reverse=False, _8bit=False),
+
+            0xA2: P(self.MOV.r_moffs, self, reverse=True, _8bit=True),
+            0xA3: P(self.MOV.r_moffs, self, reverse=True, _8bit=False),
+            }
+
+        self._jmp = {
+            0xEB: P(self.JMP.rel, self, _8bit=True),
+            0xE9: P(self.JMP.rel, self, _8bit=False),
+
+            0xFF: P(self.JMP.rm_m, self, _8bit=False),
+            0xEA: P(self.JMP.ptr, self, _8bit=False),
+            }
+
+        self._int = {
+            0xCC: P(self.INT._3, self),
+            0xCD: P(self.INT.imm, self)
+            }
+
+        self._push = {
+            **{
+                o: P(self.PUSH.r, self)
+                for o in range(0x50, 0x58)
+                },
+            0xFF: P(self.PUSH.rm, self),
+
+            0x6A: P(self.PUSH.imm, self, _8bit=True),
+            0x68: P(self.PUSH.imm, self, _8bit=False),
+
+            0x0E: P(self.PUSH.sreg, self, 'CS'),
+            0x16: P(self.PUSH.sreg, self, 'SS'),
+            0x1E: P(self.PUSH.sreg, self, 'DS'),
+            0x06: P(self.PUSH.sreg, self, 'ES'),
+
+            0x0FA0: P(self.PUSH.sreg, self, 'FS'),
+            0x0FA8: P(self.PUSH.sreg, self, 'GS')
+            }
+
+        self._pop = {
+            **{
+                o: P(self.POP.r, self)
+                for o in range(0x58, 0x60)
+                },
+            0x8F: P(self.POP.rm, self),
+
+            0x1F: P(self.POP.sreg, self, 'DS'),
+            0x07: P(self.POP.sreg, self, 'ES'),
+            0x17: P(self.POP.sreg, self, 'SS'),
+
+            0x0FA1: P(self.POP.sreg, self, 'FS', _32bit=True),
+            0x0FA9: P(self.POP.sreg, self, 'GS', _32bit=True)
+            }
+
+        self._call = {
+            0xE8: P(self.CALL.rel, self),
+            0xFF: P(self.CALL.rm_m, self),
+            0x9A: P(self.CALL.ptr, self)
+            }
+
+        self._ret = {
+            0xC3: P(self.RET.near, self),
+            0xCB: P(self.RET.far, self),
+
+            0xC2: P(self.RET.near_imm, self),
+            0xCA: P(self.RET.far_imm, self)
+            }
+
+        self._add = {
+            0x04: P(self.ADDSUB.r_imm, self, _8bit=True),
+            0x05: P(self.ADDSUB.r_imm, self, _8bit=False),
+
+            0x80: P(self.ADDSUB.rm_imm, self, _8bit_op=True, _8bit_imm=True),
+            0x81: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=False),
+            0x83: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=True),
+
+            0x00: P(self.ADDSUB.rm_r, self, _8bit=True),
+            0x01: P(self.ADDSUB.rm_r, self, _8bit=False),
+            0x02: P(self.ADDSUB.r_rm, self, _8bit=True),
+            0x03: P(self.ADDSUB.r_rm, self, _8bit=False),
+            }
+
+        self._sub = {
+            0x2C: P(self.ADDSUB.r_imm, self, _8bit=True, sub=True),
+            0x2D: P(self.ADDSUB.r_imm, self, _8bit=False, sub=True),
+
+            0x80: P(self.ADDSUB.rm_imm, self, _8bit_op=True, _8bit_imm=True, sub=True),
+            0x81: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=False, sub=True),
+            0x83: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=True, sub=True),
+
+            0x28: P(self.ADDSUB.rm_r, self, _8bit=True, sub=True),
+            0x29: P(self.ADDSUB.rm_r, self, _8bit=False, sub=True),
+            0x2A: P(self.ADDSUB.r_rm, self, _8bit=True, sub=True),
+            0x2B: P(self.ADDSUB.r_rm, self, _8bit=False, sub=True),
+            }
+
+        self._lea = {
+            0x8D: P(self.lea)
+            }
+
+        self._cmp = {
+            0x3C: P(self.ADDSUB.r_imm, self, _8bit=True, sub=True, cmp=True),
+            0x3D: P(self.ADDSUB.r_imm, self, _8bit=False, sub=True, cmp=True),
+
+            0x80: P(self.ADDSUB.rm_imm, self, _8bit_op=True, _8bit_imm=True, sub=True, cmp=True),
+            0x81: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=False, sub=True, cmp=True),
+            0x83: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=True, sub=True, cmp=True),
+
+            0x38: P(self.ADDSUB.rm_r, self, _8bit=True, sub=True, cmp=True),
+            0x39: P(self.ADDSUB.rm_r, self, _8bit=False, sub=True, cmp=True),
+            0x3A: P(self.ADDSUB.r_rm, self, _8bit=True, sub=True, cmp=True),
+            0x3B: P(self.ADDSUB.r_rm, self, _8bit=False, sub=True, cmp=True),
+            }
+
+        self._jcc = {
+            0x7B: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.PF)'),
+            0x7F: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)'),
+            0x73: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.CF)'),
+            0x7D: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)'),
+            0x71: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.OF)'),
+            0x79: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.SF)'),
+            0x7A: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.PF)'),
+            0x70: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.PF)'),
+            0x7C: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)'),
+            0xE3: P(self.JMP.rel, self, _8bit=True, jump='not to_int(vm.reg.get(0, sz), byteorder)'),
+            0x77: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)'),
+            0x75: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.ZF)'),
+            0x74: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.ZF)'),
+            0x78: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.SF)'),
+            0x76: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.CF) or vm.reg.eflags_get(Reg32.ZF)'),
+            0x7E: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.ZF) or vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)'),
+            0x72: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.CF)')
+            }
+
+        self._and = {
+            0x24: P(self.BITWISE.r_imm, self, _8bit=True, operation=operator.and_),
+            0x25: P(self.BITWISE.r_imm, self, _8bit=False, operation=operator.and_),
+
+            0x80: P(self.BITWISE.rm_imm, self, _8bit=True, _8bit_imm=True, operation=operator.and_),
+            0x81: P(self.BITWISE.rm_imm, self, _8bit=False, _8bit_imm=False, operation=operator.and_),
+            0x83: P(self.BITWISE.rm_imm, self, _8bit=False, _8bit_imm=True, operation=operator.and_),
+
+            0x20: P(self.BITWISE.rm_r, self, _8bit=True, operation=operator.and_),
+            0x21: P(self.BITWISE.rm_r, self, _8bit=False, operation=operator.and_),
+
+            0x22: P(self.BITWISE.r_rm, self, _8bit=True, operation=operator.and_),
+            0x23: P(self.BITWISE.r_rm, self, _8bit=False, operation=operator.and_),
+            }
+
+        self._or = {
+            0x0C: P(self.BITWISE.r_imm, self, _8bit=True, operation=operator.or_),
+            0x0D: P(self.BITWISE.r_imm, self, _8bit=False, operation=operator.or_),
+
+            0x80: P(self.BITWISE.rm_imm, self, _8bit=True, _8bit_imm=True, operation=operator.or_),
+            0x81: P(self.BITWISE.rm_imm, self, _8bit=False, _8bit_imm=False, operation=operator.or_),
+            0x83: P(self.BITWISE.rm_imm, self, _8bit=False, _8bit_imm=True, operation=operator.or_),
+
+            0x08: P(self.BITWISE.rm_r, self, _8bit=True, operation=operator.or_),
+            0x09: P(self.BITWISE.rm_r, self, _8bit=False, operation=operator.or_),
+
+            0x0A: P(self.BITWISE.r_rm, self, _8bit=True, operation=operator.or_),
+            0x0B: P(self.BITWISE.r_rm, self, _8bit=False, operation=operator.or_),
+            }
+
+        self._xor = {
+            0x34: P(self.BITWISE.r_imm, self, _8bit=True, operation=operator.xor),
+            0x35: P(self.BITWISE.r_imm, self, _8bit=False, operation=operator.xor),
+
+            0x80: P(self.BITWISE.rm_imm, self, _8bit=True, _8bit_imm=True, operation=operator.xor),
+            0x81: P(self.BITWISE.rm_imm, self, _8bit=False, _8bit_imm=False, operation=operator.xor),
+            0x83: P(self.BITWISE.rm_imm, self, _8bit=False, _8bit_imm=True, operation=operator.xor),
+
+            0x30: P(self.BITWISE.rm_r, self, _8bit=True, operation=operator.xor),
+            0x31: P(self.BITWISE.rm_r, self, _8bit=False, operation=operator.xor),
+
+            0x32: P(self.BITWISE.r_rm, self, _8bit=True, operation=operator.xor),
+            0x33: P(self.BITWISE.r_rm, self, _8bit=False, operation=operator.xor),
+            }
+
+        self._neg = {
+            0xF6: P(self.NEGNOT.rm, self, _8bit=True, operation=0),
+            0xF7: P(self.NEGNOT.rm, self, _8bit=False, operation=0)
+            }
+
+        self._not = {
+            0xF6: P(self.NEGNOT.rm, self, _8bit=True, operation=1),
+            0xF7: P(self.NEGNOT.rm, self, _8bit=False, operation=1)
+            }
+
+        self._test = {
+            0xA8: P(self.BITWISE.r_imm, self, _8bit=True, operation=operator.and_, test=True),
+            0xA9: P(self.BITWISE.r_imm, self, _8bit=False, operation=operator.and_, test=True),
+
+            0xF6: P(self.BITWISE.rm_imm, self, _8bit=True, _8bit_imm=True, operation=operator.and_, test=True),
+            0xF7: P(self.BITWISE.rm_imm, self, _8bit=False, _8bit_imm=False, operation=operator.and_, test=True),
+
+            0x84: P(self.BITWISE.rm_r, self, _8bit=True, operation=operator.and_, test=True),
+            0x85: P(self.BITWISE.rm_r, self, _8bit=False, operation=operator.and_, test=True),
+            }
+
+        self._inc = {
+            **{
+                o: P(self.INCDEC.r, self, _8bit=False)
+                for o in range(0x40, 0x48)
+                },
+            0xFE: P(self.INCDEC.rm, self, _8bit=True),
+            0xFF: P(self.INCDEC.rm, self, _8bit=False),
+            }
+
+        self._dec = {
+            **{
+                o: P(self.INCDEC.r, self, _8bit=False, dec=True)
+                for o in range(0x48, 0x50)
+                },
+            0xFE: P(self.INCDEC.rm, self, _8bit=True, dec=True),
+            0xFF: P(self.INCDEC.rm, self, _8bit=False, dec=True),
+            }
+
+        self._adc = {
+            0x14: P(self.ADDSUB.r_imm, self, _8bit=True, carry=True),
+            0x15: P(self.ADDSUB.r_imm, self, _8bit=False, carry=True),
+
+            0x80: P(self.ADDSUB.rm_imm, self, _8bit_op=True, _8bit_imm=True, carry=True),
+            0x81: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=False, carry=True),
+            0x83: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=True, carry=True),
+
+            0x10: P(self.ADDSUB.rm_r, self, _8bit=True, carry=True),
+            0x11: P(self.ADDSUB.rm_r, self, _8bit=False, carry=True),
+            0x12: P(self.ADDSUB.r_rm, self, _8bit=True, carry=True),
+            0x13: P(self.ADDSUB.r_rm, self, _8bit=False, carry=True),
+            }
+
+        self._sbb = {
+            0x1C: P(self.ADDSUB.r_imm, self, _8bit=True, sub=True, carry=True),
+            0x1D: P(self.ADDSUB.r_imm, self, _8bit=False, sub=True, carry=True),
+
+            0x80: P(self.ADDSUB.rm_imm, self, _8bit_op=True, _8bit_imm=True, sub=True, carry=True),
+            0x81: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=False, sub=True, carry=True),
+            0x83: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=True, sub=True, carry=True),
+
+            0x18: P(self.ADDSUB.rm_r, self, _8bit=True, sub=True, carry=True),
+            0x19: P(self.ADDSUB.rm_r, self, _8bit=False, sub=True, carry=True),
+            0x1A: P(self.ADDSUB.r_rm, self, _8bit=True, sub=True, carry=True),
+            0x1B: P(self.ADDSUB.r_rm, self, _8bit=False, sub=True, carry=True),
+            }
+
+        self._leave = {
+            0xC9: P(self.leave)
+            }
+
+        self._shl = {
+            0xD0: P(self.shift, operation=Shift.SHL, cnt=Shift.C_ONE, _8bit=True),
+            0xD2: P(self.shift, operation=Shift.SHL, cnt=Shift.C_CL, _8bit=True),
+            0xC0: P(self.shift, operation=Shift.SHL, cnt=Shift.C_imm8, _8bit=True),
+
+            0xD1: P(self.shift, operation=Shift.SHL, cnt=Shift.C_ONE, _8bit=False),
+            0xD3: P(self.shift, operation=Shift.SHL, cnt=Shift.C_CL, _8bit=False),
+            0xC1: P(self.shift, operation=Shift.SHL, cnt=Shift.C_imm8, _8bit=False)
+            }
+
+        self._shr = {
+            0xD0: P(self.shift, operation=Shift.SHR, cnt=Shift.C_ONE, _8bit=True),
+            0xD2: P(self.shift, operation=Shift.SHR, cnt=Shift.C_CL, _8bit=True),
+            0xC0: P(self.shift, operation=Shift.SHR, cnt=Shift.C_imm8, _8bit=True),
+
+            0xD1: P(self.shift, operation=Shift.SHR, cnt=Shift.C_ONE, _8bit=False),
+            0xD3: P(self.shift, operation=Shift.SHR, cnt=Shift.C_CL, _8bit=False),
+            0xC1: P(self.shift, operation=Shift.SHR, cnt=Shift.C_imm8, _8bit=False)
+            }
+
+        self._sar = {
+            0xD0: P(self.shift, operation=Shift.SAR, cnt=Shift.C_ONE, _8bit=True),
+            0xD2: P(self.shift, operation=Shift.SAR, cnt=Shift.C_CL, _8bit=True),
+            0xC0: P(self.shift, operation=Shift.SAR, cnt=Shift.C_imm8, _8bit=True),
+
+            0xD1: P(self.shift, operation=Shift.SAR, cnt=Shift.C_ONE, _8bit=False),
+            0xD3: P(self.shift, operation=Shift.SAR, cnt=Shift.C_CL, _8bit=False),
+            0xC1: P(self.shift, operation=Shift.SAR, cnt=Shift.C_imm8, _8bit=False)
+            }
+
+        self._clc = {
+            0xF8: P(self.reg.eflags_set, Reg32.CF, 0)
+            }
+
+        self._cld = {
+            0xFC: P(self.reg.eflags_set, Reg32.DF, 0)
+            }
+
+        self._stc = {
+            0xF9: P(self.reg.eflags_set, Reg32.CF, 1)
+            }
+
+        self._std = {
+            0xFD: P(self.reg.eflags_set, Reg32.DF, 1)
+            }
+
+
+        self.instr = [
+            getattr(self, name) for name in dir(self) if name.startswith('_') and not name.startswith('__')
+            ]
 
     def interrupt(self, code: int):
         valid_codes = [0x80]
@@ -110,510 +405,3 @@ class VM(CPU32):
                 raise RuntimeError('System call 0x{:02x} is not supported yet'.format(syscall))
         else:
             raise RuntimeError('Interrupt 0x{:02x} is not supported yet'.format(code))
-
-    def _mov(self, op: int):
-        valid_op = {
-            **{
-            	o: P(self.mov_r_imm, op, _8bit=True)
-            	for o in range(0xB0, 0xB8)
-            	},
-            **{
-            	o: P(self.mov_r_imm, op, _8bit=False)
-            	for o in range(0xB8, 0xC0)
-            },
-            0xC6: P(self.mov_rm_imm, _8bit=True),
-            0xC7: P(self.mov_rm_imm, _8bit=False),
-
-            0x88: P(self.mov_rm_r, _8bit=True),
-            0x89: P(self.mov_rm_r, _8bit=False),
-
-            0x8A: P(self.mov_r_rm, _8bit=True),
-            0x8B: P(self.mov_r_rm, _8bit=False),
-
-            0x8C: P(self.mov_rm_sreg, reverse=False),
-            0x8E: P(self.mov_rm_sreg, reverse=True),
-
-            0xA0: P(self.mov_r_moffs, reverse=False, _8bit=True),
-            0xA1: P(self.mov_r_moffs, reverse=False, _8bit=False),
-
-            0xA2: P(self.mov_r_moffs, reverse=True, _8bit=True),
-            0xA3: P(self.mov_r_moffs, reverse=True, _8bit=False),
-        }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _jmp(self, op: int):
-        valid_op = {
-        	0xEB: P(self.jmp_rel, _8bit=True),
-        	0xE9: P(self.jmp_rel, _8bit=False),
-        	
-        	0xFF: P(self.jmp_rm_m, _8bit=False),
-        	0xEA: P(self.jmp_ptr, _8bit=False),
-        }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _int(self, op: int):
-        valid_op = {
-            0xCC: P(self.int_3),
-            0xCD: P(self.int_imm)
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _push(self, op: int):
-        valid_op = {
-            **{
-            	o: P(self.push_r, op)
-            	for o in range(0x50, 0x58)
-            },
-            0xFF: P(self.push_rm),
-
-            0x6A: P(self.push_imm, _8bit=True),
-            0x68: P(self.push_imm, _8bit=False),
-
-            0x0E: P(self.push_sreg, 'CS'),
-            0x16: P(self.push_sreg, 'SS'),
-            0x1E: P(self.push_sreg, 'DS'),
-            0x06: P(self.push_sreg, 'ES')
-            }
-
-        if op == 0x0F:
-            valid_op = {
-                0xA0: P(self.push_sreg, 'FS'),
-                0xA8: P(self.push_sreg, 'GS')
-                }
-
-            op = self.mem.get(self.eip, 1)
-            self.eip += 1
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _pop(self, op: int):
-        valid_op = {
-            **{
-            	o: P(self.pop_r, op)
-            	for o in range(0x58, 0x60)
-            },
-            0x58: P(self.pop_r, op),
-            0x8F: P(self.pop_rm),
-
-            0x1F: P(self.pop_sreg, 'DS'),
-            0x07: P(self.pop_sreg, 'ES'),
-            0x17: P(self.pop_sreg, 'SS'),
-            }
-
-        if op == 0x0F:
-            valid_op = {
-                0xA1: P(self.pop_sreg, 'FS', _32bit=True),
-                0xA9: P(self.pop_sreg, 'GS', _32bit=True)
-                }
-
-            op = self.mem.get(self.eip, 1)
-            self.eip += 1
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _call(self, op: int):
-        # TODO: implement far calls
-        valid_op = {
-            'rel': [0xE8],
-            'rm' : [0xFF],
-            'ptr': [0x9A]
-            }
-
-        sz = self.sizes[self.current_mode]
-        if op in valid_op['rel']:  # near, relative, displacement relative to next instr
-            self.call_rel(sz)
-        elif op in valid_op['rm']:
-            if not self.call_rm(sz):
-                return self.call_m(sz)
-            return True
-        elif op in valid_op['ptr']:
-            raise RuntimeError("far calls (ptr) not implemented yet")
-        else:
-            return False
-        return True
-
-    def _ret(self, op: int):
-        valid_op = {
-            0xC3: P(self.ret_near),
-            0xCB: P(self.ret_far),
-
-            0xC2: P(self.ret_near_imm),
-            0xCA: P(self.ret_far_imm)
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _add(self, op: int):
-        valid_op = {
-            0x04: P(self.addsub_r_imm, _8bit=True),
-            0x05: P(self.addsub_r_imm, _8bit=False),
-
-            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True),
-            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False),
-            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True),
-
-            0x00: P(self.addsub_rm_r, _8bit=True),
-            0x01: P(self.addsub_rm_r, _8bit=False),
-            0x02: P(self.addsub_r_rm, _8bit=True),
-            0x03: P(self.addsub_r_rm, _8bit=False),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _sub(self, op: int):
-        valid_op = {
-            0x2C: P(self.addsub_r_imm, _8bit=True, sub=True),
-            0x2D: P(self.addsub_r_imm, _8bit=False, sub=True),
-
-            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True, sub=True),
-            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False, sub=True),
-            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True, sub=True),
-
-            0x28: P(self.addsub_rm_r, _8bit=True, sub=True),
-            0x29: P(self.addsub_rm_r, _8bit=False, sub=True),
-            0x2A: P(self.addsub_r_rm, _8bit=True, sub=True),
-            0x2B: P(self.addsub_r_rm, _8bit=False, sub=True),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _lea(self, op: int):
-        valid_op = {
-            0x8D: P(self.lea)
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _cmp(self, op: int):
-        valid_op = {
-            0x3C: P(self.addsub_r_imm, _8bit=True, sub=True, cmp=True),
-            0x3D: P(self.addsub_r_imm, _8bit=False, sub=True, cmp=True),
-
-            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True, sub=True, cmp=True),
-            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False, sub=True, cmp=True),
-            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True, sub=True, cmp=True),
-
-            0x38: P(self.addsub_rm_r, _8bit=True, sub=True, cmp=True),
-            0x39: P(self.addsub_rm_r, _8bit=False, sub=True, cmp=True),
-            0x3A: P(self.addsub_r_rm, _8bit=True, sub=True, cmp=True),
-            0x3B: P(self.addsub_r_rm, _8bit=False, sub=True, cmp=True),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _jcc(self, op: int):
-        valid_op = {
-        	0x7B: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.PF)'),
-        	0x7F: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.PF) and self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF)'),
-        	0x73: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.CF)'),
-        	0x7D: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.SF) == self.reg.eflags_get(Reg32.OF)'),
-        	0x71: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.OF)'),
-        	0x79: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.SF)'),
-        	0x7A: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.PF)'),
-        	0x70: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.PF)'),
-        	0x7C: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF)'),
-        	0xE3: P(self.jmp_rel, jump='not to_int(self.reg.get(0, sz), byteorder)'),
-        	0x77: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.CF) and not self.reg.eflags_get(Reg32.ZF)'),
-        	0x75: P(self.jmp_rel, jump='not self.reg.eflags_get(Reg32.ZF)'),
-        	0x74: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.ZF)'),
-        	0x78: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.SF)'),
-        	0x76: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.CF) or self.reg.eflags_get(Reg32.ZF)'),
-        	0x7E: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.ZF) or self.reg.eflags_get(Reg32.SF) != self.reg.eflags_get(Reg32.OF)'),
-        	0x72: P(self.jmp_rel, jump='self.reg.eflags_get(Reg32.CF)')
-        }
-            
-        _8bit = True
-        if op == 0x0F:
-            valid_op = {
-            	key + 0x10: val
-            	for key, val in valid_op.items()
-            }
-            _8bit = False
-            
-            op = self.mem.get(self.eip, 1)[0]
-            self.eip += 1
-        
-        try:
-            return valid_op[op](_8bit)
-        except KeyError:
-            return False
-
-    def _and(self, op: int):
-        valid_op = {
-            0x24: P(self.bitwise_r_imm, _8bit=True, operation=operator.and_),
-            0x25: P(self.bitwise_r_imm, _8bit=False, operation=operator.and_),
-
-            0x80: P(self.bitwise_rm_imm, _8bit=True, _8bit_imm=True, operation=operator.and_),
-            0x81: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=False, operation=operator.and_),
-            0x83: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=True, operation=operator.and_),
-
-            0x20: P(self.bitwise_rm_r, _8bit=True, operation=operator.and_),
-            0x21: P(self.bitwise_rm_r, _8bit=False, operation=operator.and_),
-
-            0x22: P(self.bitwise_r_rm, _8bit=True, operation=operator.and_),
-            0x23: P(self.bitwise_r_rm, _8bit=False, operation=operator.and_),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _or(self, op: int):
-        valid_op = {
-            0x0C: P(self.bitwise_r_imm, _8bit=True, operation=operator.or_),
-            0x0D: P(self.bitwise_r_imm, _8bit=False, operation=operator.or_),
-
-            0x80: P(self.bitwise_rm_imm, _8bit=True, _8bit_imm=True, operation=operator.or_),
-            0x81: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=False, operation=operator.or_),
-            0x83: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=True, operation=operator.or_),
-
-            0x08: P(self.bitwise_rm_r, _8bit=True, operation=operator.or_),
-            0x09: P(self.bitwise_rm_r, _8bit=False, operation=operator.or_),
-
-            0x0A: P(self.bitwise_r_rm, _8bit=True, operation=operator.or_),
-            0x0B: P(self.bitwise_r_rm, _8bit=False, operation=operator.or_),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _xor(self, op: int):
-        valid_op = {
-            0x34: P(self.bitwise_r_imm, _8bit=True, operation=operator.xor),
-            0x35: P(self.bitwise_r_imm, _8bit=False, operation=operator.xor),
-
-            0x80: P(self.bitwise_rm_imm, _8bit=True, _8bit_imm=True, operation=operator.xor),
-            0x81: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=False, operation=operator.xor),
-            0x83: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=True, operation=operator.xor),
-
-            0x30: P(self.bitwise_rm_r, _8bit=True, operation=operator.xor),
-            0x31: P(self.bitwise_rm_r, _8bit=False, operation=operator.xor),
-
-            0x32: P(self.bitwise_r_rm, _8bit=True, operation=operator.xor),
-            0x33: P(self.bitwise_r_rm, _8bit=False, operation=operator.xor),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _neg(self, op: int):
-        valid_op = {
-            0xF6: P(self.negnot_rm, _8bit=True, operation=0),
-            0xF7: P(self.negnot_rm, _8bit=False, operation=0)
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _not(self, op: int):
-        valid_op = {
-            0xF6: P(self.negnot_rm, _8bit=True, operation=1),
-            0xF7: P(self.negnot_rm, _8bit=False, operation=1)
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _test(self, op: int):
-        valid_op = {
-            0xA8: P(self.bitwise_r_imm, _8bit=True, operation=operator.and_, test=True),
-            0xA9: P(self.bitwise_r_imm, _8bit=False, operation=operator.and_, test=True),
-
-            0xF6: P(self.bitwise_rm_imm, _8bit=True, _8bit_imm=True, operation=operator.and_, test=True),
-            0xF7: P(self.bitwise_rm_imm, _8bit=False, _8bit_imm=False, operation=operator.and_, test=True),
-
-            0x84: P(self.bitwise_rm_r, _8bit=True, operation=operator.and_, test=True),
-            0x85: P(self.bitwise_rm_r, _8bit=False, operation=operator.and_, test=True),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _inc(self, op: int):
-        valid_op = {
-            **{
-            	o: P(self.incdec_r, op, _8bit=False)
-            	for o in range(0x40, 0x48)
-            },
-            0xFE: P(self.incdec_rm, _8bit=True),
-            0xFF: P(self.incdec_rm, _8bit=False),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _dec(self, op: int):
-        valid_op = {
-            **{
-            	o: P(self.incdec_r, op, _8bit=False, dec=True)
-            	for o in range(0x48, 0x50)
-            },
-            0xFE: P(self.incdec_rm, _8bit=True, dec=True),
-            0xFF: P(self.incdec_rm, _8bit=False, dec=True),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _adc(self, op: int):
-        valid_op = {
-            0x14: P(self.addsub_r_imm, _8bit=True, carry=True),
-            0x15: P(self.addsub_r_imm, _8bit=False, carry=True),
-
-            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True, carry=True),
-            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False, carry=True),
-            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True, carry=True),
-
-            0x10: P(self.addsub_rm_r, _8bit=True, carry=True),
-            0x11: P(self.addsub_rm_r, _8bit=False, carry=True),
-            0x12: P(self.addsub_r_rm, _8bit=True, carry=True),
-            0x13: P(self.addsub_r_rm, _8bit=False, carry=True),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _sbb(self, op: int):
-        valid_op = {
-            0x1C: P(self.addsub_r_imm, _8bit=True, sub=True, carry=True),
-            0x1D: P(self.addsub_r_imm, _8bit=False, sub=True, carry=True),
-
-            0x80: P(self.addsub_rm_imm, _8bit_op=True, _8bit_imm=True, sub=True, carry=True),
-            0x81: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=False, sub=True, carry=True),
-            0x83: P(self.addsub_rm_imm, _8bit_op=False, _8bit_imm=True, sub=True, carry=True),
-
-            0x18: P(self.addsub_rm_r, _8bit=True, sub=True, carry=True),
-            0x19: P(self.addsub_rm_r, _8bit=False, sub=True, carry=True),
-            0x1A: P(self.addsub_r_rm, _8bit=True, sub=True, carry=True),
-            0x1B: P(self.addsub_r_rm, _8bit=False, sub=True, carry=True),
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-
-    def _leave(self, op: int):
-        valid_op = {
-            0xC9: P(self.leave)
-            }
-
-        try:
-            return valid_op[op]()
-        except KeyError:
-            return False
-            
-    def do_shift(self, op: int, operation):
-    	valid_op = {
-    		0xD0: P(self.shift, operation=operation, cnt=Shift.C_ONE, _8bit=True),
-    		0xD2: P(self.shift, operation=operation, cnt=Shift.C_CL, _8bit=True),
-    		0xC0: P(self.shift, operation=operation, cnt=Shift.C_imm8, _8bit=True),
-    		
-    		0xD1: P(self.shift, operation=operation, cnt=Shift.C_ONE, _8bit=False),
-    		0xD3: P(self.shift, operation=operation, cnt=Shift.C_CL, _8bit=False),
-    		0xC1: P(self.shift, operation=operation, cnt=Shift.C_imm8, _8bit=False)
-    	}
-    	
-    	try:
-    		return valid_op[op]()
-    	except KeyError:
-    		return False
-    		
-    def _shl(self, op: int):
-    	return self.do_shift(op, Shift.SHL)
-    	
-    def _shr(self, op: int):
-    	return self.do_shift(op, Shift.SHR)
-    	
-    def _sar(self, op: int):
-    	return self.do_shift(op, Shift.SAR)
-    	
-    def _clc(self, op: int):
-    	valid_op = {
-    		0xF8: P(self.reg.eflags_set, Reg32.CF, 0)
-    	}
-    	
-    	try:
-    		return valid_op[op]()
-    	except KeyError:
-    		return False
-    		
-    def _cld(self, op: int):
-    	valid_op = {
-    		0xFC: P(self.reg.eflags_set, Reg32.DF, 0)
-    	}
-    	
-    	try:
-    		return valid_op[op]()
-    	except KeyError:
-    		return False
-    		
-    def _stc(self, op: int):
-    	valid_op = {
-    		0xF9: P(self.reg.eflags_set, Reg32.CF, 1)
-    	}
-    	
-    	try:
-    		return valid_op[op]()
-    	except KeyError:
-    		return False
-    		
-    def _std(self, op: int):
-    	valid_op = {
-    		0xFD: P(self.reg.eflags_set, Reg32.DF, 1)
-    	}
-    	
-    	try:
-    		return valid_op[op]()
-    	except KeyError:
-    		return False

@@ -13,7 +13,7 @@ The instructions' opcodes as well as their operation algorithms have been taken 
 
 ## Instructions currently supported
 
-The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the comments in `VM/__init__.py`.
+The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the `#TODO` comments in `VM/instructions.py`.
 
 1.  `adc`
 2.  `add`
