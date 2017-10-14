@@ -27,9 +27,6 @@ def parse_code(code: str):
 
 
 if __name__ == "__main__":
-    # pr = cProfile.Profile()
-    vm = VM.VM(128)
-
     code = """
 ;                           section .text
 ;                           _start:
@@ -48,8 +45,10 @@ f:  ba 0e 00 00 00          ;mov    edx,0xe   ; length of the message
 29: 48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A ; "Hello, world!",10
              """
 
+    vm = VM.VM(64)
     binary = parse_code(code)
 
+    # pr = cProfile.Profile()
     # pr.enable()
     vm.execute_bytes(binary)
     # pr.disable()
