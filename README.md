@@ -21,16 +21,22 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 4.  `call` (*)
 5.  `clc`
 6.  `cld`
+7.  `cli`
+8.  `cmc`
 5.  `cmp`
+6.  `cwd`
 6.  `dec`
-7.  `jcc`  (*)
-8.  `jmp`  (*)
 9.  `inc`
 10. `int`
+7.  `jcc`  (*)
+8.  `jmp`  (*)
 11. `lea`
 12. `leave`
 13. `mov`  (*)
+14. `movsb`
+15. `movsw`
 14. `neg`  (*)
+15. `nop`
 15. `not`  (*)
 16. `or`
 17. `pop`
@@ -43,8 +49,10 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 24. `shr`
 25. `stc`
 26. `std`
+27. `sti`
 25. `sub`
 26. `test`
+27. `xchg`
 27. `xor`
 
 ## Documentation

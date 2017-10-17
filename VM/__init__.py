@@ -41,12 +41,13 @@ class VM(CPU32):
     from .misc import process_ModRM
     
     from .instructions import \
-        MOV, lea, \
+        MOV, movs, XCHG, lea, \
         JMP, CALL, RET, leave, \
         INT, \
         PUSH, POP, \
         ADDSUB, INCDEC, \
-        BITWISE, NEGNOT, shift
+        BITWISE, NEGNOT, shift, \
+        cbwcwde, cmc
 
     from .kernel import sys_exit, sys_read, sys_write
 
@@ -380,6 +381,28 @@ class VM(CPU32):
 
         self._std = {
             0xFD: P(self.reg.eflags_set, Reg32.DF, 1)
+            }
+
+        self._xchg = {
+            **{
+                o: P(self.XCHG.eax_r, self)
+                for o in range(0x90, 0x98)
+                },
+            0x86: P(self.XCHG.rm_r, self, _8bit=True),
+            0x87: P(self.XCHG.rm_r, self, _8bit=False)
+            }
+
+        self._cbw = {
+            0x98: P(self.cbwcwde)
+            }
+
+        self._cmc = {
+            0x98: P(self.cmc)
+            }
+
+        self._movs = {
+            0xA4: P(self.movs, _8bit=True),
+            0xA5: P(self.movs, _8bit=False)
             }
 
 

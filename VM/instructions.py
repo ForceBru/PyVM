@@ -1101,3 +1101,82 @@ def shift(self, operation, cnt, _8bit) -> True:
     debug('{} {}{}{}'.format(name, 'm' if type else '_r', sz * 8, op))
 
     return True
+
+
+####################
+# XCHG
+####################
+class XCHG:
+    @staticmethod
+    def eax_r(vm) -> True:
+        sz = vm.operand_size
+        loc = vm.opcode & 0b111
+
+        if loc != 0:  # not EAX
+            tmp = vm.reg.get(0, sz)
+            vm.reg.set(0, vm.reg.get(loc, sz))
+            vm.reg.set(loc, tmp)
+
+        debug('xchg eax, r{}({})'.format(sz * 8, loc))
+        return True
+
+    @staticmethod
+    def rm_r(vm, _8bit) -> True:
+        sz = 1 if _8bit else vm.operand_size
+
+        RM, R = vm.process_ModRM(sz, sz)
+        type, loc, _ = RM
+
+        if loc != R[1]:
+            tmp = (vm.mem if type else vm.reg).get(loc, sz)
+            (vm.mem if type else vm.reg).set(loc, vm.reg.get(R[1], sz))
+            vm.reg.set(R[1], tmp)
+
+        debug('xchg r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], tmp))
+        return True
+
+####################
+# CBW / CWDE
+####################
+def cbwcwde(self) -> True:
+    self.reg.set(0, sign_extend(self.reg.get(0, self.operand_size // 2), self.operand_size))
+
+    debug('cbw' if self.operand_size == 2 else 'cwde')
+    return True
+
+
+####################
+# CMC
+####################
+def cmc(self) -> True:
+    self.reg.eflags_set(Reg32.CF, not self.reg.eflags_get(Reg32.CF))
+
+    debug('cmc')
+    return True
+
+####################
+# MOVS
+####################
+def movs(self, _8bit) -> True:
+    sz = 1 if _8bit else self.operand_size
+
+    esi = to_int(self.reg.get(6, sz))
+    edi = to_int(self.reg.get(7, sz))
+
+    self.mem.set(esi, self.mem.get(edi, sz))
+
+    if not self.reg.eflags_get(Reg32.DF):
+        esi += sz
+        edi += sz
+    else:
+        esi -= sz
+        edi -= sz
+
+    esi &= MAXVALS[sz]
+    edi &= MAXVALS[sz]
+
+    self.reg.set(6, esi.to_bytes(sz, byteorder))
+    self.reg.set(7, edi.to_bytes(sz, byteorder))
+
+    debug('mov{}'.format('s' if sz == 1 else ('w' if sz == 2 else 'd')))
+    return True
