@@ -136,6 +136,34 @@ Before running this you may consider setting `debug = False` in `VM/debug.py`, i
 * Implement more instructions
 * Add basic memory protection
 
+## How to deal with errors
+
+If you decide to open an issue, please include a minimal, complete and verifiable example that reproduces the error and the traceback.
+
+* Not enough memory supplied -> increase the amount of memory given to the VM
+
+      Traceback (most recent call last):
+        File "...", line 53, in <module>
+          vm.execute_bytes(binary)
+        File ".../VM/fetchLoop.py", line ..., in execute_bytes
+          self.mem.set(offset, data)
+        File ".../VM/Memory.py", line ..., in set
+          assert offset + size in self.bounds
+      AssertionError
+
+* Unknown opcode -> please open an issue entitled `Unknown opcode: [opcode in hex]`
+
+      ...
+      ValueError: Unknown opcode: 0xf8
+
+* The executable attempted to access a nonexistent memory location -> make sure your code _absolutely cannot_ do this (that is, works fine after having been assembled, linked and run as a native executable), that there's enough memory supplied to the VM and open an issue entitled `Invalid memory access`.
+
+      ...
+         assert offset + size in self.bounds
+      AssertionError
+
+* Other errors -> please open an issue entitled accordingly
+
 ## How to contribute
 
 Everyone is welcome to contribute! For some guidelines, please refer to the comments in the project, especilly in `VM/__init__.py`, `VM/fetchLoop.py` and `VM/instructions.py`.
