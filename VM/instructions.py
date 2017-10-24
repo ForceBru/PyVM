@@ -61,9 +61,6 @@ class MOV:
 
     @staticmethod
     def rm_imm(vm, _8bit) -> bool:
-        """
-        [See `r_imm` for description].
-        """
         sz = 1 if _8bit else vm.operand_size
         old_eip = vm.eip
 
@@ -85,9 +82,6 @@ class MOV:
 
     @staticmethod
     def rm_r(vm, _8bit, reverse=False) -> True:
-        """
-        [See `r_imm` for description].
-        """
         sz = 1 if _8bit else vm.operand_size
 
         RM, R = vm.process_ModRM(sz, sz)
@@ -218,6 +212,9 @@ class INT:
 # PUSH
 ####################
 class PUSH:
+    """
+    Push data onto the stack.
+    """
     @staticmethod
     def r(vm) -> True:
         sz = vm.operand_size
@@ -231,9 +228,6 @@ class PUSH:
 
     @staticmethod
     def rm(vm) -> bool:
-        """
-        Push data onto the stack.
-        """
         old_eip = vm.eip
         sz = vm.operand_size
 
@@ -376,6 +370,8 @@ class RET:
         sz = vm.operand_size
         vm.eip = to_int(vm.stack_pop(sz), True)
 
+        assert vm.eip in vm.mem.bounds
+
         debug("ret ({})".format(vm.eip))
 
         return True
@@ -389,6 +385,8 @@ class RET:
         vm.eip += sz
 
         vm.stack_pop(imm)
+
+        assert vm.eip in vm.mem.bounds
 
         debug("ret ({})".format(vm.eip))
 
@@ -933,9 +931,6 @@ class INCDEC:
 
     @staticmethod
     def r(vm, _8bit, dec=False) -> True:
-        """
-        [See `incdec_rm` for description].
-        """
         sz = 1 if _8bit else vm.operand_size
         loc = vm.opcode & 0b111
 

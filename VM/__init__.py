@@ -78,10 +78,10 @@ class VM(CPU32):
             0xC6: P(self.MOV.rm_imm, self, _8bit=True),
             0xC7: P(self.MOV.rm_imm, self, _8bit=False),
 
-            0x88: P(self.MOV.rm_r, self, _8bit=True, reverse=False),
+            0x88: P(self.MOV.rm_r, self, _8bit=True,  reverse=False),
             0x89: P(self.MOV.rm_r, self, _8bit=False, reverse=False),
 
-            0x8A: P(self.MOV.rm_r, self, _8bit=True, reverse=True),
+            0x8A: P(self.MOV.rm_r, self, _8bit=True,  reverse=True),
             0x8B: P(self.MOV.rm_r, self, _8bit=False, reverse=True),
 
             0x8C: P(self.MOV.rm_sreg, self, reverse=False),
@@ -188,21 +188,21 @@ class VM(CPU32):
             }
 
         self._cmp = {
-            0x3C: P(self.ADDSUB.r_imm, self, _8bit=True, sub=True, cmp=True),
+            0x3C: P(self.ADDSUB.r_imm, self, _8bit=True,  sub=True, cmp=True),
             0x3D: P(self.ADDSUB.r_imm, self, _8bit=False, sub=True, cmp=True),
 
-            0x80: P(self.ADDSUB.rm_imm, self, _8bit_op=True, _8bit_imm=True, sub=True, cmp=True),
+            0x80: P(self.ADDSUB.rm_imm, self, _8bit_op=True,  _8bit_imm=True,  sub=True, cmp=True),
             0x81: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=False, sub=True, cmp=True),
-            0x83: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=True, sub=True, cmp=True),
+            0x83: P(self.ADDSUB.rm_imm, self, _8bit_op=False, _8bit_imm=True,  sub=True, cmp=True),
 
-            0x38: P(self.ADDSUB.rm_r, self, _8bit=True, sub=True, cmp=True),
+            0x38: P(self.ADDSUB.rm_r, self, _8bit=True,  sub=True, cmp=True),
             0x39: P(self.ADDSUB.rm_r, self, _8bit=False, sub=True, cmp=True),
-            0x3A: P(self.ADDSUB.r_rm, self, _8bit=True, sub=True, cmp=True),
+            0x3A: P(self.ADDSUB.r_rm, self, _8bit=True,  sub=True, cmp=True),
             0x3B: P(self.ADDSUB.r_rm, self, _8bit=False, sub=True, cmp=True),
             }
 
-        JNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        JG = compile(
+        JNP  = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        JG   = compile(
                 'not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)',
                 'jump', 'eval')
         JAE  = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
