@@ -5,7 +5,7 @@ import VM
 
 def Stats(pr):
     s = io.StringIO()
-    sortby = 'cumulative'
+    sortby = 'tottime'#'cumulative'
     ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
     ps.print_stats()
     print(s.getvalue())

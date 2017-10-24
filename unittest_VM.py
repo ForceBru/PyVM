@@ -138,6 +138,15 @@ class TestInstructions(unittest.TestCase):
             self.MSG_EXIT.format(self.EXIT_SUCCESS)
             )
 
+    def test_xchg(self):
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+
+        self.check_output(
+            'Testing xchg...\n',
+            self.MSG_EXIT.format(10000)
+            )
+
     def test__c_pointers(self):
         fname = sys._getframe().f_code.co_name.split('__')[1]
         self.vm.execute_file(self.FPATH.format(fname))

@@ -201,24 +201,43 @@ class VM(CPU32):
             0x3B: P(self.ADDSUB.r_rm, self, _8bit=False, sub=True, cmp=True),
             }
 
+        JNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        JG = compile(
+                'not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)',
+                'jump', 'eval')
+        JAE  = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
+        JGE  = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        JNO  = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        JNS  = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
+        JPE  = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        JO   = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        JL   = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        JCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
+        JNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        JNZ  = compile('not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        JE   = compile('vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        JS   = compile('vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
+        JBE  = compile('vm.reg.eflags_get(Reg32.CF) or vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        JLE  = compile('vm.reg.eflags_get(Reg32.ZF) or vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        JB   = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
         self._jcc = {
-            0x7B: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.PF)'),
-            0x7F: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)'),
-            0x73: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.CF)'),
-            0x7D: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)'),
-            0x71: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.OF)'),
-            0x79: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.SF)'),
-            0x7A: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.PF)'),
-            0x70: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.PF)'),
-            0x7C: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)'),
-            0xE3: P(self.JMP.rel, self, _8bit=True, jump='not to_int(vm.reg.get(0, sz), byteorder)'),
-            0x77: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)'),
-            0x75: P(self.JMP.rel, self, _8bit=True, jump='not vm.reg.eflags_get(Reg32.ZF)'),
-            0x74: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.ZF)'),
-            0x78: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.SF)'),
-            0x76: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.CF) or vm.reg.eflags_get(Reg32.ZF)'),
-            0x7E: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.ZF) or vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)'),
-            0x72: P(self.JMP.rel, self, _8bit=True, jump='vm.reg.eflags_get(Reg32.CF)')
+            0x7B: P(self.JMP.rel, self, _8bit=True, jump=JNP),
+            0x7F: P(self.JMP.rel, self, _8bit=True, jump=JG),
+            0x73: P(self.JMP.rel, self, _8bit=True, jump=JAE),
+            0x7D: P(self.JMP.rel, self, _8bit=True, jump=JGE),
+            0x71: P(self.JMP.rel, self, _8bit=True, jump=JNO),
+            0x79: P(self.JMP.rel, self, _8bit=True, jump=JNS),
+            0x7A: P(self.JMP.rel, self, _8bit=True, jump=JPE),
+            0x70: P(self.JMP.rel, self, _8bit=True, jump=JO),
+            0x7C: P(self.JMP.rel, self, _8bit=True, jump=JL),
+            0xE3: P(self.JMP.rel, self, _8bit=True, jump=JCXZ),
+            0x77: P(self.JMP.rel, self, _8bit=True, jump=JNBE),
+            0x75: P(self.JMP.rel, self, _8bit=True, jump=JNZ),
+            0x74: P(self.JMP.rel, self, _8bit=True, jump=JE),
+            0x78: P(self.JMP.rel, self, _8bit=True, jump=JS),
+            0x76: P(self.JMP.rel, self, _8bit=True, jump=JBE),
+            0x7E: P(self.JMP.rel, self, _8bit=True, jump=JLE),
+            0x72: P(self.JMP.rel, self, _8bit=True, jump=JB)
             }
 
         self._and = {

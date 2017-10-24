@@ -142,7 +142,7 @@ class JMP:
     ptr = MagicMock(side_effect=RuntimeError('Jumps to pointers not implemented yet'))
 
     @staticmethod
-    def rel(vm, _8bit, jump='True') -> True:
+    def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
         sz = 1 if _8bit else vm.operand_size
     
         d = vm.mem.get(vm.eip, sz)
