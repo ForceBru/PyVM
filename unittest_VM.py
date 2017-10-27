@@ -147,6 +147,24 @@ class TestInstructions(unittest.TestCase):
             self.MSG_EXIT.format(10000)
             )
 
+    def test_mul(self):
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+
+        self.check_output(
+            'Testing mul...\nSuccess!\n',
+            self.MSG_EXIT.format(self.EXIT_SUCCESS)
+            )
+
+    def test_div(self):
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+
+        self.check_output(
+            'Testing div...\n',
+            self.MSG_EXIT.format(self.EXIT_SUCCESS)
+            )
+
     def test__c_pointers(self):
         fname = sys._getframe().f_code.co_name.split('__')[1]
         self.vm.execute_file(self.FPATH.format(fname))

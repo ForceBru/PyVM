@@ -41,7 +41,7 @@ class Reg32:
         """
 
         :param offset: the same as above
-        :param value: the value to be written to the register. Its size determines the egister to be used.
+        :param value: the value to be written to the register. Its size determines the register to be used.
         :return: None
         """
         size = len(value)

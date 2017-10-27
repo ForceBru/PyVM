@@ -26,6 +26,7 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 5.  `cmp`
 6.  `cwd`
 6.  `dec`
+7.  `div`
 9.  `inc`
 10. `int`
 7.  `jcc`  (*)
@@ -35,6 +36,7 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 13. `mov`  (*)
 14. `movsb`
 15. `movsw`
+16. `mul`
 14. `neg`  (*)
 15. `nop`
 15. `not`  (*)

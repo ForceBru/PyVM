@@ -45,7 +45,7 @@ class VM(CPU32):
         JMP, CALL, RET, leave, \
         INT, \
         PUSH, POP, \
-        ADDSUB, INCDEC, \
+        ADDSUB, INCDEC, mul, div, \
         BITWISE, NEGNOT, shift, \
         cbwcwde, cmc
 
@@ -422,6 +422,16 @@ class VM(CPU32):
         self._movs = {
             0xA4: P(self.movs, _8bit=True),
             0xA5: P(self.movs, _8bit=False)
+            }
+
+        self._mul = {
+            0xF6: P(self.mul, _8bit=True),
+            0xF7: P(self.mul, _8bit=False)
+            }
+
+        self._div = {
+            0xF6: P(self.div, _8bit=True),
+            0xF7: P(self.div, _8bit=False)
             }
 
 

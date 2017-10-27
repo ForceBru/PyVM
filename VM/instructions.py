@@ -970,7 +970,7 @@ class INCDEC:
 ####################
 # LEAVE
 ####################
-def leave(self) -> None:
+def leave(self) -> True:
     """
     High-level procedure exit.
 
@@ -982,6 +982,8 @@ def leave(self) -> None:
 
     self.reg.set(ESP, self.reg.get(EBP, self.address_size))
     self.reg.set(EBP, self.stack_pop(self.operand_size))
+
+    return True
 
 
 ####################
@@ -1174,4 +1176,94 @@ def movs(self, _8bit) -> True:
     self.reg.set(7, edi.to_bytes(sz, byteorder))
 
     debug('mov{}'.format('s' if sz == 1 else ('w' if sz == 2 else 'd')))
+    return True
+
+
+####################
+# MUL
+####################
+def mul(self, _8bit) -> bool:
+    """
+    Unsigned multiply.
+    AX      <-  AL * r/m8
+    DX:AX   <-  AX * r/m16
+    EDX:EAX <- EAX * r/m32
+    """
+    sz = 1 if _8bit else self.operand_size
+
+    old_eip = self.eip
+
+    RM, R = self.process_ModRM(sz, sz)
+
+    if R[1] != 4:
+        self.eip = old_eip
+        return False  # This is not MUL
+
+    type, loc, _ = RM
+
+    a = to_int((self.mem if type else self.reg).get(loc, sz))
+    b = to_int(self.reg.get(0, sz))  # AL/AX/EAX
+
+    res = (a * b).to_bytes(sz * 2, byteorder)
+
+    upper_half_not_zero = sum(res[len(res)//2:]) != 0
+    self.reg.eflags_set(Reg32.OF, upper_half_not_zero)
+    self.reg.eflags_set(Reg32.CF, upper_half_not_zero)
+
+    if sz == 1:
+        self.reg.set(0, res)  # AX
+    else:
+        self.reg.set(2, res[:sz])  # DX/EDX
+        self.reg.set(0, res[sz:])  # AX/EAX
+
+    return True
+
+####################
+# DIV
+####################
+def div(self, _8bit) -> bool:
+    """
+    Unsigned divide.
+    AL, AH = divmod(AX, r/m8)
+    AX, DX = divmod(DX:AX, r/m16)
+    EAX, EDX = divmod(EDX:EAX, r/m32)
+    """
+    sz = 1 if _8bit else self.operand_size
+
+    old_eip = self.eip
+
+    RM, R = self.process_ModRM(sz, sz)
+
+    if R[1] != 6:
+        self.eip = old_eip
+        return False  # This is not DIV
+
+    type, loc, _ = RM
+
+    divisor = to_int((self.mem if type else self.reg).get(loc, sz))
+
+    if divisor == 0:
+        raise ZeroDivisionError
+
+    if sz == 1:
+        dividend = to_int(self.reg.get(0, sz * 2))  # AX
+    else:
+        high = self.reg.get(2, sz)  # DX/EDX
+        low = self.reg.get(0, sz)  # AX/EAX
+        dividend = to_int(low + high)
+
+    quot, rem = divmod(dividend, divisor)
+
+    if quot > MAXVALS[sz]:
+        raise RuntimeError('Divide error')
+
+    quot = quot.to_bytes(sz, byteorder)
+    rem = rem.to_bytes(sz, byteorder)
+
+    self.reg.set(0, quot)  # AL/AX/EAX
+    if sz == 1:
+        self.reg.set(4, rem)  # AH
+    else:
+        self.reg.set(2, rem)  # DX/EDX
+
     return True
