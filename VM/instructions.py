@@ -1216,12 +1216,13 @@ def mul(self, _8bit) -> bool:
         self.reg.set(2, res[:sz])  # DX/EDX
         self.reg.set(0, res[sz:])  # AX/EAX
 
+    debug('mul {}{}'.format('m' if type else '_r', sz * 8))
     return True
 
 ####################
-# DIV
+# DIV / IDIV
 ####################
-def div(self, _8bit) -> bool:
+def div(self, _8bit, idiv=False) -> bool:
     """
     Unsigned divide.
     AL, AH = divmod(AX, r/m8)
@@ -1234,31 +1235,34 @@ def div(self, _8bit) -> bool:
 
     RM, R = self.process_ModRM(sz, sz)
 
-    if R[1] != 6:
+    if (not idiv) and (R[1] != 6):
         self.eip = old_eip
         return False  # This is not DIV
+    elif idiv and (R[1] != 7):
+        self.eip = old_eip
+        return False  # This is not IDIV
 
     type, loc, _ = RM
 
-    divisor = to_int((self.mem if type else self.reg).get(loc, sz))
+    divisor = to_int((self.mem if type else self.reg).get(loc, sz), idiv)
 
     if divisor == 0:
         raise ZeroDivisionError
 
     if sz == 1:
-        dividend = to_int(self.reg.get(0, sz * 2))  # AX
+        dividend = to_int(self.reg.get(0, sz * 2), idiv)  # AX
     else:
         high = self.reg.get(2, sz)  # DX/EDX
         low = self.reg.get(0, sz)  # AX/EAX
-        dividend = to_int(low + high)
+        dividend = to_int(low + high, signed=idiv)
 
     quot, rem = divmod(dividend, divisor)
 
     if quot > MAXVALS[sz]:
         raise RuntimeError('Divide error')
 
-    quot = quot.to_bytes(sz, byteorder)
-    rem = rem.to_bytes(sz, byteorder)
+    quot = quot.to_bytes(sz, byteorder, signed=idiv)
+    rem = rem.to_bytes(sz, byteorder, signed=idiv)
 
     self.reg.set(0, quot)  # AL/AX/EAX
     if sz == 1:
@@ -1266,4 +1270,107 @@ def div(self, _8bit) -> bool:
     else:
         self.reg.set(2, rem)  # DX/EDX
 
+    debug('{}div {}{}'.format('i' if idiv else '', 'm' if type else '_r', sz * 8))
+
+    return True
+
+####################
+# IMUL
+####################
+class IMUL:
+    @staticmethod
+    def rm(vm, _8bit: int) -> bool:
+        sz = 1 if _8bit else vm.operand_size
+
+        old_eip = vm.eip
+
+        RM, R = vm.process_ModRM(sz, sz)
+
+        if R[1] != 5:
+            vm.eip = old_eip
+            return False  # This is not IMUL
+
+        type, loc, _ = RM
+
+        src = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
+        dst = to_int(vm.reg.get(0, sz), True)  # AL/AX/EAX
+
+        tmp_xp = (src * dst).to_bytes(sz * 2, byteorder)
+
+        set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
+
+        vm.reg.eflags_set(Reg32.OF, set_flags)
+        vm.reg.eflags_set(Reg32.CF, set_flags)
+
+        if sz == 1:
+            vm.reg.set(0, tmp_xp)  # AX
+        else:
+            vm.reg.set(2, tmp_xp[:sz])  # DX/EDX
+            vm.reg.set(0, tmp_xp[sz:])  # AX/EAX
+
+        debug('imul {}{}'.format('m' if type else '_r', sz * 8))
+        return True
+
+    @staticmethod
+    def r_rm(vm) -> True:
+        sz = vm.operand_size
+
+        RM, R = vm.process_ModRM(sz, sz)
+
+        type, loc, _ = RM
+
+        src = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
+        dst = to_int(vm.reg.get(R[1], sz), True)
+
+        tmp_xp = (src * dst).to_bytes(sz * 2, byteorder)
+
+        set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
+
+        vm.reg.eflags_set(Reg32.OF, set_flags)
+        vm.reg.eflags_set(Reg32.CF, set_flags)
+
+        vm.reg.set(R[1], tmp_xp[:sz])
+
+        debug('imul r{1}, {0}{1}'.format('m' if type else '_r', sz * 8))
+        return True
+
+    @staticmethod
+    def r_rm_imm(vm, _8bit_imm: int) -> True:
+        sz = vm.operand_size
+        imm_sz = 1 if _8bit_imm else vm.operand_size
+
+        RM, R = vm.process_ModRM(sz, sz)
+
+        imm = vm.mem.get(vm.eip, imm_sz)
+        vm.eip += imm_sz
+
+        type, loc, _ = RM
+
+        src1 = to_int(imm, True)
+        src2 = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
+
+        tmp_xp = (src1 * src2).to_bytes(sz * 2, byteorder)
+
+        set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
+
+        vm.reg.eflags_set(Reg32.OF, set_flags)
+        vm.reg.eflags_set(Reg32.CF, set_flags)
+
+        vm.reg.set(R[1], tmp_xp[:sz])
+
+        debug('imul r{1}, {0}{1}, imm{1}'.format('m' if type else '_r', sz * 8))
+        return True
+
+####################
+# CWD / CDQ
+####################
+def cwd_cdq(self) -> True:
+    sz = self.operand_size
+
+    tmp = sign_extend(self.reg.get(0, sz), sz * 2)  # AX / EAX
+
+    self.reg.set(2, tmp[sz:])  # DX/EDX
+    self.reg.set(0, tmp[:sz])  # AX/EAX
+
+    debug('cwd' if sz == 2 else 'cdq')
     return True

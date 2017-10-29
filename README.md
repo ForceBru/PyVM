@@ -19,14 +19,18 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 2.  `add`
 3.  `and`
 4.  `call` (*)
+5.  `cdq`
 5.  `clc`
 6.  `cld`
 7.  `cli`
 8.  `cmc`
 5.  `cmp`
 6.  `cwd`
+7.  `cwde`
 6.  `dec`
 7.  `div`
+8.  `idiv`
+9.  `imul`
 9.  `inc`
 10. `int`
 7.  `jcc`  (*)

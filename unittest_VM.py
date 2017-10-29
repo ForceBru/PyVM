@@ -9,7 +9,7 @@ class TestInstructions(unittest.TestCase):
     MEMSZ = 1024 * 10
     EXIT_SUCCESS = 0
     MSG_EXIT = '[!] Process exited with code {}\n'
-    FPATH = 'asm/{}.bin'
+    FPATH = 'asm/bin/{}.bin'
     
     def setUp(self):
         self.stdin  = io.StringIO()
@@ -144,7 +144,7 @@ class TestInstructions(unittest.TestCase):
 
         self.check_output(
             'Testing xchg...\n',
-            self.MSG_EXIT.format(10000)
+            self.MSG_EXIT.format(1000)
             )
 
     def test_mul(self):
@@ -162,6 +162,24 @@ class TestInstructions(unittest.TestCase):
 
         self.check_output(
             'Testing div...\n',
+            self.MSG_EXIT.format(self.EXIT_SUCCESS)
+            )
+
+    def test_imul(self):
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+
+        self.check_output(
+            'Testing imul...\n',
+            self.MSG_EXIT.format(self.EXIT_SUCCESS)
+            )
+
+    def test_idiv(self):
+        fname = sys._getframe().f_code.co_name
+        self.vm.execute_file(self.FPATH.format(fname))
+
+        self.check_output(
+            'Testing idiv...\n',
             self.MSG_EXIT.format(self.EXIT_SUCCESS)
             )
 

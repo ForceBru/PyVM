@@ -17,7 +17,7 @@ _start:
     xchg eax, ebx
     int 0x80
 
-	mov eax, 10000
+	mov eax, 1000
 	xor ebx, ebx
 
 	loop:

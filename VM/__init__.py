@@ -45,9 +45,9 @@ class VM(CPU32):
         JMP, CALL, RET, leave, \
         INT, \
         PUSH, POP, \
-        ADDSUB, INCDEC, mul, div, \
+        ADDSUB, INCDEC, mul, IMUL, div, \
         BITWISE, NEGNOT, shift, \
-        cbwcwde, cmc
+        cbwcwde, cmc, cwd_cdq
 
     from .kernel import sys_exit, sys_read, sys_write
 
@@ -434,6 +434,24 @@ class VM(CPU32):
             0xF7: P(self.div, _8bit=False)
             }
 
+        self._imul = {
+            0xF6: P(self.IMUL.rm, self, _8bit=True),
+            0xF7: P(self.IMUL.rm, self, _8bit=False),
+
+            0x0FAF: P(self.IMUL.r_rm, self),
+
+            0x6B: P(self.IMUL.r_rm_imm, self, _8bit_imm=True),
+            0x69: P(self.IMUL.r_rm_imm, self, _8bit_imm=True)
+            }
+
+        self._idiv = {
+            0xF6: P(self.div, _8bit=True, idiv=True),
+            0xF7: P(self.div, _8bit=False, idiv=True)
+            }
+
+        self._cwd = {
+            0x99: P(self.cwd_cdq)
+            }
 
         self.instr = [
             getattr(self, name) for name in dir(self) if name.startswith('_') and not name.startswith('__')

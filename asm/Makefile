@@ -9,7 +9,7 @@ BINARIES=$(SOURCES:.s=.bin)
 all: $(BINARIES)
 
 clean:
-	$(foreach var,$(BINARIES),rm $(var);)
+	$(foreach var,$(BINARIES),rm bin/$(var);)
 
 %.bin: %.s
-	$(ASM) $(ASMFLAGS) -o $(<:.s=.bin) $<
+	$(ASM) $(ASMFLAGS) -o bin/$(<:.s=.bin) $<
