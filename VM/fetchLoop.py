@@ -22,14 +22,12 @@ def execute_opcode(self) -> None:
 
         opcode = (opcode << 8) + op  # opcode <- 0x0FYY
         self.opcode = op
-        
-    for instruction in self.instr:
-        try:
-            if instruction[opcode]():
+     
+    try:   
+        for instruction in self.instr[opcode]:
+            if instruction():
                 return
-        except KeyError:
-            ...
-    else:
+    except KeyError:
         raise ValueError('Unknown opcode: 0x{:02x}'.format(opcode))
     
 

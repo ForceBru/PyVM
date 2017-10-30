@@ -453,9 +453,12 @@ class VM(CPU32):
             0x99: P(self.cwd_cdq)
             }
 
-        self.instr = [
-            getattr(self, name) for name in dir(self) if name.startswith('_') and not name.startswith('__')
-            ]
+        self.instr = {}
+        
+        for instruction in (getattr(self, name) for name in dir(self) if name.startswith('_') and not name.startswith('__')):
+            for opcode, impl in instruction.items():
+                self.instr.setdefault(opcode, set())
+                self.instr[opcode].add(impl)
 
     def interrupt(self, code: int):
         valid_codes = [0x80]
