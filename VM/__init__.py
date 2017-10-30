@@ -98,7 +98,7 @@ class VM(CPU32):
             0xEB: P(self.JMP.rel, self, _8bit=True),
             0xE9: P(self.JMP.rel, self, _8bit=False),
 
-            0xFF: P(self.JMP.rm_m, self, _8bit=False),
+            0xFF: P(self.JMP.rm_m, self),
             0xEA: P(self.JMP.ptr, self, _8bit=False),
             }
 

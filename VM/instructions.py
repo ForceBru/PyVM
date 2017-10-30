@@ -44,7 +44,7 @@ class MOV:
     Operation: b <- a
     """
     # TODO: implement MOV with sreg
-    rm_sreg = MagicMock(side_effect=RuntimeError('MOV does not support segment registers yet'))
+    rm_sreg = MagicMock(return_value=False)
 
     @staticmethod
     def r_imm(vm, _8bit) -> True:
@@ -55,7 +55,9 @@ class MOV:
 
         r = vm.opcode & 0b111
         vm.reg.set(r, imm)
-        debug('mov r{0}({1}),imm{0}({2})'.format(sz * 8, r, imm))
+        
+        if debug:
+            print('mov r{0}({1}),imm{0}({2})'.format(sz * 8, r, imm))
 
         return True
 
@@ -76,7 +78,9 @@ class MOV:
         vm.eip += sz
 
         (vm.mem if type else vm.reg).set(loc, imm)
-        debug('mov {0}{1}({2}),imm{1}({3})'.format(('m' if type else '_r'), sz * 8, loc, imm))
+        
+        if debug:
+            print('mov {0}{1}({2}),imm{1}({3})'.format(('m' if type else '_r'), sz * 8, loc, imm))
 
         return True
 
@@ -92,12 +96,12 @@ class MOV:
             data = (vm.mem if type else vm.reg).get(loc, sz)
             vm.reg.set(R[1], data)
 
-            debug('mov r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], data))
+            if debug: print('mov r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], data))
         else:
             data = vm.reg.get(R[1], R[2])
             (vm.mem if type else vm.reg).set(loc, data)
 
-            debug('mov {0}{1}({2}),r{1}({3})'.format(('m' if type else '_r'), sz * 8, loc, data))
+            if debug: print('mov {0}{1}({2}),r{1}({3})'.format(('m' if type else '_r'), sz * 8, loc, data))
 
         return True
 
@@ -117,7 +121,7 @@ class MOV:
 
         msg = 'mov moffs{1}({2}), {0}({3})' if reverse else 'mov {0}, moffs{1}({2}:{3})'
 
-        debug(msg.format({1: 'al', 2: 'ax', 4: 'eax'}[sz], sz * 8, loc, data))
+        if debug: print(msg.format({1: 'al', 2: 'ax', 4: 'eax'}[sz], sz * 8, loc, data))
 
         return True
 
@@ -133,7 +137,7 @@ class JMP:
             EIP = memory_location
     """
     # TODO: implement jumps to pointers
-    ptr = MagicMock(side_effect=RuntimeError('Jumps to pointers not implemented yet'))
+    ptr = MagicMock(return_value=False)
 
     @staticmethod
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
@@ -150,7 +154,7 @@ class JMP:
     
         assert vm.eip in vm.mem.bounds
     
-        debug('jmp rel{}({})'.format(sz * 8, hex(vm.eip)))
+        if debug: print('jmp rel{}({})'.format(sz * 8, hex(vm.eip)))
         return True
 
     @staticmethod
@@ -166,7 +170,7 @@ class JMP:
 
             assert vm.eip in vm.mem.bounds
 
-            debug('jmp rm{}({})'.format(sz * 8, vm.eip))
+            if debug: print('jmp rm{}({})'.format(sz * 8, vm.eip))
 
             return True
         elif R[1] == 5:  # this is jmp m
@@ -176,7 +180,7 @@ class JMP:
 
             assert vm.eip in vm.mem.bounds
 
-            debug('jmp m{}({})'.format(sz * 8, vm.eip))
+            if debug: print('jmp m{}({})'.format(sz * 8, vm.eip))
 
             return True
 
@@ -221,7 +225,7 @@ class PUSH:
 
         loc = vm.opcode & 0b111
         data = vm.reg.get(loc, sz)
-        debug('push r{}({})'.format(sz * 8, loc))
+        if debug: print('push r{}({})'.format(sz * 8, loc))
         vm.stack_push(data)
 
         return True
@@ -242,7 +246,7 @@ class PUSH:
         data = (vm.mem if type else vm.reg).get(loc, sz)
         vm.stack_push(data)
 
-        debug('push {2}{0}({1})'.format(sz * 8, data, ('m' if type else '_r')))
+        if debug: print('push {2}{0}({1})'.format(sz * 8, data, ('m' if type else '_r')))
         return True
 
     @staticmethod
@@ -254,7 +258,7 @@ class PUSH:
 
         vm.stack_push(data)
 
-        debug('push imm{}({})'.format(sz * 8, data))
+        if debug: print('push imm{}({})'.format(sz * 8, data))
 
         return True
 
@@ -267,7 +271,7 @@ class PUSH:
         """
 
         vm.stack_push(getattr(vm.reg, reg).to_bytes(2, byteorder))
-        debug('push {}'.format(reg))
+        if debug: print('push {}'.format(reg))
 
         return True
 
@@ -287,7 +291,7 @@ class POP:
         loc = vm.opcode & 0b111
         data = vm.stack_pop(sz)
         vm.reg.set(loc, data)
-        debug('pop r{}({})'.format(sz * 8, loc))
+        if debug: print('pop r{}({})'.format(sz * 8, loc))
 
         return True
 
@@ -308,7 +312,7 @@ class POP:
 
         (vm.mem if type else vm.reg).set(loc, data)
 
-        debug('pop {2}{0}({1})'.format(sz * 8, data, ('m' if type else '_r')))
+        if debug: print('pop {2}{0}({1})'.format(sz * 8, data, ('m' if type else '_r')))
 
         return True
 
@@ -319,7 +323,7 @@ class POP:
         data = vm.stack_pop(sz)
 
         setattr(vm.reg, reg, to_int(data, False))
-        debug('pop {}'.format(reg))
+        if debug: print('pop {}'.format(reg))
 
         return True
 
@@ -333,8 +337,8 @@ class CALL:
     """
 
     # TODO: implement far calls
-    rm_m = MagicMock(side_effect=RuntimeError('CALL r/m or m is not supported yet'))
-    ptr = MagicMock(side_effect=RuntimeError('CALL ptr is not supported yet'))
+    rm_m = MagicMock(return_value=False)
+    ptr = MagicMock(return_value=False)
 
     @staticmethod
     def rel(vm) -> True:
@@ -349,7 +353,7 @@ class CALL:
         vm.stack_push(vm.eip.to_bytes(sz, byteorder, signed=True))
         vm.eip = tmpEIP
 
-        debug("call rel{}({})".format(sz * 8, vm.eip))
+        if debug: print("call rel{}({})".format(sz * 8, vm.eip))
         return True
 
 
@@ -362,8 +366,8 @@ class RET:
     """
 
     # TODO: implement far returns
-    far = MagicMock(side_effect=RuntimeError('RET far is not supported yet'))
-    far_imm = MagicMock(side_effect=RuntimeError('RET far imm is not supported yet'))
+    far = MagicMock(return_value=False)
+    far_imm = MagicMock(return_value=False)
 
     @staticmethod
     def near(vm) -> True:
@@ -372,7 +376,7 @@ class RET:
 
         assert vm.eip in vm.mem.bounds
 
-        debug("ret ({})".format(vm.eip))
+        if debug: print("ret ({})".format(vm.eip))
 
         return True
 
@@ -388,7 +392,7 @@ class RET:
 
         assert vm.eip in vm.mem.bounds
 
-        debug("ret ({})".format(vm.eip))
+        if debug: print("ret ({})".format(vm.eip))
 
         return True
 
@@ -450,7 +454,7 @@ class ADDSUB:
             vm.reg.set(0, c)
 
         name = 'sub' if sub else 'add'
-        debug('{} {}, imm{}({})'.format('cmp' if cmp else name, [0, 'al', 'ax', 0, 'eax'][sz], sz * 8, b))
+        if debug: print('{} {}, imm{}({})'.format('cmp' if cmp else name, [0, 'al', 'ax', 0, 'eax'][sz], sz * 8, b))
 
         return True
 
@@ -524,7 +528,7 @@ class ADDSUB:
             (vm.mem if type else vm.reg).set(loc, c)
 
         name = 'sub' if sub else 'add'
-        debug('{0} {5}{1}({2}),imm{3}({4})'.format('cmp' if cmp else name, sz * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
+        if debug: print('{0} {5}{1}({2}),imm{3}({4})'.format('cmp' if cmp else name, sz * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
 
         return True
 
@@ -571,7 +575,7 @@ class ADDSUB:
             (vm.mem if type else vm.reg).set(loc, c)
 
         name = 'sub' if sub else 'add'
-        debug('{0} {4}{1}({2}),r{1}({3})'.format('cmp' if cmp else name, sz * 8, loc, R[1], ('m' if type else '_r')))
+        if debug: print('{0} {4}{1}({2}),r{1}({3})'.format('cmp' if cmp else name, sz * 8, loc, R[1], ('m' if type else '_r')))
 
         return True
 
@@ -618,7 +622,7 @@ class ADDSUB:
             vm.reg.set(R[1], c)
 
         name = 'sub' if sub else 'add'
-        debug('{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, sz * 8, R[1], loc, ('m' if type else '_r')))
+        if debug: print('{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, sz * 8, R[1], loc, ('m' if type else '_r')))
 
         return True
 
@@ -668,7 +672,7 @@ class BITWISE:
         else:
             name = 'test'
 
-        debug('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][sz], sz * 8, b))
+        if debug: print('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][sz], sz * 8, b))
 
         return True
 
@@ -723,7 +727,7 @@ class BITWISE:
         else:
             name = 'test'
 
-        debug('{0} {5}{1}({2}),imm{3}({4})'.format(name, sz * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
+        if debug: print('{0} {5}{1}({2}),imm{3}({4})'.format(name, sz * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
 
         return True
 
@@ -758,7 +762,7 @@ class BITWISE:
         else:
             name = 'test'
 
-        debug('{0} {4}{1}({2}),r{1}({3})'.format(name, sz * 8, loc, R[1], ('m' if type else '_r')))
+        if debug: print('{0} {4}{1}({2}),r{1}({3})'.format(name, sz * 8, loc, R[1], ('m' if type else '_r')))
 
         return True
 
@@ -793,7 +797,7 @@ class BITWISE:
         else:
             name = 'test'
 
-        debug('{0} r{1}({2}),{4}{1}({3})'.format(name, sz * 8, R[1], loc, ('m' if type else '_r')))
+        if debug: print('{0} r{1}({2}),{4}{1}({3})'.format(name, sz * 8, R[1], loc, ('m' if type else '_r')))
 
         return True
 
@@ -862,7 +866,7 @@ class NEGNOT:
 
         vm.reg.set(loc, b)
 
-        debug('{0} {3}{1}({2})'.format(operation.__name__, sz * 8, loc, ('m' if type else '_r')))
+        if debug: print('{0} {3}{1}({2})'.format(operation.__name__, sz * 8, loc, ('m' if type else '_r')))
 
         return True
     
@@ -925,7 +929,7 @@ class INCDEC:
         vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
 
         (vm.mem if type else vm.reg).set(loc, c)
-        debug('{3} {0}{1}({2})'.format('m' if type else '_r', sz * 8, loc, 'dec' if dec else 'inc'))
+        if debug: print('{3} {0}{1}({2})'.format('m' if type else '_r', sz * 8, loc, 'dec' if dec else 'inc'))
 
         return True
 
@@ -961,7 +965,7 @@ class INCDEC:
         vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
 
         vm.reg.set(loc, c)
-        debug('{3} {0}{1}({2})'.format('r', sz * 8, loc, 'dec' if dec else 'inc'))
+        if debug: print('{3} {0}{1}({2})'.format('r', sz * 8, loc, 'dec' if dec else 'inc'))
 
         return True
 
@@ -1095,7 +1099,7 @@ def shift(self, operation, cnt, _8bit) -> True:
     elif _cnt == Shift.C_imm8:
         op = ',imm8'
 
-    debug('{} {}{}{}'.format(name, 'm' if type else '_r', sz * 8, op))
+    if debug: print('{} {}{}{}'.format(name, 'm' if type else '_r', sz * 8, op))
 
     return True
 
@@ -1114,7 +1118,7 @@ class XCHG:
             vm.reg.set(0, vm.reg.get(loc, sz))
             vm.reg.set(loc, tmp)
 
-        debug('xchg eax, r{}({})'.format(sz * 8, loc))
+        if debug: print('xchg eax, r{}({})'.format(sz * 8, loc))
         return True
 
     @staticmethod
@@ -1129,7 +1133,7 @@ class XCHG:
             (vm.mem if type else vm.reg).set(loc, vm.reg.get(R[1], sz))
             vm.reg.set(R[1], tmp)
 
-        debug('xchg r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], tmp))
+        if debug: print('xchg r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], tmp))
         return True
 
 ####################
@@ -1138,7 +1142,7 @@ class XCHG:
 def cbwcwde(self) -> True:
     self.reg.set(0, sign_extend(self.reg.get(0, self.operand_size // 2), self.operand_size))
 
-    debug('cbw' if self.operand_size == 2 else 'cwde')
+    if debug: print('cbw' if self.operand_size == 2 else 'cwde')
     return True
 
 
@@ -1148,7 +1152,7 @@ def cbwcwde(self) -> True:
 def cmc(self) -> True:
     self.reg.eflags_set(Reg32.CF, not self.reg.eflags_get(Reg32.CF))
 
-    debug('cmc')
+    if debug: print('cmc')
     return True
 
 ####################
@@ -1175,7 +1179,7 @@ def movs(self, _8bit) -> True:
     self.reg.set(6, esi.to_bytes(sz, byteorder))
     self.reg.set(7, edi.to_bytes(sz, byteorder))
 
-    debug('mov{}'.format('s' if sz == 1 else ('w' if sz == 2 else 'd')))
+    if debug: print('mov{}'.format('s' if sz == 1 else ('w' if sz == 2 else 'd')))
     return True
 
 
@@ -1216,7 +1220,7 @@ def mul(self, _8bit) -> bool:
         self.reg.set(2, res[:sz])  # DX/EDX
         self.reg.set(0, res[sz:])  # AX/EAX
 
-    debug('mul {}{}'.format('m' if type else '_r', sz * 8))
+    if debug: print('mul {}{}'.format('m' if type else '_r', sz * 8))
     return True
 
 ####################
@@ -1270,7 +1274,7 @@ def div(self, _8bit, idiv=False) -> bool:
     else:
         self.reg.set(2, rem)  # DX/EDX
 
-    debug('{}div {}{}'.format('i' if idiv else '', 'm' if type else '_r', sz * 8))
+    if debug: print('{}div {}{}'.format('i' if idiv else '', 'm' if type else '_r', sz * 8))
 
     return True
 
@@ -1308,7 +1312,7 @@ class IMUL:
             vm.reg.set(2, tmp_xp[:sz])  # DX/EDX
             vm.reg.set(0, tmp_xp[sz:])  # AX/EAX
 
-        debug('imul {}{}'.format('m' if type else '_r', sz * 8))
+        if debug: print('imul {}{}'.format('m' if type else '_r', sz * 8))
         return True
 
     @staticmethod
@@ -1331,7 +1335,7 @@ class IMUL:
 
         vm.reg.set(R[1], tmp_xp[:sz])
 
-        debug('imul r{1}, {0}{1}'.format('m' if type else '_r', sz * 8))
+        if debug: print('imul r{1}, {0}{1}'.format('m' if type else '_r', sz * 8))
         return True
 
     @staticmethod
@@ -1358,7 +1362,7 @@ class IMUL:
 
         vm.reg.set(R[1], tmp_xp[:sz])
 
-        debug('imul r{1}, {0}{1}, imm{1}'.format('m' if type else '_r', sz * 8))
+        if debug: print('imul r{1}, {0}{1}, imm{1}'.format('m' if type else '_r', sz * 8))
         return True
 
 ####################
@@ -1372,5 +1376,5 @@ def cwd_cdq(self) -> True:
     self.reg.set(2, tmp[sz:])  # DX/EDX
     self.reg.set(0, tmp[:sz])  # AX/EAX
 
-    debug('cwd' if sz == 2 else 'cdq')
+    if debug: print('cwd' if sz == 2 else 'cdq')
     return True

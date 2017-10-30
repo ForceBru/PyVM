@@ -9,7 +9,7 @@ def execute_opcode(self) -> None:
     :param op: the current opcode
     :return: None
     """
-    debug(self.fmt.format(self.eip, self.opcode))
+    if debug: print(self.fmt.format(self.eip, self.opcode))
     self.eip += 1  # points to next data
 
     if self.opcode == 0x90:  # nop
@@ -38,7 +38,7 @@ def override(self, name: str):
     old_size = getattr(self, name)
     self.current_mode = not self.current_mode
     setattr(self, name, self.sizes[self.current_mode])
-    debug('{} override ({} -> {})'.format(name, old_size, self.operand_size))
+    if debug: print('{} override ({} -> {})'.format(name, old_size, self.operand_size))
 
 
 def run(self):

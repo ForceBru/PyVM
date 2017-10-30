@@ -16,7 +16,7 @@ def sys_read(self):
 
     data = self.descriptors[fd].read(count)
 
-    debug('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
+    if debug: print('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
     self.mem.set(data_addr, data)
 
 
@@ -27,5 +27,5 @@ def sys_write(self):
 
     data = self.mem.get(data_addr, count)
 
-    debug('sys_write({}, {}({}), {})'.format(fd, data_addr, data, count))
+    if debug: print('sys_write({}, {}({}), {})'.format(fd, data_addr, data, count))
     self.descriptors[fd].write(data.decode(errors='replace'))
