@@ -201,8 +201,14 @@ class TestInstructions(unittest.TestCase):
             self.MSG_EXIT.format(10)
             )
 
-    #def test__c_pow(self):
-    #    self.vm.execute_file('asm/c_pow.bin')
+    def test__c_pow(self):
+        fname = sys._getframe().f_code.co_name.split('__')[1]
+        self.vm.execute_file(self.FPATH.format(fname))
+
+        self.check_output(
+            '',
+            self.MSG_EXIT.format(625)
+            )
 
 
 if __name__ == "__main__":

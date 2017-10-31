@@ -14,6 +14,7 @@ _start:
 
     mov edx, success
     lea ecx, [edx]
+    mov eax, SYS_WRITE
     mov edx, success_len
     int 0x80
 

@@ -28,7 +28,7 @@ _start:
     pop eax
     ; END restore registers
 
-    ; mov eax, SYS_WRITE
+    mov eax, SYS_WRITE
     ; mov ebx, STDOUT
     ; eax and ebx should've been restored
     mov ecx, message_success

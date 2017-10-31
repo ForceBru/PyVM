@@ -12,6 +12,7 @@ _start:
     mov edx, message_len
     int 0x80
 
+	mov eax, SYS_WRITE
     shl eax, 1
     shr eax, 1
 

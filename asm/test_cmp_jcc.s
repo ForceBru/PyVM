@@ -12,7 +12,7 @@ _start:
     mov edx, message_1_len
     int 0x80 ; output the message
 
-    cmp eax, SYS_WRITE
+    cmp eax, message_1_len
     je test_jne
     jmp fail
 
@@ -22,7 +22,19 @@ exit:
     int 0x80
 
 test_jne:
+	; BEGIN save registers
+    push eax
+    push ecx
+    push edx
+    ; END save registers
+
     call print
+
+    ; BEGIN restore registers
+    pop edx
+    pop ecx
+    pop eax
+    ; END restore registers
 
 	cmp eax, STDOUT
 	jne test_jle
