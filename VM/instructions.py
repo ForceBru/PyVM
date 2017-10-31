@@ -1299,7 +1299,7 @@ class IMUL:
         src = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
         dst = to_int(vm.reg.get(0, sz), True)  # AL/AX/EAX
 
-        tmp_xp = (src * dst).to_bytes(sz * 2, byteorder)
+        tmp_xp = (src * dst).to_bytes(sz * 2, byteorder, signed=True)
 
         set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
 
@@ -1326,7 +1326,7 @@ class IMUL:
         src = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
         dst = to_int(vm.reg.get(R[1], sz), True)
 
-        tmp_xp = (src * dst).to_bytes(sz * 2, byteorder)
+        tmp_xp = (src * dst).to_bytes(sz * 2, byteorder, signed=True)
 
         set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
 
@@ -1353,7 +1353,7 @@ class IMUL:
         src1 = to_int(imm, True)
         src2 = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
 
-        tmp_xp = (src1 * src2).to_bytes(sz * 2, byteorder)
+        tmp_xp = (src1 * src2).to_bytes(sz * 2, byteorder, signed=True)
 
         set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
 

@@ -1,40 +1,32 @@
 %include "startup.s"
 
-_Z3absj:
-  push ebp
-  mov ebp, esp
-  mov eax, DWORD [ebp+8]
-  pop ebp
-  ret
+; int pow(const int a, unsigned b) {
+;     if (not b) return 1;
+;     int result = a;
+;     while (b-- > 1) {
+;         result *= a;
+;     }
+;    return result;
+; }
 _Z3powij:
-  push ebp
-  mov ebp, esp
-  sub esp, 16
-  cmp DWORD [ebp+12], 0
-  jne .L4
-  mov eax, 1
-  jmp .L5
-.L4:
-  cmp DWORD [ebp+12], 1
-  jne .L6
-  mov eax, DWORD [ebp+8]
-  jmp .L5
-.L6:
-  mov eax, DWORD [ebp+8]
-  mov DWORD [ebp-4], eax
-.L8:
-  cmp DWORD [ebp+12], 1
-  jbe .L7
-  mov eax, DWORD [ebp+8]
-  imul eax, DWORD [ebp-4]
-  mov DWORD [ebp+8], eax
-  dec DWORD [ebp+12]
-  jmp .L8
-.L7:
-  mov eax, DWORD [ebp+8]
-.L5:
-  leave
+  mov ecx, DWORD [esp+4]
+  mov eax, DWORD [esp+8]
+  test eax, eax
+  je .L4
+  lea edx, [eax-1]
+  cmp eax, 1
+  mov eax, ecx
+  jbe .L5
+.L3:
+  imul eax, ecx
+  dec edx
+  jne .L3
   ret
+.L4:
+  mov eax, 1
+.L5:
+  ret
+
 main:
   push ebp
   mov ebp, esp
