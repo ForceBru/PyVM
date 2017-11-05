@@ -26,8 +26,8 @@ class Reg32:
         :param size: the size of a register in bytes. This alllowes to distinguish between registers that have the same offset.
         :return: the value of the requested register.
         """
-        assert offset in self.bounds
-        assert size in self.allowed_sizes
+        assert offset in self.bounds, 'Reg32.get: register ({}) not in bounds ({})'.format(offset, self.bounds)
+        assert size in self.allowed_sizes, 'Reg32.get: invalid size {} (allowed sizes: {})'.format(size, self.allowed_sizes)
 
         if size == self.allowed_sizes[2]:
             start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[
@@ -45,8 +45,8 @@ class Reg32:
         :return: None
         """
         size = len(value)
-        assert offset in self.bounds
-        assert size in self.allowed_sizes
+        assert offset in self.bounds, 'Reg32.set: register ({}) not in bounds ({})'.format(offset, self.bounds)
+        assert size in self.allowed_sizes, 'Reg32.set: invalid size {} (allowed sizes: {})'.format(size, self.allowed_sizes)
 
         if size == self.allowed_sizes[2]:
             start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[
@@ -62,7 +62,7 @@ class Reg32:
         :param bit: the number of the bit
         :return:
         """
-        assert bit in self.eflags_bounds
+        assert bit in self.eflags_bounds, 'Reg32.eflags_get: invalid bit number {} (allowed bit numbers: {})'.format(bit, self.eflags_bounds)
 
         return (self.eflags >> bit) & 1
 

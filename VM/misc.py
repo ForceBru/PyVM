@@ -3,124 +3,101 @@ from .CPU import to_int, byteorder
 
 @enum.unique
 class Shift(enum.Enum):
-	C_ONE  = 1
-	C_CL   = 2
-	C_imm8 = 3
-	
-	SHL = 4
-	SHR = 5
-	SAR = 6
+    C_ONE  = 1
+    C_CL   = 2
+    C_imm8 = 3
+
+    SHL = 4
+    SHR = 5
+    SAR = 6
+    
 
 def process_ModRM(self, size1, size2):
     '''
-		Assumes that 'self.eip' points to ModRM.
-		
-		Returns:
-			(type, offset, size), (type, offset, size)
-			type:
-				0 - register
-				1 - address
-		'''
+    Assumes that 'self.eip' points to ModRM.
+
+    Returns:
+            (type, offset, size), (type, offset, size)
+            type:
+                0 - register
+                1 - address
+    '''
     ModRM = self.mem.get(self.eip, 1)[0]
-    # ModRM_orig = ModRM
     self.eip += 1
-
-    RM = ModRM & 0b111
-    ModRM >>= 3
-
-    REG = ModRM & 0b111
-    ModRM >>= 3
-
+    
+    RM  = ModRM & 0b111; ModRM >>= 3
+    REG = ModRM & 0b111; ModRM >>= 3
     MOD = ModRM
-
-    # ModRM_out = bin(ModRM_orig)[2:]
-    # ModRM_out = '0' * (8 - len(ModRM_out)) + ModRM_out
-    # print("ModR/M({}:{})".format(ModRM_out, hex(ModRM_orig)))
-
+    
     if MOD == 0b11:
         return (0, RM, size1), (0, REG, size2)
-
-    if RM == 0b100:  # there is a SIB
+        
+    if RM != 0b100:  # there's no SIB
+        if (MOD == 0b00) and (RM == 0b101):
+            addr = self.mem.get(self.eip, 4)  # d32
+            self.eip += 4
+            addr = to_int(addr, True)
+        else:
+            addr = to_int(self.reg.get(RM, 4), True)
+            
+        if MOD == 0b01:
+            d8 = self.mem.get(self.eip, 1)
+            self.eip += 1
+            
+            addr += to_int(d8, True)
+        elif MOD == 0b10:
+            d32 = self.mem.get(self.eip, 4) 
+            self.eip += 4
+            
+            addr += to_int(d32, True)
+    else:  # there's a SIB
         SIB = self.mem.get(self.eip, 1)[0]
         self.eip += 1
 
-        base = SIB & 0b111
-        SIB >>= 3
-
-        index = SIB & 0b111
-        SIB >>= 3
-
+        base  = SIB & 0b111; SIB >>= 3
+        index = SIB & 0b111; SIB >>= 3
         scale = SIB
-
-        if base == 0b101:
-            if index != 0b100:
-                addr = to_int(self.reg.get(index, 4), True) * (1 << scale)
-            else:
-                addr = 0
-
-            if MOD == 0:
-                d32 = self.mem.get(self.eip, 4)
-                self.eip += 4
-                d32 = to_int(d32, True)
-                addr += d32
-            elif MOD == 1:
-                d8 = self.mem.get(self.eip, 1)
-                self.eip += 1
-                d8 = to_int(d8, True)
-                addr += d8 + self.reg.get(base, 4)  # EBP
-            elif MOD == 2:
-                d32 = self.mem.get(self.eip, 4)
-                self.eip += 4
-                d32 = to_int(d32, True)
-                addr += d32 + self.reg.get(base, 4)  # EBP
-            else:
-                raise ValueError('Invalid MOD value')
-        else:  # base != 0b101
-            addr = to_int(self.reg.get(base, 4), True)
-
-            if MOD == 0:
-                ...
-            elif MOD == 1:
-                d8 = self.mem.get(self.eip, 1)
-                self.eip += 1
-                d8 = to_int(d8, True)
-                addr += d8
-            elif MOD == 2:
-                d32 = self.mem.get(self.eip, 4)
-                self.eip += 4
-                d32 = to_int(d32, True)
-                addr += d32
-            else:
-                raise ValueError('Invalid MOD value')
-
-            if index != 0b100:  # there is an index
-                addr += to_int(self.reg.get(index, 4), True) * (1 << scale)
-    else:  # RM != 0b100
-        if MOD == 0:
-            if RM == 0b101:
-                d32 = self.mem.get(self.eip, 4)
-                self.eip += 4
-                addr = to_int(d32, True)
-            else:
-                addr = to_int(self.reg.get(RM, 4), True)
-        elif MOD == 1:
-            addr = to_int(self.reg.get(RM, 4), True)
-
+        
+        if MOD == 0b01:
             d8 = self.mem.get(self.eip, 1)
             self.eip += 1
-            d8 = to_int(d8, True)
-            addr += d8
-        elif MOD == 2:
-            addr = to_int(self.reg.get(RM, 4), True)
-
-            d32 = self.mem.get(self.eip, 4)
+                
+            addr = to_int(d8, True)
+        elif MOD == 0b10:
+            d32 = self.mem.get(self.eip, 4) 
             self.eip += 4
-            d32 = to_int(d32, True)
-            addr += d32
+            
+            addr = to_int(d32, True)
         else:
-            raise ValueError('This must not happen!')
-
+            addr = 0
+        
+        if index != 0b100:
+            addr += to_int(self.reg.get(index, 4), True) << scale
+            
+        if base != 0b101:
+            addr += to_int(self.reg.get(base, 4), True)
+        else:
+            if MOD == 0b00:
+                d32 = self.mem.get(self.eip, 4) 
+                self.eip += 4
+            
+                addr += to_int(d32, True)
+            else:
+                addr += to_int(self.reg.get(base, 4), True)
+                
+                if MOD == 0b01:
+                    d8 = self.mem.get(self.eip, 1)
+                    self.eip += 1
+                
+                    addr += to_int(d8, True)
+                elif MOD == 0b10:
+                    d32 = self.mem.get(self.eip, 4) 
+                    self.eip += 4
+            
+                    addr += to_int(d32, True)
+                    
     return (1, addr, size1), (0, REG, size2)
+
 
 def sign_extend(number: bytes, nbytes: int):
     return int.from_bytes(number, byteorder, signed=True).to_bytes(nbytes, byteorder, signed=True)
