@@ -13,7 +13,7 @@ The instructions' opcodes as well as their operation algorithms have been taken 
 
 ## Instructions currently supported
 
-The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the `#TODO` comments in `VM/instructions_OLD.py`.
+The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the `#TODO` comments in `VM/instructions/<category>.py`.
 
 1.  `adc`
 2.  `add`
@@ -93,7 +93,7 @@ The `CPU32` class is defined in `VM/CPU.py`. It sets up the memory (represented 
 
 ### VM
 
-The `VM` class is defined in `VM.OLD__init__.py`. It inherits from `VM.CPU.CPU32` and provides a lot of additional functions, the majority of which need not to be accessed directly by the user code. This is the class that actually runs the binary.
+The `VM` class is defined in `VM.__init__.py`. It inherits from `VM.CPU.CPU32` and provides a lot of additional functions, the majority of which need not to be accessed directly by the user code. This is the class that actually runs the binary.
 
 There are only 3 user-level functions:
 
@@ -101,7 +101,7 @@ There are only 3 user-level functions:
 * `execute_bytes(data: bytes, offset=0)` - load the given data into memory starting from address `offset` and execute it.
 * `execute_file(file_name: str, offset=0)` - load the contents of the given file into memory starting from address `offset` and execute it.
 
-The individual instructions are implemented as functions in `VM/OLD__init__.py` and `VM/instructions_OLD.py`.
+The individual instructions are implemented as classes in `VM/instructions/<category>.py`.
 
 
 ## Example
@@ -172,4 +172,4 @@ If you decide to open an issue, please include a minimal, complete and verifiabl
 
 ## How to contribute
 
-Everyone is welcome to contribute! For some guidelines, please refer to the comments in the project, especilly in `VM/OLD__init__.py`, `VM/fetchLoop.py` and `VM/instructions_OLD.py`.
+Everyone is welcome to contribute! For some guidelines, please refer to the comments in the project, especially in `VM/__init__.py`, `VM/fetchLoop.py` and `VM/instructions`.
