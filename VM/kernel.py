@@ -1,5 +1,5 @@
 from .debug import debug
-from .CPU import to_int
+from .util import to_int
 
 
 def sys_exit(self):

@@ -12,38 +12,43 @@ Awesome! Please try to structure your code in the following way:
 
 ### Implementing the instruction
 
-The instructions should be implemented solely in `VM/instructions.py`. If your instruction only has one possible signature (like `ret`, `mul` or `div` and unlike `imul`), it should be implemented as a function, whose first argument should be `self`. Otherwise, it should be a class organized in the following way:
+The instructions should be implemented solely in `VM/instructions/<category>.py`. An instruction should be a class organized in the following way:
 
-    class MNEMONIC:
-        @staticmethod
+    # from ..util import Instruction
+
+    class MNEMONIC(Instruction):
+        def __init__(self): # this method MUST be here, and it MUST define the following attribute
+            self.opcodes = {
+                0x00: self.r, # just an example
+                0x01: self.rm
+                }
+
         def r(vm, ...):
-            # do stuff
-            
-        @staticmethod
-        def r_rm(vm, ...):
-            # do other stuff
-            
-            
-So that each member function is marked as `@staticmethod`, and its name represents the arguments of the instruction, separated by underscores (`_`). The first argument is the `self` of a `VM` instance.
+            ... # do stuff
 
-Each instruction (a fuunction or a class) shall occur after a header in the following form:
+        def r_rm(vm, ...):
+            ... # do other stuff
+            
+            
+Here, `r` and `r_rm` represent the 'types' an instruction works with. You can use any names you like. The first argument will be a `VM` instance, so _you can use its memory and registers right away_.
+
+The last sentence is very important. You can code the instructions separately from the code for the `VM` class, yet it's possible to access _all_ the members of this class (normally, you'd only need memory and registers), even if your IDE tells you otherwise. Metaclass magic!
+
+Each instruction shall occur after a header in the following form:
 
     ####################
-    # MNEMONIC1 [/ MNEMONIC_I]*
+    # MNEMONIC1 [/ MNEMONIC_i]*
     ####################
     
-If you think you can implement multiple instructions as one function or class, it's OK, but please name it accordingly, like `ADDSUB` or `cbwcwde`, for example.
+If you think you can implement multiple instructions as one class, it's OK, but please name it accordingly, like `ADDSUB` or `cbwcwde`, for example.
 
 ### Adding the instruction to the CPU
 
-The instructions' implementations are to be imported right inside the class' definition, in `VM/__init__.py`. Then, in `VM.__init__`, right before the definition of `self.instr`, introduce a new variable in the following way:
+If you added a new `<category>` (see above), go to `VM/instructions/__init__.py` and add the following:
 
-    self._mnemonic = {
-        opcode_1: P(self.function_implementation, arg_1=val_1, ...),
-        opcode_2: P(self.function_implementation, arg_1=val_2, ...),
-    }
-    
-If the instruction is implemented as a class, use `self.CLASS_IMPLEMENTATION.arg1_arg2` instead of `self.function_implementation`.
+    from <your_category> import *
+
+And this is it! Otherwise, you shouldn't even do anything because the instructions' implementations are collected and added to the CPU automagically using metaclasses. Remember, they _must_ be subclasses of `util.Instruction` for this to work!
 
 ### Adding the instruction mnemonic to README.md
 

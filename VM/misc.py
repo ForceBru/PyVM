@@ -1,5 +1,5 @@
 import enum
-from .CPU import to_int, byteorder
+from .util import to_int, byteorder
 
 @enum.unique
 class Shift(enum.Enum):

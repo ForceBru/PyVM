@@ -1,16 +1,16 @@
 from .Memory import Memory
 from .Registers import Reg32
+from .util import CPU, byteorder, to_int
+
+from . import instructions # this line MUST be here for the instructions to be loaded correctly
 
 eax, ecx, edx, ebx, esp, ebp, esi, edi = range(8)
-byteorder = 'little'
 
 
-def to_int(data: bytes, signed=False):
-    return int.from_bytes(data, byteorder, signed=signed)
-
-
-class CPU32:
+class CPU32(CPU):
     def __init__(self, memsize: int):
+        super().__init__()
+
         self.mem = Memory(memsize)  # stack grows downward, user memory - upward
         self.reg = Reg32()
 
