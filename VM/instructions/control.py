@@ -5,8 +5,8 @@ from ..util import Instruction, to_int, byteorder
 from functools import partialmethod as P
 from unittest.mock import MagicMock
 
-MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
-SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
+MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-byte number
+SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-byte number
 
 ####################
 # JMP
@@ -195,8 +195,34 @@ class CALL(Instruction):
             }
 
     # TODO: implement far calls
-    rm_m = MagicMock(return_value=False)
+    #rm_m = MagicMock(return_value=False)
     ptr = MagicMock(return_value=False)
+    
+    def rm_m(vm) -> bool:
+        old_eip = vm.eip
+        
+        sz = vm.operand_size
+        RM, R = vm.process_ModRM(sz, sz)
+        
+        if R[1] == 2:  # this is call r/m
+          type, offset, size = RM
+          
+          tmpEIP = to_int((vm.mem if type else vm.reg).get(offset, size)) & MAXVALS[sz]
+          
+          # TODO: check whether tmpEIP is OK
+          
+          vm.stack_push(vm.eip.to_bytes(sz, byteorder))
+          
+          vm.eip = tmpEIP
+          
+          if debug: print(f'call {"m" if type else "r"}{sz * 8}(eip={vm.eip})')
+          
+          return True
+        elif R[1] == 3:  # this is call m
+          return False
+        
+        return False
+          
 
     def rel(vm) -> True:
         sz = vm.operand_size

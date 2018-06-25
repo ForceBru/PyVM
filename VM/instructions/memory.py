@@ -369,7 +369,7 @@ class CBW(Instruction):
 class CMC(Instruction):
     def __init__(self):
         self.opcodes = {
-            0x98: self.cmc
+            0xF5: self.cmc
             }
 
     def cmc(self) -> True:
