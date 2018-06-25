@@ -27,8 +27,9 @@ def execute_opcode(self) -> None:
         for instruction in self.instr[opcode]:
             if instruction():
                 return
+        raise RuntimeError(f'Opcode 0x{opcode:02x} is not implemented yet')
     except KeyError:
-        raise ValueError('Unknown opcode: 0x{:02x}'.format(opcode))
+        raise ValueError(f'Unknown opcode: 0x{opcode:02x}')
     
 
 def override(self, name: str):

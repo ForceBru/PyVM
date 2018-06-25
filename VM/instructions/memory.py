@@ -302,6 +302,8 @@ class LEA(Instruction):
             raise RuntimeError("Invalid operand size / address size")
 
         self.reg.set(R[1], tmp.to_bytes(self.operand_size, byteorder))
+        
+        if debug: print('lea r{0}({1}),{3}{0}({2})'.format(sz * 8, R[1], loc, ('m' if type else '_r')))
 
         return True
 
