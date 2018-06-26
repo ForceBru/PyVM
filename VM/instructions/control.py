@@ -1,6 +1,7 @@
 from ..debug import debug
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
+from ..misc import sign_extend
 
 from functools import partialmethod as P
 from unittest.mock import MagicMock
@@ -64,24 +65,34 @@ class JMP(Instruction):
             0x78: P(self.rel, _8bit=True, jump=JS),
             0x76: P(self.rel, _8bit=True, jump=JBE),
             0x7E: P(self.rel, _8bit=True, jump=JLE),
-            0x72: P(self.rel, _8bit=True, jump=JB)
+            0x72: P(self.rel, _8bit=True, jump=JB),
+            
+            0x0F8C: P(self.rel, _8bit=False, jump=JL),
+            0x0F84: P(self.rel, _8bit=False, jump=JE),
+            0x0F82: P(self.rel, _8bit=False, jump=JB),
             }
 
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         d = vm.mem.get(vm.eip, sz)
+        d = sign_extend(d, 4)
         d = to_int(d, True)
         vm.eip += sz
 
         if not eval(jump):
             return True
+            
+        tmpEIP = vm.eip + d
+        if vm.operand_size == 2:
+          tmpEIP &= MAXVALS[vm.operand_size]
+          
+        assert tmpEIP in vm.mem.bounds
 
-        vm.eip += d
-
-        assert vm.eip in vm.mem.bounds
+        vm.eip = tmpEIP
 
         if debug: print('jmp rel{}({})'.format(sz * 8, hex(vm.eip)))
+        
         return True
 
     def rm_m(vm) -> bool:

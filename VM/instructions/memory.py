@@ -1,7 +1,7 @@
 from ..debug import debug
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
-from ..misc import sign_extend
+from ..misc import sign_extend, zero_extend
 
 from functools import partialmethod as P
 from unittest.mock import MagicMock
@@ -90,7 +90,7 @@ class MOV(Instruction):
 
         return True
 
-    def rm_r(vm, _8bit, reverse=False) -> True:
+    def rm_r(vm, _8bit, reverse=False, movsx=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         RM, R = vm.process_ModRM(sz, sz)
@@ -99,6 +99,7 @@ class MOV(Instruction):
 
         if reverse:
             data = (vm.mem if type else vm.reg).get(loc, sz)
+            
             vm.reg.set(R[1], data)
 
             if debug: print('mov r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], data))
@@ -129,6 +130,50 @@ class MOV(Instruction):
 
         return True
 
+
+####################
+# MOVSX / MOVSXD / MOVZX
+####################
+class MOVSX(Instruction):
+  """
+  Move and sign extend
+  """
+  
+  def __init__(self):
+    self.opcodes = {
+      0x0FBE: P(self.r_rm, _8bit=True),
+      0x0FBF: P(self.r_rm, _8bit=False),
+      
+      0x63: P(self.r_rm, _8bit=False, movsxd=True),
+      
+      0x0FB6: P(self.r_rm, _8bit=True, movzx=True),
+      0x0FB7: P(self.r_rm, _8bit=False, movzx=True),
+    }
+  
+  def r_rm(vm, _8bit, movsxd=False, movzx=False) -> True:
+    sz = 1 if _8bit else vm.operand_size
+    
+    if movsxd:
+      RM, R = vm.process_ModRM(sz, sz)
+    else:
+      RM, R = vm.process_ModRM(sz, vm.operand_size) # different sizes!
+
+    type, From, size = RM
+    
+    SRC = (vm.mem if type else vm.reg).get(From, size)
+    
+    if movzx:
+      SRC = zero_extend(SRC, R[2])
+    else:
+      SRC = sign_extend(SRC, R[2])
+    
+    vm.reg.set(R[1], SRC)
+    
+    if debug: print(f'movsx{"d" if movsxd else ""} r{sz} {"m" if type else "r"}{size}')
+    
+    return True
+    
+    
 
 ####################
 # PUSH
