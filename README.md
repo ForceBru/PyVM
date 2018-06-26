@@ -39,7 +39,10 @@ The instructions  marked wth `*` are supported partially. For the actual reasons
 12. `leave`
 13. `mov`  (*)
 14. `movsb`
+15. `movsx`
+16. `movsxd`
 15. `movsw`
+16. `movzx`
 16. `mul`
 14. `neg`  (*)
 15. `nop`

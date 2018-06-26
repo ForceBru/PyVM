@@ -1,4 +1,4 @@
-from ..debug import debug
+from ..debug import *
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
 from ..misc import sign_extend
@@ -216,21 +216,24 @@ class CALL(Instruction):
         RM, R = vm.process_ModRM(sz, sz)
         
         if R[1] == 2:  # this is call r/m
-          type, offset, size = RM
+          type, loc, size = RM
+
+          data = (vm.mem if type else vm.reg).get(loc, size)
           
-          tmpEIP = to_int((vm.mem if type else vm.reg).get(offset, size)) & MAXVALS[sz]
+          tmpEIP = to_int(data) & MAXVALS[sz]
           
           # TODO: check whether tmpEIP is OK
           
           vm.stack_push(vm.eip.to_bytes(sz, byteorder))
           
           vm.eip = tmpEIP
-          
-          if debug: print(f'call {"m" if type else "r"}{sz * 8}(eip={vm.eip})')
+
+          if debug: print(f'call {hex(loc) if type else reg_names[loc][sz]}={bytes(data)} => {hex(vm.eip)}')
           
           return True
         elif R[1] == 3:  # this is call m
-          return False
+            vm.eip = old_eip
+            return False
         
         return False
           
@@ -247,7 +250,8 @@ class CALL(Instruction):
         vm.stack_push(vm.eip.to_bytes(sz, byteorder, signed=True))
         vm.eip = tmpEIP
 
-        if debug: print("call rel{}({})".format(sz * 8, vm.eip))
+        if debug: print(f'call {hex(dest)} => {hex(vm.eip)}')
+
         return True
 
 
@@ -277,7 +281,7 @@ class RET(Instruction):
 
         assert vm.eip in vm.mem.bounds
 
-        if debug: print("ret ({})".format(vm.eip))
+        if debug: print("ret (eip=0x{:02x})".format(vm.eip))
 
         return True
 
@@ -292,7 +296,7 @@ class RET(Instruction):
 
         assert vm.eip in vm.mem.bounds
 
-        if debug: print("ret ({})".format(vm.eip))
+        if debug: print("ret (eip=0x{:02x})".format(vm.eip))
 
         return True
 

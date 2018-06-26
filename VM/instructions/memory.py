@@ -1,4 +1,4 @@
-from ..debug import debug
+from ..debug import *
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
 from ..misc import sign_extend, zero_extend
@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
+
 
 ####################
 # MOV
@@ -63,8 +64,7 @@ class MOV(Instruction):
         r = vm.opcode & 0b111
         vm.reg.set(r, imm)
 
-        if debug:
-            print('mov r{0}({1}),imm{0}({2})'.format(sz * 8, r, imm))
+        if debug: print(f'mov {reg_names[r][sz]}, {bytes(imm)}')
 
         return True
 
@@ -85,12 +85,11 @@ class MOV(Instruction):
 
         (vm.mem if type else vm.reg).set(loc, imm)
 
-        if debug:
-            print('mov {0}{1}({2}),imm{1}({3})'.format(('m' if type else '_r'), sz * 8, loc, imm))
+        if debug: print(f'mov {hex(loc) if type else reg_names[loc][sz]}, {bytes(imm)}')
 
         return True
 
-    def rm_r(vm, _8bit, reverse=False, movsx=False) -> True:
+    def rm_r(vm, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         RM, R = vm.process_ModRM(sz, sz)
@@ -102,12 +101,12 @@ class MOV(Instruction):
             
             vm.reg.set(R[1], data)
 
-            if debug: print('mov r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], data))
+            if debug: print(f'mov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
         else:
             data = vm.reg.get(R[1], R[2])
             (vm.mem if type else vm.reg).set(loc, data)
 
-            if debug: print('mov {0}{1}({2}),r{1}({3})'.format(('m' if type else '_r'), sz * 8, loc, data))
+            if debug: print(f'mov {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][sz]}={bytes(data)}')
 
         return True
 
@@ -208,8 +207,10 @@ class PUSH(Instruction):
 
         loc = vm.opcode & 0b111
         data = vm.reg.get(loc, sz)
-        if debug: print('push r{}({})'.format(sz * 8, loc))
+
         vm.stack_push(data)
+
+        if debug: print(f'push {reg_names[loc][sz]} -> {bytes(data)}')
 
         return True
 
@@ -228,7 +229,8 @@ class PUSH(Instruction):
         data = (vm.mem if type else vm.reg).get(loc, sz)
         vm.stack_push(data)
 
-        if debug: print('push {2}{0}({1})'.format(sz * 8, data, ('m' if type else '_r')))
+        if debug: print(f'push {hex(loc) if type else reg_names[loc][sz]} -> {bytes(data)}')
+        #if debug: print('push {2}{0}({1} -> {3})'.format(sz * 8, hex(loc) if type else reg_names[loc][sz], ('m' if type else '_r'), bytes(data)))
         return True
 
     def imm(vm, _8bit=False) -> True:
@@ -237,9 +239,12 @@ class PUSH(Instruction):
         data = vm.mem.get(vm.eip, sz)
         vm.eip += sz
 
+        if len(data) < vm.operand_size:
+            data = sign_extend(data, vm.operand_size)
+
         vm.stack_push(data)
 
-        if debug: print('push imm{}({})'.format(sz * 8, data))
+        if debug: print(f'push {bytes(data)}')
 
         return True
 
@@ -249,8 +254,12 @@ class PUSH(Instruction):
 
         :param reg: the name of the register to be pushed.
         """
+        data = getattr(vm.reg, reg).to_bytes(2, byteorder)
 
-        vm.stack_push(getattr(vm.reg, reg).to_bytes(2, byteorder))
+        if len(data) < vm.operand_size:
+            data = zero_extend(data, vm.operand_size)
+
+        vm.stack_push(data)
         if debug: print('push {}'.format(reg))
 
         return True
@@ -286,7 +295,8 @@ class POP(Instruction):
         loc = vm.opcode & 0b111
         data = vm.stack_pop(sz)
         vm.reg.set(loc, data)
-        if debug: print('pop r{}({})'.format(sz * 8, loc))
+
+        if debug: print(f'pop {reg_names[loc][sz]} <- {bytes(data)}')
 
         return True
 
@@ -306,7 +316,8 @@ class POP(Instruction):
 
         (vm.mem if type else vm.reg).set(loc, data)
 
-        if debug: print('pop {2}{0}({1})'.format(sz * 8, data, ('m' if type else '_r')))
+        if debug: print(f'pop {hex(loc) if type else reg_names[loc][sz]} <- {bytes(data)}')
+        #if debug: print('pop {2}{0}({1} <- {3})'.format(sz * 8, hex(loc) if type else reg_names[loc][sz], ('m' if type else '_r'), bytes(data)))
 
         return True
 
@@ -346,9 +357,10 @@ class LEA(Instruction):
         else:
             raise RuntimeError("Invalid operand size / address size")
 
-        self.reg.set(R[1], tmp.to_bytes(self.operand_size, byteorder))
-        
-        if debug: print('lea r{0}({1}),{3}{0}({2})'.format(sz * 8, R[1], loc, ('m' if type else '_r')))
+        data = tmp.to_bytes(self.operand_size, byteorder)
+        self.reg.set(R[1], data)
+
+        if debug: print(f'lea {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
 
         return True
 

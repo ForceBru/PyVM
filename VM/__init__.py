@@ -19,12 +19,7 @@ class VM(CPU32):
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
         super().__init__(memsize)
 
-        self.modes = (32, 16)  # number of bits
-        self.sizes = (4, 2)  # number of bytes
-        self.default_mode = 0  # 0 == 32-bit mode; 1 == 16-bit mode
-        self.current_mode = self.default_mode
-        self.operand_size = self.sizes[self.current_mode]
-        self.address_size = self.sizes[self.current_mode]
+
 
         self.fmt = '\t[0x{:0' + str(len(str(self.mem.size))//16) + 'x}]: 0x{:02x}'
 

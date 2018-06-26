@@ -9,10 +9,10 @@ def execute_opcode(self) -> None:
     :param op: the current opcode
     :return: None
     """
-    if debug: print(self.fmt.format(self.eip, self.opcode))
     self.eip += 1  # points to next data
 
     if self.opcode == 0x90:  # nop
+        if debug: print(self.fmt.format(self.eip - 1, self.opcode))
         return
 
     opcode = self.opcode
@@ -22,6 +22,10 @@ def execute_opcode(self) -> None:
 
         opcode = (opcode << 8) + op  # opcode <- 0x0FYY
         self.opcode = op
+
+        if debug: print(self.fmt.format(self.eip - 2, opcode))
+    else:
+        if debug: print(self.fmt.format(self.eip - 1, opcode))
      
     try:   
         for instruction in self.instr[opcode]:
