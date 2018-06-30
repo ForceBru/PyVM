@@ -70,6 +70,7 @@ class JMP(Instruction):
             0x0F8C: P(self.rel, _8bit=False, jump=JL),
             0x0F84: P(self.rel, _8bit=False, jump=JE),
             0x0F82: P(self.rel, _8bit=False, jump=JB),
+            0x0F85: P(self.rel, _8bit=False, jump=JNZ),
             }
 
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
@@ -234,7 +235,8 @@ class CALL(Instruction):
         elif R[1] == 3:  # this is call m
             vm.eip = old_eip
             return False
-        
+
+        vm.eip = old_eip
         return False
           
 

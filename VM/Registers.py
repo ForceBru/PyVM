@@ -30,8 +30,8 @@ class Reg32:
         assert size in self.allowed_sizes, 'Reg32.get: invalid size {} (allowed sizes: {})'.format(size, self.allowed_sizes)
 
         if size == self.allowed_sizes[2]:
-            start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[
-                0]
+            start = offset * self.allowed_sizes[0]
+            #start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[0]
         else:
             start = (offset + 1) * self.allowed_sizes[0] - size
 
@@ -49,8 +49,8 @@ class Reg32:
         assert size in self.allowed_sizes, 'Reg32.set: invalid size {} (allowed sizes: {})'.format(size, self.allowed_sizes)
 
         if size == self.allowed_sizes[2]:
-            start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[
-                0]
+            start = offset * self.allowed_sizes[0]
+            #start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[0]
         else:
             start = (offset + 1) * self.allowed_sizes[0] - size
 

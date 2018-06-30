@@ -1,4 +1,4 @@
-from ..debug import debug
+from ..debug import *
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
 from ..misc import parity, sign_extend
@@ -135,7 +135,7 @@ class ADDSUB(Instruction):
             vm.reg.set(0, c)
 
         name = 'sub' if sub else 'add'
-        if debug: print('{} {}, imm{}({})'.format('cmp' if cmp else name, [0, 'al', 'ax', 0, 'eax'][sz], sz * 8, b))
+        if debug: print('{} {}, imm{}({})'.format('cmp' if cmp else name, reg_names[0][sz], sz * 8, b))
 
         return True
 
@@ -207,9 +207,9 @@ class ADDSUB(Instruction):
         if not cmp:
             (vm.mem if type else vm.reg).set(loc, c)
 
-        name = 'sub' if sub else 'add'
-        if debug: print('{0} {5}{1}({2}),imm{3}({4})'.format('cmp' if cmp else name, sz * 8, loc, imm_sz * 8, b,
-                                                             ('m' if type else 'r')))
+        if debug:
+            name = 'cmp' if cmp else ('sub' if sub else 'add')
+            print(f'{name} {hex(loc) if type else reg_names[loc][sz]}, {b}')
 
         return True
 
@@ -254,9 +254,9 @@ class ADDSUB(Instruction):
         if not cmp:
             (vm.mem if type else vm.reg).set(loc, c)
 
-        name = 'sub' if sub else 'add'
-        if debug: print(
-            '{0} {4}{1}({2}),r{1}({3})'.format('cmp' if cmp else name, sz * 8, loc, R[1], ('m' if type else '_r')))
+        if debug:
+            name = 'cmp' if cmp else ('sub' if sub else 'add')
+            print(f'{name} {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][R[2]]}')
 
         return True
 

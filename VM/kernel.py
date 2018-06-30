@@ -1,5 +1,6 @@
 from .debug import debug
 from .util import to_int
+import os
 
 
 def sys_exit(self):
@@ -14,7 +15,8 @@ def sys_read(self):
     data_addr = to_int(self.reg.get(1, 4))  # ECX
     count = to_int(self.reg.get(2, 4))  # EDX
 
-    data = self.descriptors[fd].read(count)
+    data = os.read(self.descriptors[fd].fileno(), count) # this doesn't stop the user from inputting more data...
+    #data = self.descriptors[fd].read(count).encode('ascii')
 
     if debug: print('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
     self.mem.set(data_addr, data)

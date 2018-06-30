@@ -46,6 +46,7 @@ class CPUMeta(type):
         super().__init__(name, bases, dct)
 
         cls._opcodes_names = {} # TODO: this looks ugly
+        cls._concrete_names = []
 
         for instruction in Instruction.instruction_set:
             for opcode, implementation in instruction().opcodes.items():
@@ -74,6 +75,11 @@ class CPUMeta(type):
                 # raise ValueError(f"Failed to retrieve function name for {implementation}")
 
         concrete_name = f"i_{instruction.__name__}_{impl_name}"
+
+        while concrete_name in cls._concrete_names:
+            concrete_name += binascii.hexlify(os.urandom(4)).decode()
+
+        cls._concrete_names.append(concrete_name)
 
         setattr(cls, concrete_name, implementation)
         cls._opcodes_names.setdefault(opcode, []).append(concrete_name)

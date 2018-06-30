@@ -28,6 +28,8 @@ def process_ModRM(self, size1, size2):
     RM  = ModRM & 0b111; ModRM >>= 3
     REG = ModRM & 0b111; ModRM >>= 3
     MOD = ModRM
+
+    #print(f'\t\t\tMOD, REG, RM = {MOD, REG, RM}')
     
     if MOD == 0b11:
         return (0, RM, size1), (0, REG, size2)
@@ -96,7 +98,9 @@ def process_ModRM(self, size1, size2):
             
                     addr += to_int(d32, True)
                     
-    return (1, addr, size1), (0, REG, size2)
+    RM, R = (1, addr, size1), (0, REG, size2)
+
+    return RM, R
 
 
 def sign_extend(number: bytes, nbytes: int) -> bytes:

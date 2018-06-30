@@ -92,11 +92,16 @@ class MOV(Instruction):
     def rm_r(vm, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
+        #print(f'ModRM = {hex(vm.mem.get(vm.eip, 1)[0])}, _8bit={_8bit}, reverse={reverse}')
+
         RM, R = vm.process_ModRM(sz, sz)
+
+        #print(f'RM={RM}, R={R}')
 
         type, loc, _ = RM
 
         if reverse:
+            #print('r_rm', loc)
             data = (vm.mem if type else vm.reg).get(loc, sz)
             
             vm.reg.set(R[1], data)
@@ -162,13 +167,13 @@ class MOVSX(Instruction):
     SRC = (vm.mem if type else vm.reg).get(From, size)
     
     if movzx:
-      SRC = zero_extend(SRC, R[2])
+      SRC_ = zero_extend(SRC, R[2])
     else:
-      SRC = sign_extend(SRC, R[2])
+      SRC_ = sign_extend(SRC, R[2])
     
-    vm.reg.set(R[1], SRC)
+    vm.reg.set(R[1], SRC_)
     
-    if debug: print(f'movsx{"d" if movsxd else ""} r{sz} {"m" if type else "r"}{size}')
+    if debug: print(f'movsx{"d" if movsxd else ""} {reg_names[R[1]][R[2]]}, {hex(From) if type else reg_names[From][size]}')
     
     return True
     
