@@ -6,8 +6,8 @@ import VM.Memory
 import VM.Registers
 import VM.CPU
 
-RUNS = 10
-MEMSZ = 64
+RUNS = 100
+MEMSZ = 64 * RUNS
 
 
 class TestRegisters(unittest.TestCase):  # Methods are sorted in alphabetical order!
@@ -74,15 +74,22 @@ class TestMemory(unittest.TestCase):
 class TestStack(unittest.TestCase):
     def setUp(self):
         self.cpu = VM.CPU.CPU32(MEMSZ)
-        self.data = [os.urandom(random.randint(1, MEMSZ // RUNS)) for _ in range(RUNS)]
+        self.data = [os.urandom(random.choice([1, 2, 4])) for _ in range(RUNS)]
 
     def test_push_pop(self):
         for x in self.data:
             self.cpu.stack_push(x)
 
         for i, x in enumerate(reversed(self.data)):
+            l = len(x)
+            
             with self.subTest("x = '{}' (#{}) failed".format(x, i)):
-                popped = self.cpu.stack_pop(len(x))
+                popped = self.cpu.stack_pop(self.cpu.operand_size)
+                
+                if l < self.cpu.operand_size:
+                    self.assertTrue(sum(popped[l:]) == 0)
+                    popped = popped[:l]
+                    
                 self.assertSequenceEqual(popped, x)
 
 
