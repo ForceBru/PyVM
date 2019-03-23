@@ -77,3 +77,93 @@ class Reg32:
         else:
             if value:
                 self.eflags |= 1 << bit
+
+
+class FReg32:
+    names = "st0 st1 st2 st3 st4 st5 st6 st7".split()
+
+    def __init__(self):
+        self.allowed_sizes = [8]
+        self.registers = bytearray(self.allowed_sizes[0] * len(FReg32.names))
+
+        self.control = 0
+        self.status = 0b00_111_00000000000
+        self.tag = 0xFFFF
+
+    def _get_st(self, reg_num: int) -> bytes:
+        TOP = self.TOP + reg_num
+
+        if TOP >= 0b111:
+            raise
+
+        sz = self.allowed_sizes[0]
+
+        s = slice(TOP * sz, (TOP + 1) * sz)
+        value = self.registers[TOP * sz:(TOP + 1) * sz]
+        #print(f"Actually getting ST{reg_num} ({s}) -> {value}")
+        return value
+
+    def _set_st(self, reg_num: int, value: bytes) -> None:
+        sz = self.allowed_sizes[0]
+        assert len(value) == sz
+
+        TOP = self.TOP + reg_num
+
+        if TOP < 0:
+            raise
+
+        s = slice(TOP * sz, (TOP + 1) * sz)
+
+        #print(f"Actually setting ST{reg_num} ({s}) = {value}")
+        self.registers[s] = value
+
+    # TODO: generate that with a metaclass
+    ST0 = property(lambda self: self._get_st(0), lambda self, val: self._set_st(0, val))
+    ST1 = property(lambda self: self._get_st(1), lambda self, val: self._set_st(1, val))
+    ST2 = property(lambda self: self._get_st(2), lambda self, val: self._set_st(2, val))
+    ST3 = property(lambda self: self._get_st(3), lambda self, val: self._set_st(3, val))
+    ST4 = property(lambda self: self._get_st(4), lambda self, val: self._set_st(4, val))
+    ST5 = property(lambda self: self._get_st(5), lambda self, val: self._set_st(5, val))
+    ST6 = property(lambda self: self._get_st(6), lambda self, val: self._set_st(6, val))
+    ST7 = property(lambda self: self._get_st(7), lambda self, val: self._set_st(7, val))
+
+
+    @property
+    def TOP(self) -> int:
+        return (self.status >> 11) & 0b111
+
+    @TOP.setter
+    def TOP(self, val: int) -> None:
+        self.status &= 0b11_000_11111111111  # clear TOP; ugly AF
+        self.status |= val << 11  # set TOP back
+
+    def push(self, value: bytes) -> None:
+        sz = self.allowed_sizes[0]
+
+        assert len(value) == sz
+
+        TOP = self.TOP
+
+        if TOP == 0:
+            raise ValueError("Push onto full stack")
+
+        #print(f"Pushing {value} -> {TOP * sz}:{(TOP + 1) * sz} ({TOP}:{TOP + 1})")
+
+        self.TOP = TOP - 1
+        self.ST0 = value
+
+
+    def pop(self, increase_TOP=True) -> bytearray:
+        sz = self.allowed_sizes[0]
+        TOP = self.TOP
+
+        if TOP == 0b111:
+            raise ValueError("Pop from empty stack")
+
+        #print(f"Popping {TOP * sz}:{(TOP + 1) * sz}")
+        ret = self.ST0
+
+        if increase_TOP:
+            self.TOP = TOP + 1
+
+        return ret

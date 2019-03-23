@@ -12,7 +12,7 @@ class Shift(enum.Enum):
     SAR = 6
     
 
-def process_ModRM(self, size1, size2):
+def process_ModRM(self, size1, size2=None):
     '''
     Assumes that 'self.eip' points to ModRM.
 
@@ -22,6 +22,9 @@ def process_ModRM(self, size1, size2):
                 0 - register
                 1 - address
     '''
+    if size2 is None:
+        size2 = size1
+
     ModRM = self.mem.get(self.eip, 1)[0]
     self.eip += 1
     

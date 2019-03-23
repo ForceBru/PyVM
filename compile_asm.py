@@ -57,9 +57,9 @@ def compile_many(nasm_executable: Path,
 
     failed = {}
 
-    for asm_file in files_path.glob("*.s"):
+    for asm_file in sorted(files_path.glob("*.s")):
         if asm_file.name in exclude_files or asm_file in exclude_files:
-            print(f"Skipping: {asm_file}")
+            print(f"Skipping : {asm_file}")
             continue
 
         print(f"Compiling: {asm_file}")
@@ -96,4 +96,5 @@ if __name__ == '__main__':
     import VM
 
     vm = VM.VM(1024)
-    vm.execute_file('asm/bin/c_float.bin')
+
+    vm.execute_file('asm/bin/c_float4.bin')

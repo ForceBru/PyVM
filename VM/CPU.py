@@ -1,5 +1,5 @@
 from .Memory import Memory
-from .Registers import Reg32
+from .Registers import Reg32, FReg32
 from .util import CPU, byteorder, to_int
 
 from . import instructions # this line MUST be here for the instructions to be loaded correctly
@@ -13,6 +13,7 @@ class CPU32(CPU):
 
         self.mem = Memory(memsize)  # stack grows downward, user memory - upward
         self.reg = Reg32()
+        self.freg = FReg32()
 
         self.eip = 0
 
