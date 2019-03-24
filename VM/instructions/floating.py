@@ -189,15 +189,13 @@ class FMUL(Instruction):
         }
 
     def fmulp(vm, i: int):
-        SRC, DST = vm.freg._get_st(i), vm.freg.ST0
+        _SRC, _DST = vm.freg._get_st(i), vm.freg.ST0
 
-        print(f"Mult: {SRC} * {DST}")
-
-        SRC, = FPACK64.unpack(SRC)
-        DST, = FPACK64.unpack(DST)
+        SRC, = FPACK64.unpack(_SRC)
+        DST, = FPACK64.unpack(_DST)
 
         RET = SRC * DST
-        print(f"Mult result: {RET}")
+        if debug: print(f"fmulp {_SRC}({SRC}) * {_DST}({DST}) = {RET}")
 
         vm.freg._set_st(i, FPACK64.pack(RET))
         vm.freg.pop()

@@ -91,11 +91,18 @@ def compile_all():
 
 
 if __name__ == '__main__':
-    # compile_all()
-    compile_one(find_nasm_executable(), Path("asm/c_float4.s"))
+    compile_all()
+    # compile_one(find_nasm_executable(), Path("asm/c_float4.s"))
 
     import VM
 
     vm = VM.VM(1024)
 
-    vm.execute_file('asm/bin/c_float4.bin')
+    correct_retvals = [None, 28, 12, 0, 0]
+    for i in range(1, 5):
+        fname = f'asm/bin/c_float{i}.bin'
+        print(f'\tExecuting {fname!r}...')
+
+        ebx = vm.execute_file(fname)
+
+        print(f'\t{fname!r} -> retval = {ebx} ({"OK" if ebx == correct_retvals[i] else "FAIL"})')

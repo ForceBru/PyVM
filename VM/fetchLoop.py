@@ -1,4 +1,5 @@
 from .debug import debug
+from .util import byteorder
 
 
 def execute_opcode(self) -> None:
@@ -112,12 +113,15 @@ def run(self):
 
         self.override(override_name)
 
+    ebx = int.from_bytes(self.reg.get(3, 4), byteorder)
+    return ebx
+
 
 def execute_bytes(self, data: bytes, offset=0):
     self.mem.set(offset, data)
     self.code_segment_end = offset + len(data) - 1
     self.eip = offset
-    self.run()
+    return self.run()
 
 
 def execute_file(self, fname: str, offset=0):
@@ -127,4 +131,4 @@ def execute_file(self, fname: str, offset=0):
 
     self.code_segment_end = offset + len(data) - 1
     self.eip = offset
-    self.run()
+    return self.run()

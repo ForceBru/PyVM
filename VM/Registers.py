@@ -23,7 +23,7 @@ class Reg32:
         """
         :param offset: defined in the Intel Software Development Manual; in a nutshell, it's a unique number corresponding
         to each register.
-        :param size: the size of a register in bytes. This alllowes to distinguish between registers that have the same offset.
+        :param size: the size of a register in bytes. This allows to distinguish between registers that have the same offset.
         :return: the value of the requested register.
         """
         assert offset in self.bounds, 'Reg32.get: register ({}) not in bounds ({})'.format(offset, self.bounds)
