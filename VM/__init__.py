@@ -19,11 +19,10 @@ class VM(CPU32):
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
         super().__init__(memsize)
 
-
-
         self.fmt = '\t[0x{:0' + str(len(str(self.mem.size))//16) + 'x}]: 0x{:02x}'
 
         self.descriptors = [stdin, stdout, stderr]
+        self.RETCODE = None
         self.running = True
 
     def interrupt(self, code: int):

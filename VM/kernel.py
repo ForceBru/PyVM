@@ -7,6 +7,7 @@ def sys_exit(self):
     code = to_int(self.reg.get(3, 4), True)  # EBX
 
     self.descriptors[2].write('[!] Process exited with code {}\n'.format(code))
+    self.RETCODE = code
     self.running = False
 
 

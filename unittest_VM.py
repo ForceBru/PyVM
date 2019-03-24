@@ -1,218 +1,92 @@
 import unittest
 import io
-import sys
+
+from pathlib import Path
 
 import VM
 
+binaries_path = Path('asm/bin')
 
-class TestInstructions(unittest.TestCase):
+
+class TestInserter(type):
+    def __new__(mcs, cls_name, parents, scope):
+        binaries_in_path = set(p.name.rsplit('.', 1)[0] for p in binaries_path.glob('*.bin'))
+        test_names = set(scope['CORRECT'])
+
+        not_tested = binaries_in_path - test_names
+        if not_tested:
+            print(f'[WARNING] Untested binary files found: {not_tested}')
+
+        nonexistent_files = test_names - binaries_in_path
+        if nonexistent_files:
+            raise ValueError(f'The following tests exist, but the corresponding files were not found in {binaries_path}: {nonexistent_files}')
+
+        for name in test_names:
+            func_name = 'test_' + name
+            scope[func_name] = scope['do_test']
+
+        return type(cls_name, parents, scope)
+
+
+class TestInstructions(unittest.TestCase, metaclass=TestInserter):
     MEMSZ = 1024 * 10
-    EXIT_SUCCESS = 0
-    MSG_EXIT = '[!] Process exited with code {}\n'
-    FPATH = 'asm/bin/{}.bin'
-    
+
+    Ret = lambda x: ('', x)
+    Msg = lambda msg: (msg, 0)
+    Both = lambda msg, x: (msg, x)
+
+    CORRECT = {
+        'c_float1': Ret(28),
+        'c_float2': Ret(12),
+        'c_float3': Ret(0),
+        'c_float4': Ret(0),
+        'c_loop': Ret(10),
+        'c_pointers': Ret(1),
+        'c_pow': Ret(625),
+
+        'test_adc': Msg('Testing adc...\nAdding two large numbers...\nSuccess!\n'),
+        'test_add_sub': Msg('Testing add and sub...\nOK\nOH\nOK\n'),
+        'test_bitwise': Msg(
+            'Testing AND...\nTesting OR...\nTesting XOR...\nTesting NOT...\nTesting NEG...\nAll tests succeeded!!\n'),
+        'test_call_ret': Msg('Testing call and ret...\nInside the function...\nInside _start again, great!\n'),
+        'test_cmp_jcc': Msg('Testing cmp and jcc...\nSuccess!\nSuccess!\nSuccess!\n'),
+        'test_div': Msg('Testing div...\n'),
+        'test_idiv': Msg('Testing idiv...\n'),
+        'test_imul': Msg('Testing imul...\n'),
+        'test_inc_dec': Ret(0),
+        'test_jmp_int': Msg('Testing unconditional jumps and interrupts...\nSuccess!\n'),
+        'test_lea': Msg('Testing lea...\nSuccess!\n'),
+        'test_mul': Msg('Testing mul...\nSuccess!\n'),
+        # 'test_push_pop':
+        'test_sbb': Msg('Testing sbb...\nSubtracting two large numbers...\nSuccess!\n'),
+        'test_shr_shl': Msg('Testing shifts...\nSuccess!\n'),
+        'test_test': Msg('Testing test...\nSuccess!\n'),
+        'test_xchg': Both('Testing xchg...\n', 1000)
+    }
+
+    def do_test(self):
+        file_name = self._testMethodName[5:]
+        correct_msg, correct_retval = self.CORRECT[file_name]
+
+        self.vm.execute_file(f'asm/bin/{file_name}.bin')
+
+        _stdout = self.stdout.getvalue()
+
+        self.assertSequenceEqual(_stdout, correct_msg)
+        self.assertEqual(correct_retval, self.vm.RETCODE)
+
     def setUp(self):
-        self.stdin  = io.StringIO()
+        self.stdin = io.StringIO()
         self.stdout = io.StringIO()
         self.stderr = io.StringIO()
-        
+
         self.vm = VM.VM(self.MEMSZ, self.stdin, self.stdout, self.stderr)
-        
+
     def tearDown(self):
         self.stdin.close()
         self.stdout.close()
         self.stderr.close()
 
-    def check_output(self, stdout, stderr):
-        stdout_ = self.stdout.getvalue()
-        stderr_ = self.stderr.getvalue()
-        
-        self.assertSequenceEqual(stdout_, stdout)
-        self.assertSequenceEqual(stderr_, stderr)
 
-    def test_jmp_int(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing unconditional jumps and interrupts...\nSuccess!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    '''
-    # this particular test doesn't work because 'push imm8' pushes 16 or 32 bits, not 8
-    def test_push_pop(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing push and pop...\n01\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-    '''
-
-    def test_call_ret(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing call and ret...\nInside the function...\nInside _start again, great!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_add_sub(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing add and sub...\nOK\nOH\nOK\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_adc(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-
-        self.check_output(
-            'Testing adc...\nAdding two large numbers...\nSuccess!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_sbb(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-
-        self.check_output(
-            'Testing sbb...\nSubtracting two large numbers...\nSuccess!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_lea(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing lea...\nSuccess!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_cmp_jcc(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing cmp and jcc...\nSuccess!\nSuccess!\nSuccess!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_bitwise(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing AND...\nTesting OR...\nTesting XOR...\nTesting NOT...\nTesting NEG...\nAll tests succeeded!!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_test(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing test...\nSuccess!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_inc_dec(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            '',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-            
-    def test_shr_shl(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            'Testing shifts...\nSuccess!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_xchg(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-
-        self.check_output(
-            'Testing xchg...\n',
-            self.MSG_EXIT.format(1000)
-            )
-
-    def test_mul(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-
-        self.check_output(
-            'Testing mul...\nSuccess!\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_div(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-
-        self.check_output(
-            'Testing div...\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_imul(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-
-        self.check_output(
-            'Testing imul...\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test_idiv(self):
-        fname = sys._getframe().f_code.co_name
-        self.vm.execute_file(self.FPATH.format(fname))
-
-        self.check_output(
-            'Testing idiv...\n',
-            self.MSG_EXIT.format(self.EXIT_SUCCESS)
-            )
-
-    def test__c_pointers(self):
-        fname = sys._getframe().f_code.co_name.split('__')[1]
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            '',
-            self.MSG_EXIT.format(1)
-            )
-
-    def test__c_loop(self):
-        fname = sys._getframe().f_code.co_name.split('__')[1]
-        self.vm.execute_file(self.FPATH.format(fname))
-        
-        self.check_output(
-            '',
-            self.MSG_EXIT.format(10)
-            )
-
-    def test__c_pow(self):
-        fname = sys._getframe().f_code.co_name.split('__')[1]
-        self.vm.execute_file(self.FPATH.format(fname))
-
-        self.check_output(
-            '',
-            self.MSG_EXIT.format(625)
-            )
-
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2, failfast=True)
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
