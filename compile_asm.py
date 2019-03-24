@@ -96,9 +96,9 @@ if __name__ == '__main__':
 
     import VM
 
-    vm = VM.VM(1024)
+    vm = VM.VM(262145 * 3)
 
-    fname = f'asm/bin/c_float_vecmul.bin'
+    fname = f'asm/bin/c_stdlib.bin'
     print(f'\tExecuting {fname!r}...')
 
     ebx = vm.execute_file(fname)

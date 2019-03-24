@@ -3,6 +3,7 @@ import io
 
 from pathlib import Path
 
+from compile_asm import compile_all
 import VM
 
 binaries_path = Path('asm/bin')
@@ -40,9 +41,11 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
         'c_float2': Ret(12),
         'c_float3': Ret(0),
         'c_float4': Ret(0),
+        'c_float_vecmul': Ret(56),
         'c_loop': Ret(10),
         'c_pointers': Ret(1),
         'c_pow': Ret(625),
+        'c_stdlib': Msg('Hello, world!\n'),
 
         'test_adc': Msg('Testing adc...\nAdding two large numbers...\nSuccess!\n'),
         'test_add_sub': Msg('Testing add and sub...\nOK\nOH\nOK\n'),
@@ -89,4 +92,5 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
 
 
 if __name__ == '__main__':
+    compile_all()
     unittest.main(verbosity=2)
