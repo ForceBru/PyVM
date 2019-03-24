@@ -3,4 +3,4 @@ __pycache__/
 !/.gitignore
 *.py[cod]
 *$py.class
-compile_c/*
+nasm*

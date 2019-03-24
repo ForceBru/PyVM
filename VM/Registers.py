@@ -94,7 +94,7 @@ class FReg32:
         TOP = self.TOP + reg_num
 
         if TOP >= 0b111:
-            raise
+            raise RuntimeError("The floating-point TOP pointer is messed up!")
 
         sz = self.allowed_sizes[0]
 
@@ -110,7 +110,7 @@ class FReg32:
         TOP = self.TOP + reg_num
 
         if TOP < 0:
-            raise
+            raise RuntimeError("The floating-point TOP pointer is messed up!")
 
         s = slice(TOP * sz, (TOP + 1) * sz)
 
