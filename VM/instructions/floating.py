@@ -46,10 +46,13 @@ class FLD(Instruction):
 
         type, loc, _ = RM
 
-        data = (vm.mem if type else vm.reg).get(loc, bits // 8)
+        _data = (vm.mem if type else vm.reg).get(loc, bits // 8)
 
-        data = ConvertToDoubleExtendedPrecisionFP(data)
+        data = ConvertToDoubleExtendedPrecisionFP(_data)
 
+        if debug:
+            flt, = (FPACK32 if bits == 32 else FPACK64).unpack(_data)
+            print(f"fld{bits//8} {data} ({flt})")
         #print(f"Loading {data}")
 
         vm.freg.push(data)
@@ -71,8 +74,8 @@ class FLD(Instruction):
 class FST(Instruction):
     def __init__(self):
         self.opcodes = {
-            0xD9: P(self.m_fp, bits=32),
-            0xDD: P(self.m_fp, bits=64),
+            0xD9: P(self.m_fp, bits=32),  # fst m32fp / fstp32fp
+            0xDD: P(self.m_fp, bits=64),  # fst m64fp / fstp64fp
             # 0xDB: P(self.m_fp, bits=80),
             **{
                 0xDDD0 + i: P(self.st, i=i, pop=False)
@@ -83,8 +86,8 @@ class FST(Instruction):
                 for i in range(8)
             },
 
-            0xDF: P(self.m_int, bits=0),
-            0xDB: P(self.m_int, bits=32),
+            0xDF: P(self.m_int, bits=0),  # fistp (m16int / m64int)
+            0xDB: P(self.m_int, bits=32), # fistp m32int
         }
 
     def m_fp(vm, bits: int):
@@ -96,12 +99,13 @@ class FST(Instruction):
         #_sz = vm.freg.allowed_sizes[0]
         #data = vm.freg.registers[:_sz]  # get ST(0)
 
-
         if R[1] == 2:
             data = vm.freg.ST0
+            if debug: print(f"fst {data[:bits // 8]} -> 0x{loc:02X}")
             (vm.mem if type else vm.reg).set(loc, data[:bits // 8])
         elif R[1] == 3:
             data = vm.freg.ST0
+            if debug: print(f"fstp {data[:bits//8]} -> 0x{loc:02X}")
             (vm.mem if type else vm.reg).set(loc, data[:bits // 8])
             vm.freg.pop()  # TOP may not equal 0
         else:
@@ -154,7 +158,7 @@ class FST(Instruction):
 
         assert do_pop is not None
 
-        #if debug: print("{} 0x{:02x} (ctrl={:019_b})".format('fistp', -1, vm.freg.control))
+        if debug: print("{} 0x{:02x} (ctrl={:019_b})".format('fistp', -1, vm.freg.control))
 
         ST0 = vm.freg.ST0
         ST0, = FPACK64.unpack(ST0)
@@ -254,10 +258,14 @@ class FDIV(Instruction):
         STi, = FPACK64.unpack(STi)
         ST0, = FPACK64.unpack(ST0)
 
-        print("ST{} = {}, ST{} = {}".format(0, ST0, i, STi))
-        print("Dividing ST{} by ST{}".format(0 if not reverse else i, 0 if reverse else i))
+        if debug: print("Dividing ST{} ({}) by ST{} ({})".format(0 if not reverse else i,
+                                                             ST0 if not reverse else STi,
+                                                             0 if reverse else i,
+                                                             ST0 if reverse else STi,
+                                                             ), end='')
 
         RET = (ST0 / STi) if not reverse else (STi / ST0)
+        if debug: print(f' = {RET}')
         RET = FPACK64.pack(RET)
 
         vm.freg._set_st(0 if not reverse else i, RET)
@@ -340,6 +348,7 @@ class FXCH(Instruction):
         }
 
     def fxch(vm, i: int):
+        if debug: print(f'fxch ST{i}')
         STi, ST0 = vm.freg._get_st(i), vm.freg.ST0
 
         tmp = ST0

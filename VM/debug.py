@@ -1,4 +1,4 @@
-debug = True
+debug = False
 
 reg_names = [
     [0, 'al', 'ax', 0, 'eax'],

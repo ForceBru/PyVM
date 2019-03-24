@@ -31,8 +31,25 @@ def execute_opcode(self) -> None:
         for instruction in self.instr[opcode]:
             if instruction():
                 return
-        raise RuntimeError(f'Opcode 0x{opcode:02x} is not implemented yet (@0x{self.eip:02x})')
+
+        # TODO: this is a mess
+        # Try to interpret two-byte instruction
+        op = self.mem.get(self.eip, 1)[0]  # 0xYY
+        self.eip += 1
+
+        opcode = (opcode << 8) + op  # opcode <- 0x0FYY
+        self.opcode = op
+
+        if debug: print(self.fmt.format(self.eip - 2, opcode))
+
+        try:
+            for instruction in self.instr[opcode]:
+                if instruction():
+                    return
+        except KeyError:
+            raise RuntimeError(f'Opcode 0x{opcode:02x} is not implemented yet (@0x{self.eip:02x})')
     except KeyError:
+        # TODO: this is a mess as well
         # Try to interpret two-byte instruction
         op = self.mem.get(self.eip, 1)[0]  # 0xYY
         self.eip += 1
