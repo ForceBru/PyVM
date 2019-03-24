@@ -17,6 +17,11 @@ def ConvertToDoubleExtendedPrecisionFP(SRC: bytes) -> bytes:
     return FPACK64.pack(unp)
 
 
+def DoubleToFloat(SRC: bytes) -> bytes:
+    flt, = FPACK64.unpack(SRC)
+    return FPACK32.pack(flt)
+
+
 class FLD(Instruction):
     def __init__(self):
         self.opcodes = {
@@ -101,11 +106,15 @@ class FST(Instruction):
 
         if R[1] == 2:
             data = vm.freg.ST0
-            if debug: print(f"fst {data[:bits // 8]} -> 0x{loc:02X}")
+            if bits == 32:
+                data = DoubleToFloat(data)
+            if debug: print(f"fst {data} -> 0x{loc:02X}")
             (vm.mem if type else vm.reg).set(loc, data[:bits // 8])
         elif R[1] == 3:
             data = vm.freg.ST0
-            if debug: print(f"fstp {data[:bits//8]} -> 0x{loc:02X}")
+            if bits == 32:
+                data = DoubleToFloat(data)
+            if debug: print(f"fstp {data} -> 0x{loc:02X}")
             (vm.mem if type else vm.reg).set(loc, data[:bits // 8])
             vm.freg.pop()  # TOP may not equal 0
         else:

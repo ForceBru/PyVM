@@ -267,8 +267,8 @@ class ADDSUB(Instruction):
 
         type, loc, _ = RM
 
-        a = to_int((vm.mem if type else vm.reg).get(loc, sz))
-        b = to_int(vm.reg.get(R[1], sz))
+        b = to_int((vm.mem if type else vm.reg).get(loc, sz))
+        a = to_int(vm.reg.get(R[1], sz))
 
         if carry:
             b += vm.reg.eflags_get(Reg32.CF)
@@ -303,7 +303,7 @@ class ADDSUB(Instruction):
 
         name = 'sub' if sub else 'add'
         if debug: print(
-            '{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, sz * 8, R[1], loc, ('m' if type else '_r')))
+            '{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, sz * 8, R[1], hex(loc), ('m' if type else '_r')))
 
         return True
 
