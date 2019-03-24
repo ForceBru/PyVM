@@ -46,6 +46,7 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
         'c_pointers': Ret(1),
         'c_pow': Ret(625),
         'c_stdlib': Msg('Hello, world!\n'),
+        'c_stdlib_O3': Msg('Hello, world!\n'),
 
         'test_adc': Msg('Testing adc...\nAdding two large numbers...\nSuccess!\n'),
         'test_add_sub': Msg('Testing add and sub...\nOK\nOH\nOK\n'),
