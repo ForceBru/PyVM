@@ -71,6 +71,8 @@ class JMP(Instruction):
             0x0F84: P(self.rel, _8bit=False, jump=JE),
             0x0F82: P(self.rel, _8bit=False, jump=JB),
             0x0F85: P(self.rel, _8bit=False, jump=JNZ),
+            0x0f8d: P(self.rel, _8bit=False, jump=JGE),
+            0x0f86: P(self.rel, _8bit=False, jump=JBE),
             }
 
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
