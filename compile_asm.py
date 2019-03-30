@@ -62,12 +62,12 @@ def compile_many(nasm_executable: Path,
             print(f"Skipping : {asm_file}")
             continue
 
-        print(f"Compiling: {asm_file}")
+        print(f"Assembling: {asm_file}")
         ret = compile_one(nasm_executable, asm_file, include_path)
 
         if ret.returncode != 0:
             failed[asm_file] = ret
-            print(f"[ERROR] Failed to build: {asm_file} - {ret}")
+            print(f"[ERROR] Failed to assemble: {asm_file} - {ret}")
 
         if ret.stdout:
             print(f"[BEGIN STDOUT]")
@@ -81,13 +81,15 @@ def compile_all():
     executable = find_nasm_executable()
     filepath = Path.cwd() / "asm"
 
+    print(f"Assembling in directory {filepath}...")
+
     failed = compile_many(executable, filepath, exclude_files=['startup.s'])
 
     for fname, result in failed.items():
         print(f"Error message for {fname}:")
         print(result.stderr.decode())
     else:
-        print("Built successfully!")
+        print("Assembled successfully!")
 
 
 if __name__ == '__main__':

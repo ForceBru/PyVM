@@ -8,7 +8,7 @@ class Reg32:
 
     def __init__(self):
         self.allowed_sizes = [4, 2, 1]
-        self.registers = bytearray(self.allowed_sizes[0] * len(Reg32.names))
+        # self.registers = bytearray(self.allowed_sizes[0] * len(Reg32.names))
         self.eflags = 0x02  # initial value according to the Intel Software Development Manual
         self.CS, self.DS, self.SS, self.ES, self.FS, self.GS = [0] * 6  # segment registers
 
@@ -19,41 +19,60 @@ class Reg32:
 
         self.eflags_bounds = set(range(32)) - reserved_eflags_bits
 
+        self.registers = [
+            b'\0\0\0\0',  # EAX (000)
+            b'\0\0\0\0',  # ECX (001)
+            b'\0\0\0\0',  # EDX (010)
+            b'\0\0\0\0',  # EBX (011)
+            b'\0\0\0\0',  # ESP (100)
+            b'\0\0\0\0',  # EBP (101)
+            b'\0\0\0\0',  # ESI (110)
+            b'\0\0\0\0',  # EDI (111)
+        ]
+        self.registers = list(map(bytearray, self.registers))
+
     def get(self, offset: int, size: int) -> bytes:
         """
-        :param offset: defined in the Intel Software Development Manual; in a nutshell, it's a unique number corresponding
-        to each register.
-        :param size: the size of a register in bytes. This allows to distinguish between registers that have the same offset.
-        :return: the value of the requested register.
+        Extract `size` bytes and reverse them if byteorder == 'little'
+        :param offset: Register number according to the Intel Software Developer Manual
+        :param size: Size of the register to read, in bytes.
+        :return: The actual bytes read.
         """
-        assert offset in self.bounds, f'Reg32.get: register ({offset}) not in bounds ({self.bounds})'
-        assert size in self.allowed_sizes, f'Reg32.get: invalid size {size} (allowed sizes: {self.allowed_sizes})'
 
-        if size == self.allowed_sizes[2]:
-            start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[0]
+        # print(f'Reg32.get({offset:03b}, {size}) -> ', end='')
+        if size == 4 or size == 2:
+            __tmp = self.registers[offset] #[::-1]
+            val = __tmp[:size]
+        elif size == 1:
+            __tmp = self.registers[offset & 0b011]  # get rid of the first 1 bit
+            val = bytes([__tmp[(offset >> 2) & 1]])
         else:
-            start = (offset + 1) * self.allowed_sizes[0] - size
+            raise RuntimeError(f"Invalid offset for PyVM.Registers.Reg32.get: {offset}")
 
-        value = self.registers[start:start + size]
-        return value[::-1]
+        # print(f'{__tmp.hex()} -> {val.hex()}')
+
+        return val
 
     def set(self, offset: int, value: bytes) -> None:
         """
-
-        :param offset: the same as above
-        :param value: the value to be written to the register. Its size determines the register to be used.
-        :return: None
+        Set literal value, reversed in little-endian!
+        :param offset:
+        :param value:
+        :return:
         """
+
         size = len(value)
-        assert offset in self.bounds, f'Reg32.set: register ({offset}) not in bounds ({self.bounds})'
-        assert size in self.allowed_sizes, f'Reg32.set: invalid size {size} (allowed sizes: {self.allowed_sizes})'
 
-        if size == self.allowed_sizes[2]:
-            start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[0]
+        # print(f'Setting {value.hex()}')
+
+        if size == 4:
+            self.registers[offset][:] = value
+        elif size == 2:
+            self.registers[offset][:2] = value
+        elif size == 1:
+            self.registers[offset & 0b011][(offset >> 2) & 1] = value[0]
         else:
-            start = (offset + 1) * self.allowed_sizes[0] - size
-
-        self.registers[start:start + size] = value[::-1]
+            raise RuntimeError(f"Invalid offset for PyVM.Registers.Reg32.set: {offset}")
 
     def eflags_get(self, bit: int) -> int:
         """

@@ -27,15 +27,29 @@ class TestRegisters(unittest.TestCase):  # Methods are sorted in alphabetical or
 
     def test_set_data(self):
         for x in range(RUNS):
-            data = os.urandom(self.reg.allowed_sizes[0])
+            data = os.urandom(self.reg.allowed_sizes[0])[::-1]
             for offset, name in enumerate(self.reg.names):
-                with self.subTest("'set' method for registers {} failed".format(name)):
-                    self.reg.set(offset, data)
+                self.reg.set(offset, data)
+                # print(f"Set {data.hex()} -> {offset:03b}")
 
-                    self.assertSequenceEqual(self.reg.get(offset, self.reg.allowed_sizes[0]), data)
-                    self.assertSequenceEqual(self.reg.get(offset, self.reg.allowed_sizes[1]), data[2:])
-                    self.assertSequenceEqual(self.reg.get(offset, self.reg.allowed_sizes[2]),
-                                             data[3:] if not (offset // self.reg.allowed_sizes[0]) else data[2:3])
+                sz = self.reg.allowed_sizes[0]
+                with self.subTest(f"'set' method for registers {name}({sz} bytes) failed"):
+                    val = self.reg.get(offset, sz)
+                    # print(f"\tGot 4 bytes: {val.hex()}, should've gotten: {data.hex()}")
+                    self.assertSequenceEqual(val, data)
+
+                sz = self.reg.allowed_sizes[1]
+                with self.subTest(f"'set' method for registers {name}({sz} bytes) failed"):
+                    val = self.reg.get(offset, sz)
+                    # print(f"\tGot 2 bytes: {val.hex()}, should've gotten: {data[:2].hex()}")
+                    self.assertSequenceEqual(val, data[:2])
+
+                sz = self.reg.allowed_sizes[2]
+                with self.subTest(f"'set' method for registers {name}({sz} bytes) failed"):
+                    val = self.reg.get(offset, sz)
+                    correct = bytes([data[(offset >> 2) & 1]])
+                    # print(f"\tGot 1 byte: {val.hex()}, should've gotten: {correct.hex()}")
+                    self.assertSequenceEqual(self.reg.get(offset, self.reg.allowed_sizes[2]), correct)
 
 
 class TestMemory(unittest.TestCase):

@@ -169,8 +169,7 @@ class MOVSX(Instruction):
 
         vm.reg.set(R[1], SRC_)
 
-        if debug: print(
-            f'movzx {reg_names[R[1]][R[2]]}, {hex(loc) if type else reg_names[loc][size]}')
+        if debug: print(f'movzx {reg_names[R[1]][R[2]]}, {hex(loc) if type else reg_names[loc][size]}')
 
         return True
 
