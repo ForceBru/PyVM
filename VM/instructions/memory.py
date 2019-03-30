@@ -59,6 +59,8 @@ class MOV(Instruction):
         sz = 1 if _8bit else vm.operand_size
 
         imm = vm.mem.get(vm.eip, sz)
+
+
         vm.eip += sz
 
         r = vm.opcode & 0b111
@@ -139,43 +141,58 @@ class MOV(Instruction):
 # MOVSX / MOVSXD / MOVZX
 ####################
 class MOVSX(Instruction):
-  """
-  Move and sign extend
-  """
-  
-  def __init__(self):
-    self.opcodes = {
-      0x0FBE: P(self.r_rm, _8bit=True),
-      0x0FBF: P(self.r_rm, _8bit=False),
-      
-      0x63: P(self.r_rm, _8bit=False, movsxd=True),
-      
-      0x0FB6: P(self.r_rm, _8bit=True, movzx=True),
-      0x0FB7: P(self.r_rm, _8bit=False, movzx=True),
-    }
-  
-  def r_rm(vm, _8bit, movsxd=False, movzx=False) -> True:
-    sz = 1 if _8bit else vm.operand_size
-    
-    if movsxd:
-      RM, R = vm.process_ModRM(sz, sz)
-    else:
-      RM, R = vm.process_ModRM(sz, vm.operand_size) # different sizes!
+    """
+    Move and sign extend
+    """
 
-    type, From, size = RM
-    
-    SRC = (vm.mem if type else vm.reg).get(From, size)
-    
-    if movzx:
-      SRC_ = zero_extend(SRC, R[2])
-    else:
-      SRC_ = sign_extend(SRC, R[2])
-    
-    vm.reg.set(R[1], SRC_)
-    
-    if debug: print(f'movsx{"d" if movsxd else ""} {reg_names[R[1]][R[2]]}, {hex(From) if type else reg_names[From][size]}')
-    
-    return True
+    def __init__(self):
+        self.opcodes = {
+            0x0FBE: P(self.r_rm, _8bit=True),
+            0x0FBF: P(self.r_rm, _8bit=False),
+
+            0x63: P(self.r_rm, _8bit=False, movsxd=True),
+
+            0x0FB6: P(self.r_rm_movzx, _8bit=True),
+            0x0FB7: P(self.r_rm_movzx, _8bit=False),
+        }
+
+    def r_rm_movzx(vm, _8bit) -> True:
+        sz = 1 if _8bit else 2
+
+        RM, R = vm.process_ModRM(sz)
+
+        type, loc, size = RM
+
+        SRC = (vm.mem if type else vm.reg).get(loc, size)
+
+        SRC_ = zero_extend(SRC, R[2])
+
+        vm.reg.set(R[1], SRC_)
+
+        if debug: print(
+            f'movzx {reg_names[R[1]][R[2]]}, {hex(loc) if type else reg_names[loc][size]}')
+
+        return True
+
+    def r_rm(vm, _8bit, movsxd=False) -> True:
+        sz = 1 if _8bit else vm.operand_size
+
+        if movsxd:
+            RM, R = vm.process_ModRM(sz, sz)
+        else:
+            RM, R = vm.process_ModRM(sz, vm.operand_size)  # different sizes!
+
+        type, From, size = RM
+
+        SRC = (vm.mem if type else vm.reg).get(From, size)
+
+        SRC_ = sign_extend(SRC, R[2])
+
+        vm.reg.set(R[1], SRC_)
+
+        if debug: print(f'movsx{"d" if movsxd else ""} {reg_names[R[1]][R[2]]}, {hex(From) if type else reg_names[From][size]}')
+
+        return True
     
     
 

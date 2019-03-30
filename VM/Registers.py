@@ -26,15 +26,16 @@ class Reg32:
         :param size: the size of a register in bytes. This allows to distinguish between registers that have the same offset.
         :return: the value of the requested register.
         """
-        assert offset in self.bounds, 'Reg32.get: register ({}) not in bounds ({})'.format(offset, self.bounds)
-        assert size in self.allowed_sizes, 'Reg32.get: invalid size {} (allowed sizes: {})'.format(size, self.allowed_sizes)
+        assert offset in self.bounds, f'Reg32.get: register ({offset}) not in bounds ({self.bounds})'
+        assert size in self.allowed_sizes, f'Reg32.get: invalid size {size} (allowed sizes: {self.allowed_sizes})'
 
         if size == self.allowed_sizes[2]:
             start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[0]
         else:
             start = (offset + 1) * self.allowed_sizes[0] - size
 
-        return self.registers[start:start + size]
+        value = self.registers[start:start + size]
+        return value[::-1]
 
     def set(self, offset: int, value: bytes) -> None:
         """
@@ -44,15 +45,15 @@ class Reg32:
         :return: None
         """
         size = len(value)
-        assert offset in self.bounds, 'Reg32.set: register ({}) not in bounds ({})'.format(offset, self.bounds)
-        assert size in self.allowed_sizes, 'Reg32.set: invalid size {} (allowed sizes: {})'.format(size, self.allowed_sizes)
+        assert offset in self.bounds, f'Reg32.set: register ({offset}) not in bounds ({self.bounds})'
+        assert size in self.allowed_sizes, f'Reg32.set: invalid size {size} (allowed sizes: {self.allowed_sizes})'
 
         if size == self.allowed_sizes[2]:
             start = (offset % self.allowed_sizes[0] + 1) * self.allowed_sizes[0] - size - offset // self.allowed_sizes[0]
         else:
             start = (offset + 1) * self.allowed_sizes[0] - size
 
-        self.registers[start:start + size] = value
+        self.registers[start:start + size] = value[::-1]
 
     def eflags_get(self, bit: int) -> int:
         """
@@ -127,7 +128,6 @@ class FReg32:
     ST6 = property(lambda self: self._get_st(6), lambda self, val: self._set_st(6, val))
     ST7 = property(lambda self: self._get_st(7), lambda self, val: self._set_st(7, val))
 
-
     @property
     def TOP(self) -> int:
         return (self.status >> 11) & 0b111
@@ -147,11 +147,10 @@ class FReg32:
         if TOP == 0:
             raise ValueError("Push onto full stack")
 
-        #print(f"Pushing {value} -> {TOP * sz}:{(TOP + 1) * sz} ({TOP}:{TOP + 1})")
+        # print(f"Pushing {value} -> {TOP * sz}:{(TOP + 1) * sz} ({TOP}:{TOP + 1})")
 
         self.TOP = TOP - 1
         self.ST0 = value
-
 
     def pop(self, increase_TOP=True) -> bytearray:
         sz = self.allowed_sizes[0]
@@ -160,7 +159,7 @@ class FReg32:
         if TOP == 0b111:
             raise ValueError("Pop from empty stack")
 
-        #print(f"Popping {TOP * sz}:{(TOP + 1) * sz}")
+        # print(f"Popping {TOP * sz}:{(TOP + 1) * sz}")
         ret = self.ST0
 
         if increase_TOP:
