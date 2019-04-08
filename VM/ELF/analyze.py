@@ -16,9 +16,7 @@ class ELF32:
         and ident.EI_MAG3 == 70, f'Invalid header in file {self.fname!r}'
         
         assert ident.EI_CLASS == EI_CLASS.ELFCLASS32, f'64-bit architecture is not supported (file {self.fname!r})'
-        
         assert ident.EI_DATA == EI_DATA.ELFDATA2LSB, f'Big endian is not supported (file {self.fname!r})'
-        
         assert self.hdr.e_machine == e_machine.x86, f'Architecture {self.hdr.e_machine} is not supported (file {self.fname!r})'
         
         self.__sections = None
