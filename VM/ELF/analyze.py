@@ -144,7 +144,6 @@ class ELF32:
             ret[phdr.p_vaddr + phdr.p_filesz:phdr.p_vaddr + phdr.p_memsz] = bytearray(phdr.p_memsz - phdr.p_filesz)
                 
         return ret
-                
 
 
 if __name__ == '__main__':
@@ -154,13 +153,13 @@ if __name__ == '__main__':
     
     hello = 'hello_world'
     bash  = 'elf-Linux-x86-bash'
-    with ELF32(f'samples/{hello}') as ELF:
-        #print(ELF.hdr)
-        #print(ELF.sections.keys())
-        #print(ELF.phdrs)
-        #print(ELF.dynsym.keys())
-        #print(ELF.symtab)
-        #print(ELF.get_section_contents('.symtab'))
+    with ELF32(f'samples/hello') as ELF:
+        # print(ELF.hdr)
+        # print(ELF.sections.keys())
+        # print(ELF.phdrs)
+        # print(ELF.dynsym.keys())
+        # print(ELF.symtab)
+        # print(ELF.get_section_contents('.symtab'))
         print('Loading...')
         mem = ELF.load()
         print('Loaded!')
