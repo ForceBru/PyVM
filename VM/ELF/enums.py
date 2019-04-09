@@ -105,3 +105,32 @@ class sh_flags(Flag):
     SHF_COMPRESSED = 0x800
     SHF_MASKOS = 0x0ff00000
     SHF_MASKPROC = 0xf0000000
+    
+    
+class st_bind(Flag):
+    STB_LOCAL = 0
+    STB_GLOBAL = 1
+    STB_WEAK = 2
+    STB_LOOS = 10
+    STB_HIOS = 12
+    STB_LOPROC = 13
+    STB_HIPROC = 15
+    
+    def _missing_(self):
+        return self
+        
+class st_type(Flag):
+    STT_NOTYPE = 0
+    STT_OBJECT = 1
+    STT_FUNC = 2
+    STT_SECTION = 3
+    STT_FILE = 4
+    STT_COMMON = 5
+    STT_TLS = 6
+    STT_LOOS = 10
+    STT_HIOS = 12
+    STT_LOPROC = 13
+    STT_HIPROC = 15
+    
+    def _missing_(self):
+        return self

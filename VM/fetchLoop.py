@@ -118,7 +118,7 @@ def run(self):
 
 
 def execute_bytes(self, data: bytes, offset=0):
-    self.mem.set(offset, data)
+    self.mem.set(0, data)
     self.code_segment_end = offset + len(data) - 1
     self.eip = offset
     return self.run()

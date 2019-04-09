@@ -42,6 +42,10 @@ class ELF_meta(type):
                 )
             for key, value in layouts.items()
             }
+        dict['size'] = sum(
+            val.size
+            for val in dict['_layouts'].values()
+            )
         dict['_name'] = name
         
         def __init__(self, stream):

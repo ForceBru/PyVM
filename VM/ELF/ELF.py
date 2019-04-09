@@ -56,3 +56,12 @@ class ELF32_Shdr(ELF_parser):
     sh_info     : 'I'
     sh_addralign: 'I'
     sh_entsize  : 'I'
+    
+    
+class ELF32_Sym(ELF_parser):
+    st_name: 'I'
+    st_value: 'I'
+    st_size: 'I'
+    st_info: 'B' = lambda x: str(enums.st_bind(x>>4)) + '|' + str(enums.st_type(x & 0xF))
+    st_other: 'B'
+    st_shndex: 'H'

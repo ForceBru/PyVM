@@ -36,4 +36,7 @@ def sys_write(self):
 
     if debug: print('sys_write({}, {}({}), {})'.format(fd, buf_addr, buf, count))
     ret = self.descriptors[fd].write(buf.decode(errors='replace'))
-    self.reg.set(0, ret.to_bytes(4, 'little'))
+    
+    size = ret if ret is not None else count
+    
+    self.reg.set(0, size.to_bytes(4, 'little'))
