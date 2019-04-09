@@ -16,6 +16,24 @@ size_t puts(const char *str) {
     return ret + sys_write(STDOUT, &newline, 1);
 }
 
+int getchar(void) {
+    static char ret;
+
+    sys_read(STDIN, &ret, 1);
+
+    return ret;
+}
+
+char *fgets(char *str, int num, int stream) {
+    sys_read(stream, str, num);
+
+    return str;
+}
+
+int fputs(const char *str, int stream) {
+    return sys_write(stream, str, strlen(str));
+}
+
 void *memset(void *ptr, int value, size_t num) {
     /* Fill block of memory.
      * Sets the first `num` bytes of the block of memory pointed by `ptr` to the specified value (interpreted as an unsigned char).
@@ -39,12 +57,12 @@ const char *output_prompt = "You entered: ";
 int main(void) {
     char input[MAX_INPUT] = {0};
 
-    sys_write(STDOUT, input_prompt, strlen(input_prompt));
-    size_t len_read = sys_read(STDIN, input, MAX_INPUT);
+    puts(data);
 
-    input[len_read - 1] = 0;  // get rid of newline!
+    fputs(input_prompt, STDOUT);
+    fgets(input, MAX_INPUT, STDIN);
 
-    sys_write(STDOUT, output_prompt, strlen(output_prompt));
+    fputs(output_prompt, STDOUT);
 
-    return puts(input);
+    return fputs(input, STDOUT);
 }
