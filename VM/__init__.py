@@ -11,7 +11,7 @@ from .misc import Shift
 
 class VM(CPU32):
     # TODO: this stuff looks ugly, refactor it
-    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, override
+    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, execute_elf, override
     from .misc import process_ModRM
 
     from .kernel import sys_exit, sys_read, sys_write

@@ -16,7 +16,10 @@ def sys_read(self):
     data_addr = to_int(self.reg.get(1, 4))  # ECX
     count = to_int(self.reg.get(2, 4))  # EDX
 
-    data = os.read(self.descriptors[fd].fileno(), count)  # this doesn't stop the user from inputting more data...
+    try:
+        data = os.read(self.descriptors[fd].fileno(), count)
+    except AttributeError:
+        data = (self.descriptors[fd].read(count) + '\n').encode('ascii')
 
     if debug: print('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
     self.mem.set(data_addr, data)
@@ -34,7 +37,11 @@ def sys_write(self):
     buf = self.mem.get(buf_addr, count)
 
     if debug: print('sys_write({}, {}({}), {})'.format(fd, buf_addr, buf, count))
-    ret = os.write(self.descriptors[fd].fileno(), buf)
+    try:
+        ret = os.write(self.descriptors[fd].fileno(), buf)
+    except AttributeError:
+        ret = self.descriptors[fd].write(buf.decode('ascii'))
+        self.descriptors[fd].flush()
     
     size = ret if ret is not None else count
     
