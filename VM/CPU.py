@@ -17,9 +17,6 @@ class CPU32(CPU):
 
         self.eip = 0
 
-        self.reg.set(esp, (memsize - 1).to_bytes(4, byteorder))
-        self.reg.set(ebp, (memsize - 1).to_bytes(4, byteorder))
-
         self.modes = (32, 16)  # number of bits
         self.sizes = (4, 2)  # number of bytes
         self.default_mode = 0  # 0 == 32-bit mode; 1 == 16-bit mode
@@ -30,6 +27,11 @@ class CPU32(CPU):
         self.stack_address_size = self.sizes[self.current_mode]
 
         self.code_segment_end = 0
+        self.stack_init()
+        
+    def stack_init(self):
+        self.reg.set(esp, (self.mem.size - 1).to_bytes(4, byteorder))
+        self.reg.set(ebp, (self.mem.size - 1).to_bytes(4, byteorder))
 
     def stack_push(self, value: bytes) -> None:
         new_esp = to_int(self.reg.get(esp, self.stack_address_size)) - self.operand_size

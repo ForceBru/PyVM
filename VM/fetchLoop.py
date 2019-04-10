@@ -1,6 +1,8 @@
 from .debug import debug
 from .util import byteorder
 
+from .ELF import ELF32, enums
+
 
 def execute_opcode(self) -> None:
     """
@@ -118,9 +120,10 @@ def run(self):
 
 
 def execute_bytes(self, data: bytes, offset=0):
-    self.mem.set(0, data)
+    self.mem.set(offset, data)
     self.code_segment_end = offset + len(data) - 1
     self.eip = offset
+    
     return self.run()
 
 
@@ -131,4 +134,37 @@ def execute_file(self, fname: str, offset=0):
 
     self.code_segment_end = offset + len(data) - 1
     self.eip = offset
+    
+    return self.run()
+    
+    
+def execute_elf(self, fname: str):
+    with ELF32(fname) as elf:
+        if elf.hdr.e_type != enums.e_type.ET_EXEC:
+            raise ValueError(f'ELF file {elf.fname!r} is not executable (type: {elf.hdr.e_type})')
+            
+        max_memsz = max(
+            phdr.p_vaddr + phdr.p_memsz
+            for phdr in elf.phdrs
+            if phdr.p_type == enums.p_type.PT_LOAD
+        )
+        
+        self.mem.size_set(max_memsz * 2)
+        self.stack_init()
+        
+        for phdr in elf.phdrs:
+            if phdr.p_type != enums.p_type.PT_LOAD:
+                continue
+                
+            print(f'LOAD {phdr.p_memsz:10,d} bytes at address 0x{phdr.p_vaddr:09_x}')
+            elf.file.seek(phdr.p_offset)
+            
+            self.mem.set(phdr.p_vaddr, elf.file.read(phdr.p_filesz))            
+            self.mem.set(phdr.p_vaddr + phdr.p_filesz, bytearray(phdr.p_memsz - phdr.p_filesz))
+    
+    self.eip = elf.hdr.e_entry
+    self.code_segment_end = self.eip + max_memsz - 1
+    
+    print(f'EXEC at 0x{self.eip:09_x}')
+    
     return self.run()

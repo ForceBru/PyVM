@@ -3,6 +3,17 @@ class Memory:
         self.memory = bytearray(size)
         self.bounds = range(size)
         self.size = size
+        
+    def size_set(self, size: int):
+        if self.size >= size:
+            return
+            
+        self.size_increase(size - self.size)
+        
+    def size_increase(self, size: int):
+        self.memory += bytearray(size)
+        self.size += size
+        self.bounds = range(self.size)
 
     def get(self, offset: int, size: int) -> bytes:
         assert offset in self.bounds, 'Memory.get: offset ({}) not in bounds ({})'.format(offset, self.bounds)
