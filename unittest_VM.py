@@ -94,5 +94,5 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
 
 
 if __name__ == '__main__':
-    compile_all()
+    #compile_all()
     unittest.main(verbosity=2)

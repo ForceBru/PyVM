@@ -7,14 +7,13 @@ from .util import to_int, byteorder
 from .debug import debug
 from .Registers import Reg32
 from .misc import Shift
+from .kernel import SyscallsMixin
 
 
-class VM(CPU32):
+class VM(CPU32, SyscallsMixin):
     # TODO: this stuff looks ugly, refactor it
     from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, execute_elf, override
     from .misc import process_ModRM
-
-    from .kernel import sys_exit, sys_read, sys_write
 
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
         super().__init__(int(memsize))
@@ -22,6 +21,10 @@ class VM(CPU32):
         self.fmt = '\t[0x{:0' + str(len(str(self.mem.size))//16) + 'x}]: 0x{:02x}'
 
         self.descriptors = [stdin, stdout, stderr]
+        self.valid_syscalls = {
+            code: getattr(self, name)
+            for code, name in self.valid_syscalls_names.items()
+        }
         self.RETCODE = None
         self.running = True
 
@@ -29,16 +32,10 @@ class VM(CPU32):
         valid_codes = [0x80]
 
         if code == valid_codes[0]:  # syscall
-            valid_syscalls = {
-                0x1: self.sys_exit,
-                0x3: self.sys_read,
-                0x4: self.sys_write
-                }
-
             syscall = to_int(self.reg.get(0, 4))  # EAX
 
             try:
-                valid_syscalls[syscall]()
+                self.valid_syscalls[syscall]()
             except KeyError:
                 raise RuntimeError('System call 0x{:02x} is not supported yet'.format(syscall))
         else:

@@ -27,6 +27,7 @@ class CPU32(CPU):
         self.stack_address_size = self.sizes[self.current_mode]
 
         self.code_segment_end = 0
+        self.program_break = self.code_segment_end
         self.stack_init()
         
     def stack_init(self):
@@ -36,8 +37,8 @@ class CPU32(CPU):
     def stack_push(self, value: bytes) -> None:
         new_esp = to_int(self.reg.get(esp, self.stack_address_size)) - self.operand_size
 
-        if new_esp < self.code_segment_end:
-            raise RuntimeError("The stack cannot grow larger than {}".format(self.code_segment_end))
+        if new_esp < self.program_break:
+            raise RuntimeError("The stack cannot grow larger than {}".format(self.program_break))
 
         self.mem.set(new_esp, value)
         self.reg.set(esp, new_esp.to_bytes(self.stack_address_size, byteorder))
