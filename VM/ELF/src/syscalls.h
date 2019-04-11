@@ -1,11 +1,12 @@
 #ifndef SYSCALLS_H
 #define SYSCALLS_H
 
-typedef unsigned long size_t;
+#include "stddef.h"
 
 #define __NR_sys_exit  0x01
 #define __NR_sys_read  0x03
 #define __NR_sys_write 0x04
+#define __NR_sys_brk 0x2d
 
 #define STDIN 0
 #define STDOUT 1
@@ -64,5 +65,6 @@ typedef unsigned long size_t;
 __attribute__((noreturn)) void sys_exit(int code);
 size_t sys_read(unsigned int fd, char * buf, size_t count);
 size_t sys_write(unsigned int fd, const char * buf, size_t count);
+unsigned long sys_brk(unsigned long addr);
 
 #endif

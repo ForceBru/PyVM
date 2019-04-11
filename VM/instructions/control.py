@@ -71,9 +71,12 @@ class JMP(Instruction):
             0x0F84: P(self.rel, _8bit=False, jump=JE),
             0x0F82: P(self.rel, _8bit=False, jump=JB),
             0x0F85: P(self.rel, _8bit=False, jump=JNZ),
-            0x0f8d: P(self.rel, _8bit=False, jump=JGE),
             0x0f86: P(self.rel, _8bit=False, jump=JBE),
+            0x0f87: P(self.rel, _8bit=False, jump=JNBE),
+            0x0f8d: P(self.rel, _8bit=False, jump=JGE),
             0x0f8e: P(self.rel, _8bit=False, jump=JLE),
+            0x0f8f: P(self.rel, _8bit=False, jump=JG),
+            0x0f83: P(self.rel, _8bit=False, jump=JAE),
             }
 
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
@@ -163,6 +166,48 @@ class JMP(Instruction):
             vm.eip = tempEIP & 0x0000FFFF
 
         if debug: print('jmp m{}({})'.format(sz * 8, vm.eip))
+
+        return True
+
+
+####################
+# SETB
+####################
+class SETB(Instruction):
+    def __init__(self):
+        SETNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        SETG = compile(
+            'not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)',
+            'jump', 'eval')
+        SETAE = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
+        SETGE = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        SETNO = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        SETNS = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
+        SETPE = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        SETO = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        SETL = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        SETCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
+        SETNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        SETNZ = compile('not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        SETE = compile('vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        SETS = compile('vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
+        SETBE = compile('vm.reg.eflags_get(Reg32.CF) or vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        SETLE = compile('vm.reg.eflags_get(Reg32.ZF) or vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)',
+                      'jump', 'eval')
+        SETB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
+
+        self.opcodes = {
+            0x0F92: P(self.rm8, SETB)
+        }
+
+    def rm8(vm, cond) -> True:
+        RM, R = vm.process_ModRM(1)  # we know it's 1 byte
+
+        type, loc, _ = RM
+
+        (vm.mem if type else vm.reg).set(loc, b'\1' if eval(cond) else b'\0')
+
+        if debug: print(f'setcc {hex(loc) if type else reg_names[loc][1]}')
 
         return True
 

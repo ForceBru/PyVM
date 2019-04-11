@@ -1,7 +1,7 @@
 from ..debug import debug
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
-from ..misc import parity, Shift
+from ..misc import parity, sign_extend, Shift
 
 from functools import partialmethod as P
 import operator

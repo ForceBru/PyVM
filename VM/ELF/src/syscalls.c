@@ -11,6 +11,7 @@ void sys_exit(int code) {
 
 SYSCALL3(size_t, sys_read, unsigned int, fd, char *, buf, size_t, count)
 SYSCALL3(size_t, sys_write, unsigned int, fd, const char *, buf, size_t, count)
+SYSCALL1(unsigned long, sys_brk, unsigned long, addr)
 
 #undef SYSCALL0
 #undef SYSCALL1

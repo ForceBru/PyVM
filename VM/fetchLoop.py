@@ -121,8 +121,10 @@ def run(self):
 
 def execute_bytes(self, data: bytes, offset=0):
     self.mem.set(offset, data)
-    self.code_segment_end = offset + len(data) - 1
+
     self.eip = offset
+    self.code_segment_end = self.eip + len(data) - 1
+    self.mem.program_break = self.code_segment_end
     
     return self.run()
 
@@ -132,8 +134,9 @@ def execute_file(self, fname: str, offset=0):
         data = f.read()
         self.mem.set(offset, data)
 
-    self.code_segment_end = offset + len(data) - 1
     self.eip = offset
+    self.code_segment_end = self.eip + len(data) - 1
+    self.mem.program_break = self.code_segment_end
     
     return self.run()
     
@@ -148,9 +151,10 @@ def execute_elf(self, fname: str):
             for phdr in elf.phdrs
             if phdr.p_type == enums.p_type.PT_LOAD
         )
-        
-        self.mem.size_set(max_memsz * 2)
-        self.stack_init()
+
+        if self.mem.size < max_memsz * 2:
+            self.mem.size_set(max_memsz * 2)
+            self.stack_init()
         
         for phdr in elf.phdrs:
             if phdr.p_type != enums.p_type.PT_LOAD:
@@ -164,6 +168,7 @@ def execute_elf(self, fname: str):
     
     self.eip = elf.hdr.e_entry
     self.code_segment_end = self.eip + max_memsz - 1
+    self.mem.program_break = self.code_segment_end
     
     print(f'EXEC at 0x{self.eip:09_x}')
     

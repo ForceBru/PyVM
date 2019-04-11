@@ -3,7 +3,23 @@ class Memory:
         self.memory = bytearray(size)
         self.bounds = range(size)
         self.size = size
-        
+        self.program_break = None
+
+    def __test_bounds(self, offset: int, size: int, func_name: str):
+        if offset not in self.bounds:
+            if offset > self.bounds.stop:
+                raise MemoryError(f"{func_name}: not enough memory (requested address: {offset}, memory available: {len(self.bounds)})")
+            else:
+                raise RuntimeError(f"{func_name}: invalid memory access (requested address: {offset}, memory bounds: {self.bounds})")
+
+        offset += size
+
+        if offset not in self.bounds:
+            if offset > self.bounds.stop:
+                raise MemoryError(f"{func_name}: not enough memory (requested address: {offset}, memory available: {len(self.bounds)})")
+            else:
+                raise RuntimeError(f"{func_name}: invalid memory access (requested address: {offset}, memory bounds: {self.bounds})")
+
     def size_set(self, size: int):
         if self.size >= size:
             return
@@ -16,20 +32,18 @@ class Memory:
         self.bounds = range(self.size)
 
     def get(self, offset: int, size: int) -> bytes:
-        assert offset in self.bounds, 'Memory.get: offset ({}) not in bounds ({})'.format(offset, self.bounds)
-        assert offset + size in self.bounds, 'Memory.get: offset + size ({}) not in bounds ({})'.format(offset + size, self.bounds)
+        self.__test_bounds(offset, size, 'Memory.get')
 
         return self.memory[offset:offset + size]
 
     def set(self, offset: int, value: bytes) -> None:
         size = len(value)
-        assert offset in self.bounds, 'Memory.set: offset ({}) not in bounds ({})'.format(offset, self.bounds)
-        assert offset + size in self.bounds, 'Memory.set: offset + size ({}) not in bounds ({})'.format(offset + size, self.bounds)
+        self.__test_bounds(offset, size, 'Memory.set')
 
         self.memory[offset:offset + size] = value
 
     def fill(self, offset: int, value: int) -> None:
-        assert offset in self.bounds
+        self.__test_bounds(offset, 1, 'Memory.fill')
         assert value in range(256)
 
         for i in range(offset, self.bounds.stop):
