@@ -117,7 +117,7 @@ void *sbrk(long increment) {
     void *current_break = (void *)sys_brk(0);  // pass invalid address on purpose to get current page break
     void *changed = (void *)sys_brk((unsigned long)(current_break + increment));
 
-    if (changed == current_break) {
+    if ((changed == current_break) && (increment != 0)) {
         // failed to allocate memory
 
         return (void *)(-1);
@@ -129,7 +129,7 @@ void *sbrk(long increment) {
 
 // `malloc` and `free` implementation. Taken from C&R book.
 
-#define MIN_HDR_ALLOC 64
+#define MIN_HDR_ALLOC 2
 
 typedef size_t Align;
 
@@ -145,6 +145,8 @@ typedef union header Header;
 
 static Header malloc_base;
 static Header *malloc_free_space = NULL;
+
+#include "syscalls.h"
 
 static Header *morecore(size_t nheaders) {
     char *mem_from_kernel;
@@ -162,6 +164,9 @@ static Header *morecore(size_t nheaders) {
 
     up = (Header *)mem_from_kernel;
     up->block_info.block_size = nheaders;
+
+    py_dbg_string("morecore number of headers");
+    py_dbg_int(nheaders);
 
     free((void *)(up + 1));
 
@@ -216,20 +221,26 @@ void free(void *data) {
     }
 
     // goto upstream neighbor
+    py_dbg_string("FREE: upstream");
     if (data_hdr + data_hdr->block_info.block_size == ptr->block_info.next_block) {
         // merge two blocks
+        py_dbg_string("FREE: upstream->merge");
         data_hdr->block_info.block_size += ptr->block_info.next_block->block_info.block_size;
         data_hdr->block_info.next_block = ptr->block_info.next_block->block_info.next_block;
     } else {
+        py_dbg_string("FREE: upstream->no merge");
         data_hdr->block_info.next_block = ptr->block_info.next_block;
     }
 
     // goto downstream neighbor
+    py_dbg_string("FREE: downstream");
     if (ptr + ptr->block_info.block_size == data_hdr) {
         // merge two blocks
+        py_dbg_string("FREE: downstream->merge");
         ptr->block_info.block_size += data_hdr->block_info.block_size;
         ptr->block_info.next_block = data_hdr->block_info.next_block;
     } else {
+        py_dbg_string("FREE: downstream->no merge");
         ptr->block_info.next_block = data_hdr;
     }
 
@@ -237,12 +248,22 @@ void free(void *data) {
 
     // return memory to the kernel
     if (malloc_free_space->block_info.next_block == &malloc_base) {
-        sbrk(-malloc_free_space->block_info.block_size - sizeof(Header));
-        //sys_brk((unsigned long)malloc_free_space);
+        py_dbg_string("Freeing number of headers");
+        py_dbg_int(malloc_free_space->block_info.block_size);
+
+        sbrk(-malloc_free_space->block_info.block_size * sizeof(Header));
+        malloc_free_space->block_info.block_size = 0;
     }
 
     if (malloc_free_space == &malloc_base) {
-        sbrk(malloc_base.block_info.block_size);
+        if (malloc_free_space->block_info.block_size == 0) {
+            py_dbg_string("Requested to free, but nothing to free, doing nothing...");
+            return;
+        }
+        py_dbg_string("Freeing data:");
+        py_dbg_int(-malloc_base.block_info.block_size * sizeof(Header));
+        sbrk(-malloc_base.block_info.block_size * sizeof(Header));
+        malloc_base.block_info.block_size = 0;
     }
 }
 

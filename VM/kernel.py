@@ -23,6 +23,28 @@ class SyscallsMixin_Meta(type):
 
 
 class SyscallsMixin(metaclass=SyscallsMixin_Meta):
+    def sys_py_dbg(self, code=0x00):
+        raw = self.reg.get(3, 4)
+        data = to_int(raw)  # EBX
+        _type = to_int(self.reg.get(1, 4))  # ECX
+
+        if _type == 0:  # treat as pointer to char
+            addr = data
+            buffer = bytearray()
+            byte, = self.mem.get(addr, 1)
+            while byte != 0:
+                buffer.append(byte)
+                addr += 1
+                byte, = self.mem.get(addr, 1)
+
+            print(f'[PY_DBG_STRING] {buffer.decode()}')
+        elif _type == 1:  # treat as unsigned integer
+            print(f'[PY_DBG_UINT] {data}')
+        elif _type == 2:  # treat as signed integer
+            print(f'[PY_DBG_INT] {to_int(raw, True)}')
+        else:
+            print(f'[PY_DBG_UNRECOGNIZED] {raw}')
+
     def sys_exit(self, code=0x01):
         code = to_int(self.reg.get(3, 4), True)  # EBX
 
@@ -90,5 +112,5 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         self.mem.program_break = brk
 
-        print(f'\t\tSYS_BRK: changing break: {oldbrk} -> {self.mem.program_break}')
+        print(f'\t\tSYS_BRK: changing break: {oldbrk} -> {self.mem.program_break} ({self.mem.program_break - oldbrk:+d})')
         self.reg.set(0, self.mem.program_break.to_bytes(4, 'little'))
