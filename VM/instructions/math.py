@@ -555,7 +555,7 @@ class IMUL(Instruction):
             0x0FAF: self.r_rm,
 
             0x6B  : P(self.r_rm_imm, _8bit_imm=True),
-            0x69  : P(self.r_rm_imm, _8bit_imm=True)
+            0x69  : P(self.r_rm_imm, _8bit_imm=False)
             }
 
     def rm(vm, _8bit: int) -> bool:

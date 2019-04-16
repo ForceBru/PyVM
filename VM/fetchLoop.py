@@ -141,7 +141,7 @@ def execute_file(self, fname: str, offset=0):
     return self.run()
     
     
-def execute_elf(self, fname: str):
+def execute_elf(self, fname: str, args=tuple()):
     with ELF32(fname) as elf:
         if elf.hdr.e_type != enums.e_type.ET_EXEC:
             raise ValueError(f'ELF file {elf.fname!r} is not executable (type: {elf.hdr.e_type})')
@@ -169,6 +169,20 @@ def execute_elf(self, fname: str):
     self.eip = elf.hdr.e_entry
     self.code_segment_end = self.eip + max_memsz - 1
     self.mem.program_break = self.code_segment_end
+
+    # INITIALIZE STACK LAYOUT (http://asm.sourceforge.net/articles/startup.html)
+    # push program name:
+    PROG_NAME = b'tes\0'
+    ARG_COUNT = 0
+    self.stack_push(PROG_NAME)
+
+    # push command-line arguments:
+    self.stack_push((0).to_bytes(4, byteorder))  # NULL - end of environment
+    # no envirenment here
+    self.stack_push((0).to_bytes(4, byteorder))  # NULL - end of arguments
+    # no arguments here
+    self.stack_push((self.mem.size - 1 - len(PROG_NAME)).to_bytes(4, byteorder))  # pointer to program name
+    self.stack_push(ARG_COUNT.to_bytes(4, byteorder))
     
     print(f'EXEC at 0x{self.eip:09_x}')
     

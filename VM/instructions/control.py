@@ -213,6 +213,53 @@ class SETB(Instruction):
 
 
 ####################
+# CMOVcc
+####################
+class CMOVCC(Instruction):
+    def __init__(self):
+        CMOVNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        CMOVG = compile(
+            'not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)',
+            'jump', 'eval')
+        CMOVAE = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
+        CMOVGE = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        CMOVNO = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        CMOVNS = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
+        CMOVPE = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        CMOVO = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        CMOVL = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
+        CMOVCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
+        CMOVNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        CMOVNZ = compile('not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        CMOVE = compile('vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        CMOVS = compile('vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
+        CMOVBE = compile('vm.reg.eflags_get(Reg32.CF) or vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
+        CMOVLE = compile('vm.reg.eflags_get(Reg32.ZF) or vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)',
+                        'jump', 'eval')
+        CMOVB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
+
+        self.opcodes = {
+            0x0F45: P(self.r_rm, CMOVNZ)
+        }
+
+    def r_rm(vm, cond) -> True:
+        if not eval(cond):
+            return True
+
+        sz = vm.operand_size
+
+        RM, R = vm.process_ModRM(sz)
+        type, loc, _ = RM
+
+        data = (vm.mem if type else vm.reg).get(loc, sz)
+
+        vm.reg.set(R[1], data)
+
+        if debug: print(f'cmov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
+
+        return True
+
+####################
 # INT
 ####################
 class INT(Instruction):

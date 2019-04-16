@@ -469,8 +469,8 @@ class MOVS(Instruction):
     def movs(self, _8bit) -> True:
         sz = 1 if _8bit else self.operand_size
 
-        esi = to_int(self.reg.get(6, sz))
-        edi = to_int(self.reg.get(7, sz))
+        esi = to_int(self.reg.get(6, sz))  # should actually be DS:ESI
+        edi = to_int(self.reg.get(7, sz))  # should actually be DS:EDI
 
         self.mem.set(esi, self.mem.get(edi, sz))
 
