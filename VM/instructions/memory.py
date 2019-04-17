@@ -103,6 +103,7 @@ class MOV(Instruction):
         type, loc, _ = RM
 
         if reverse:
+            if debug: print(f'ATTEMPT mov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}=???')
             #print('r_rm', loc)
             data = (vm.mem if type else vm.reg).get(loc, sz)
             
@@ -110,7 +111,12 @@ class MOV(Instruction):
 
             if debug: print(f'mov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
         else:
+        
+            
             data = vm.reg.get(R[1], R[2])
+            
+            if debug: print(f'ATTEMPT mov {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][sz]}={bytes(data)}')
+            
             (vm.mem if type else vm.reg).set(loc, data)
 
             if debug: print(f'mov {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][sz]}={bytes(data)}')
@@ -159,17 +165,21 @@ class MOVSX(Instruction):
     def r_rm_movzx(vm, _8bit) -> True:
         sz = 1 if _8bit else 2
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM(sz, vm.operand_size)
 
         type, loc, size = RM
 
         SRC = (vm.mem if type else vm.reg).get(loc, size)
 
+        #print(f'Extending {SRC} to length {R}')
         SRC_ = zero_extend(SRC, R[2])
 
         vm.reg.set(R[1], SRC_)
+        
+        #print(f'movzx {reg_names[R[1]][4]}, extended={SRC_} (orig={SRC}, size={sz})')
+        #raise 
 
-        if debug: print(f'movzx {reg_names[R[1]][R[2]]}, {hex(loc) if type else reg_names[loc][size]}')
+        if debug: print(f'movzx {reg_names[R[1]][4]}, {hex(loc) if type else reg_names[loc][size]}(data={SRC_})')
 
         return True
 
