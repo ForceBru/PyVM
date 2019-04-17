@@ -1,5 +1,5 @@
 from .debug import debug
-from .util import byteorder
+from .util import byteorder, to_int
 
 from .ELF import ELF32, enums
 
@@ -174,14 +174,21 @@ def execute_elf(self, fname: str, args=tuple()):
     # push program name:
     PROG_NAME = b'tes\0'
     ARG_COUNT = 0
+    
     self.stack_push(PROG_NAME)
+    name_addr = to_int(self.reg.get(4, self.stack_address_size))  # esp
 
     # push command-line arguments:
+    self.stack_push((0).to_bytes(4, byteorder))  # NULL - end of stack
+    # INIT AUX VECTOR
+    self.stack_push((0).to_bytes(4, byteorder))  # NULL - no vector
+    # END INIT AUX VECTOR
+    
     self.stack_push((0).to_bytes(4, byteorder))  # NULL - end of environment
     # no envirenment here
     self.stack_push((0).to_bytes(4, byteorder))  # NULL - end of arguments
     # no arguments here
-    self.stack_push((self.mem.size - 1 - len(PROG_NAME)).to_bytes(4, byteorder))  # pointer to program name
+    self.stack_push((name_addr).to_bytes(4, byteorder))  # pointer to program name
     self.stack_push(ARG_COUNT.to_bytes(4, byteorder))
     
     print(f'EXEC at 0x{self.eip:09_x}')
