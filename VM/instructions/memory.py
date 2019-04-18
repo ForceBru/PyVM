@@ -115,7 +115,7 @@ class MOV(Instruction):
             
             data = vm.reg.get(R[1], R[2])
             
-            if debug: print(f'ATTEMPT mov {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][sz]}={bytes(data)}')
+            #if debug: print(f'ATTEMPT mov {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][sz]}={bytes(data)}')
             
             (vm.mem if type else vm.reg).set(loc, data)
 
@@ -171,13 +171,9 @@ class MOVSX(Instruction):
 
         SRC = (vm.mem if type else vm.reg).get(loc, size)
 
-        #print(f'Extending {SRC} to length {R}')
         SRC_ = zero_extend(SRC, R[2])
 
         vm.reg.set(R[1], SRC_)
-        
-        #print(f'movzx {reg_names[R[1]][4]}, extended={SRC_} (orig={SRC}, size={sz})')
-        #raise 
 
         if debug: print(f'movzx {reg_names[R[1]][4]}, {hex(loc) if type else reg_names[loc][size]}(data={SRC_})')
 
@@ -481,10 +477,11 @@ class MOVS(Instruction):
     def movs(self, _8bit) -> True:
         sz = 1 if _8bit else self.operand_size
 
-        esi = to_int(self.reg.get(6, sz))  # should actually be DS:ESI
-        edi = to_int(self.reg.get(7, sz))  # should actually be DS:EDI
+        esi = to_int(self.reg.get(6, self.address_size))  # should actually be DS:ESI
+        edi = to_int(self.reg.get(7, self.address_size))  # should actually be DS:EDI
 
-        self.mem.set(esi, self.mem.get(edi, sz))
+        edi_mem = self.mem.get(edi, sz)
+        self.mem.set(esi, edi_mem)
 
         if not self.reg.eflags_get(Reg32.DF):
             esi += sz
@@ -493,13 +490,15 @@ class MOVS(Instruction):
             esi -= sz
             edi -= sz
 
-        esi &= MAXVALS[sz]
-        edi &= MAXVALS[sz]
+        esi &= MAXVALS[self.address_size]
+        edi &= MAXVALS[self.address_size]
 
-        self.reg.set(6, esi.to_bytes(sz, byteorder))
-        self.reg.set(7, edi.to_bytes(sz, byteorder))
+        self.reg.set(6, esi.to_bytes(self.address_size, byteorder))
+        self.reg.set(7, edi.to_bytes(self.address_size, byteorder))
 
-        if debug: print('mov{}'.format('s' if sz == 1 else ('w' if sz == 2 else 'd')))
+        if debug:
+            letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
+            print(f'movs{letter} [edi(0x{edi:09_x})]({edi_mem.hex()}), [esi(0x{esi:09_x})]')
         return True
 
 ####################

@@ -113,9 +113,8 @@ class JMP(Instruction):
 
             tmpEIP = (vm.mem if type else vm.reg).get(loc, vm.address_size) 
                       
-            vm.eip = to_int(tmpEIP) & MAXVALS[sz]
+            vm.eip = to_int(tmpEIP) & MAXVALS[vm.address_size]
 
-            #print(f'JUMPING TO {disp} {vm.eip:x}')
             assert vm.eip in vm.mem.bounds
 
             if debug: print('jmp rm{}({})'.format(sz * 8, vm.eip))
@@ -201,7 +200,8 @@ class SETB(Instruction):
         SETB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
 
         self.opcodes = {
-            0x0F92: P(self.rm8, SETB)
+            0x0F92: P(self.rm8, SETB),
+            0x0F97: P(self.rm8, SETNBE),
         }
 
     def rm8(vm, cond) -> True:
@@ -243,16 +243,19 @@ class CMOVCC(Instruction):
         CMOVB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
 
         self.opcodes = {
-            0x0F45: P(self.r_rm, CMOVNZ)
+            0x0F45: P(self.r_rm, CMOVNZ),
+            0x0F46: P(self.r_rm, CMOVBE),
+            0x0F47: P(self.r_rm, CMOVNBE),
         }
 
     def r_rm(vm, cond) -> True:
-        if not eval(cond):
-            return True
-
         sz = vm.operand_size
 
         RM, R = vm.process_ModRM(sz)
+
+        if not eval(cond):
+            return True
+
         type, loc, _ = RM
 
         data = (vm.mem if type else vm.reg).get(loc, sz)
