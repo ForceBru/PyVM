@@ -58,8 +58,9 @@ class TestMemory(unittest.TestCase):
 
     def test_emptiness(self):
         for x in range(RUNS):
-            offset = random.randint(0, MEMSZ)
             size = random.randint(0, MEMSZ // 2)
+            offset = random.randint(0, MEMSZ - size)
+                
 
             try:
                 self.assertSequenceEqual(self.mem.get(offset, size), bytearray(size))
@@ -68,8 +69,8 @@ class TestMemory(unittest.TestCase):
 
     def test_set_data(self):
         for x in range(RUNS):
-            offset = random.randint(0, MEMSZ)
             size = random.randint(0, MEMSZ // 2)
+            offset = random.randint(0, MEMSZ - size)
             data = os.urandom(size)
             error = False
 
@@ -88,6 +89,7 @@ class TestMemory(unittest.TestCase):
 class TestStack(unittest.TestCase):
     def setUp(self):
         self.cpu = VM.CPU.CPU32(MEMSZ)
+        self.cpu.mem.program_break = MEMSZ
         self.data = [os.urandom(random.choice([1, 2, 4])) for _ in range(RUNS)]
 
     def test_push_pop(self):
