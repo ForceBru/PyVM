@@ -103,7 +103,7 @@ class MOV(Instruction):
         type, loc, _ = RM
 
         if reverse:
-            if debug: print(f'ATTEMPT mov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}=???')
+            #if debug: print(f'ATTEMPT mov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}=???')
             #print('r_rm', loc)
             data = (vm.mem if type else vm.reg).get(loc, sz)
             
@@ -382,12 +382,14 @@ class LEA(Instruction):
         elif (self.operand_size == 2) and (self.address_size == 4):
             tmp = loc & 0xffff
         elif (self.operand_size == 4) and (self.address_size == 2):
-            tmp = loc
+            tmp = loc & 0xffff
         elif (self.operand_size == 4) and (self.address_size == 4):
             tmp = loc
         else:
             raise RuntimeError("Invalid operand size / address size")
 
+        tmp &= MAXVALS[self.address_size]
+        #print(f'LEA {loc} -> {tmp}')
         data = tmp.to_bytes(self.operand_size, byteorder)
         self.reg.set(R[1], data)
 
