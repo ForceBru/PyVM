@@ -389,7 +389,7 @@ class LEA(Instruction):
             raise RuntimeError("Invalid operand size / address size")
 
         tmp &= MAXVALS[self.address_size]
-        #print(f'LEA {loc} -> {tmp}')
+
         data = tmp.to_bytes(self.operand_size, byteorder)
         self.reg.set(R[1], data)
 
@@ -496,8 +496,8 @@ class MOVS(Instruction):
         esi &= MAXVALS[sz]
         edi &= MAXVALS[sz]
 
-        self.reg.set(6, esi, self.to_bytes(sz, byteorder))
-        self.reg.set(7, edi, self.to_bytes(sz, byteorder))
+        self.reg.set(6, esi.to_bytes(sz, byteorder))
+        self.reg.set(7, edi.to_bytes(sz, byteorder))
 
         if debug: print('mov{}'.format('s' if sz == 1 else ('w' if sz == 2 else 'd')))
         return True
