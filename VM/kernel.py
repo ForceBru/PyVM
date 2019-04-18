@@ -23,6 +23,17 @@ class SyscallsMixin_Meta(type):
 
 
 class SyscallsMixin(metaclass=SyscallsMixin_Meta):
+    def __read_string(self, address: int):
+        ret = bytearray()
+        
+        byte, = self.mem.get(address, 1)
+        while byte != 0:
+            ret.append(byte)
+            address += 1
+            byte, = self.mem.get(address, 1)
+            
+        return ret
+        
     def sys_py_dbg(self, code=0x00):
         raw = self.reg.get(3, 4)
         data = to_int(raw)  # EBX
@@ -114,3 +125,25 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         print(f'\t\tSYS_BRK: changing break: {oldbrk} -> {self.mem.program_break} ({self.mem.program_break - oldbrk:+d})')
         self.reg.set(0, self.mem.program_break.to_bytes(4, 'little'))
+        
+    def sys_unlinkat(self, code=0xf3):
+        """
+        Arguments: (const char * pathname, int flag)
+        """
+        pathname = to_int(self.reg.get(3, 4), signed=0)  # EBX
+        flag = to_int(self.reg.get(1, 4), signed=1)  # ECX
+        
+        pathname = self.__read_string(pathname)
+        
+        print(f'sys_unlinkat({pathname}, flag={flag})')
+        
+        # return error
+        self.reg.set(1, (1).to_bytes(4, 'little'))
+        
+    def sys_sigpending(self, code=0x7b):
+        # do nothing, return success
+        self.reg.set(1, (0).to_bytes(4, 'little'))
+        
+    def sys_vmsplice(self, code=0x102):
+        # do nothing, return error
+        self.reg.set(1, (-1).to_bytes(4, 'little', signed=True))

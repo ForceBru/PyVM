@@ -109,9 +109,13 @@ class JMP(Instruction):
         RM, R = vm.process_ModRM(sz, sz)
 
         if R[1] == 4:  # this is jmp r/m
-            disp = vm.mem.get(vm.eip, sz)
-            vm.eip = to_int(disp) & MAXVALS[sz]
+            type, loc, _ = RM
 
+            tmpEIP = (vm.mem if type else vm.reg).get(loc, vm.address_size) 
+                      
+            vm.eip = to_int(tmpEIP) & MAXVALS[sz]
+
+            #print(f'JUMPING TO {disp} {vm.eip:x}')
             assert vm.eip in vm.mem.bounds
 
             if debug: print('jmp rm{}({})'.format(sz * 8, vm.eip))
