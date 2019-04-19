@@ -126,27 +126,56 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         print(f'\t\tSYS_BRK: changing break: {oldbrk} -> {self.mem.program_break} ({self.mem.program_break - oldbrk:+d})')
         self.reg.set(0, self.mem.program_break.to_bytes(4, 'little'))
         
-    def sys_unlinkat(self, code=0xf3):
+    def sys_set_thread_area(self, code=0xf3):
         """
-        Arguments: (const char * pathname, int flag)
+        Arguments: (struct user_desc *u_info)
+
+        Docs: http://man7.org/linux/man-pages/man2/set_thread_area.2.html
         """
-        pathname = to_int(self.reg.get(3, 4), signed=0)  # EBX
-        flag = to_int(self.reg.get(1, 4), signed=1)  # ECX
+        u_info_addr = to_int(self.reg.get(3, 4))  # EBX
         
-        pathname = self.__read_string(pathname)
-        
-        if debug: print(f'sys_unlinkat({pathname}, flag={flag})')
-        
+        if debug: print(f'sys_set_thread_area({u_info_addr:04x})')
+
         # return error
-        self.reg.set(1, (1).to_bytes(4, 'little'))
+        self.reg.set(1, (-1).to_bytes(4, 'little', signed=True))
         
-    def sys_sigpending(self, code=0x7b):
-        # do nothing, return success
-        self.reg.set(1, (0).to_bytes(4, 'little'))
-        
-    def sys_vmsplice(self, code=0x102):
+    def sys_modify_ldt(self, code=0x7b):
+        """
+        Arguments: (int func, void *ptr, unsigned long bytecount)
+
+        modify_ldt() reads or writes the local descriptor table (LDT) for a
+       process.
+        """
+
+        func = to_int(self.reg.get(3, 4))  # EBX
+        ptr_addr = to_int(self.reg.get(1, 4))  # ECX
+        bytecount = to_int(self.reg.get(2, 4))  # EDX
+
+        if debug: print(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
         # do nothing, return error
         self.reg.set(1, (-1).to_bytes(4, 'little', signed=True))
+        
+    def sys_set_tid_address(self, code=0x102):
+        """
+        Arguments: (int *tidptr)
+
+        The system call set_tid_address() sets the clear_child_tid value for
+       the calling thread to tidptr.
+
+        :return: always returns the caller's thread ID.
+        """
+
+        tidptr = to_int(self.reg.get(3, 4))  # EBX
+
+        tid = self.mem.get(tidptr, 4)
+
+        if debug: print(f'sys_set_tid_address(tidptr={tidptr:04x} (tid={tid}))')
+
+        # do nothing, return tid (thread ID)
+        self.reg.set(1, tid)
+
+    def sys_exit_group(self, code=0xfc):
+        return self.sys_exit()
 
     def sys_writev(self, code=0x92):
         """
@@ -159,6 +188,8 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         fd = to_int(self.reg.get(3, 4), signed=1)  # EBX
         iov_addr = to_int(self.reg.get(1, 4))  # ECX
         iovcnt = to_int(self.reg.get(2, 4), signed=1)  # EDX
+
+        if debug: print(f'sys_writev(fd={fd}, iov=0x{iov_addr:04x}, iovcnt={iovcnt})')
 
         import struct
 
@@ -174,6 +205,8 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         size = 0
         for x in range(iovcnt):
             iov_base, iov_len = struct_iovec.unpack(self.mem.get(iov_addr, struct_iovec.size))
+            if debug: print('struct iovec {\n\tvoid *iov_base=%s;\n\tsize_t iov_len=%d;\n}' % (hex(iov_base), iov_len))
+
             buf = self.mem.get(iov_base, iov_len)
 
             if debug: print(f'iov_{x}=0x{iov_base:09_x}, {iov_len}; buf={buf}')

@@ -9,6 +9,18 @@ from unittest.mock import MagicMock
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-byte number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-byte number
 
+
+class NOP(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0x0F1F: self.rm
+        }
+
+    def rm(vm) -> True:
+        vm.process_ModRM(vm.operand_size)
+
+        return True
+
 ####################
 # JMP
 ####################
@@ -209,9 +221,10 @@ class SETB(Instruction):
 
         type, loc, _ = RM
 
-        (vm.mem if type else vm.reg).set(loc, b'\1' if eval(cond) else b'\0')
+        _bool = bytes([int(eval(cond))])
+        (vm.mem if type else vm.reg).set(loc, _bool)
 
-        if debug: print(f'setcc {hex(loc) if type else reg_names[loc][1]}')
+        if debug: print(f'setcc {hex(loc) if type else reg_names[loc][1]} = {_bool[0]}')
 
         return True
 

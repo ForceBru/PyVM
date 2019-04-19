@@ -157,7 +157,8 @@ def execute_elf(self, fname: str, args=tuple()):
             self.stack_init()
         
         for phdr in elf.phdrs:
-            if phdr.p_type != enums.p_type.PT_LOAD:
+            print(phdr.p_type)
+            if phdr.p_type not in (enums.p_type.PT_LOAD, enums.p_type.PT_GNU_EH_FRAME):
                 continue
                 
             print(f'LOAD {phdr.p_memsz:10,d} bytes at address 0x{phdr.p_vaddr:09_x}')
@@ -165,7 +166,7 @@ def execute_elf(self, fname: str, args=tuple()):
             
             self.mem.set(phdr.p_vaddr, elf.file.read(phdr.p_filesz))            
             self.mem.set(phdr.p_vaddr + phdr.p_filesz, bytearray(phdr.p_memsz - phdr.p_filesz))
-    
+
     self.eip = elf.hdr.e_entry
     self.code_segment_end = self.eip + max_memsz - 1
     self.mem.program_break = self.code_segment_end

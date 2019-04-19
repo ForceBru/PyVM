@@ -1,5 +1,7 @@
 from enum import Enum, Flag
 
+# Also have a look at this: https://sourceware.org/git/?p=binutils.git;a=blob_plain;f=include/elf/common.h
+
 EI_CLASS = Enum('EI_CLASS', 'ELFCLASSNONE ELFCLASS32 ELFCLASS64', start=0)
 EI_DATA = Enum('EI_DATA', 'ELFDATANONE ELFDATA2LSB ELFDATA2MSB', start=0)
 
@@ -64,6 +66,7 @@ class p_type(Enum):
     PT_LOOS = 0x60000000
     PT_HIOS = 0x6FFFFFFF
     PT_LOPROC = 0x70000000
+    PT_GNU_EH_FRAME = 0x60000000 + 0x474e550
     PT_HIPROC = 0x7FFFFFFF
     
     def _missing_(self):

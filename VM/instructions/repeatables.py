@@ -37,7 +37,10 @@ class STOS(Instruction):
 
         self.reg.set(7, edi.to_bytes(sz, byteorder))
 
-        if debug: print('stos{}'.format('b' if sz == 1 else ('w' if sz == 2 else 'd')))
+        if debug:
+            letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
+            print(f'stos{letter} [0x{edi:04x}], eax={eax}')
+
         return True
 
 
