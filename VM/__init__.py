@@ -1,6 +1,7 @@
 import sys
-import operator
-from functools import partial as P
+
+import logging
+#logging.basicConfig(format='%(process)d-%(levelname)s-%(message)s')
 
 from .CPU import CPU32
 from .util import to_int, byteorder

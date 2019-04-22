@@ -4,6 +4,9 @@ from ..util import Instruction, byteorder
 from functools import partialmethod as P
 import struct  # for float packing/unpacking
 
+import logging
+logger = logging.getLogger(__name__)
+
 __fmt = {'little': '<', 'big': '>'}[byteorder]
 FPACK32 = struct.Struct(__fmt + 'f')
 FPACK64 = struct.Struct(__fmt + 'd')
@@ -55,17 +58,18 @@ class FLD(Instruction):
 
         data = ConvertToDoubleExtendedPrecisionFP(_data)
 
-        if debug:
-            flt, = (FPACK32 if bits == 32 else FPACK64).unpack(_data)
-            print(f"fld{bits//8} {data} ({flt})")
-        #print(f"Loading {data}")
+        flt, = (FPACK32 if bits == 32 else FPACK64).unpack(_data)
+        logger.debug('fld%d %s == %f', bits // 8, data.hex(), flt)
+        # if debug:
+        # flt, = (FPACK32 if bits == 32 else FPACK64).unpack(_data)
+        # print(f"fld{bits//8} {data} ({flt})")
 
         vm.freg.push(data)
 
         return True
 
     def m_st(vm, i: int):
-        raise "Can't load from ST yet!"
+        raise RuntimeError("Can't load from ST yet!")
 
         sz = vm.freg.allowed_sizes[0]
         tmp = vm.freg.registers[-sz * (i + 1): -sz * i]
@@ -101,20 +105,24 @@ class FST(Instruction):
         RM, R = vm.process_ModRM(vm.operand_size)
         type, loc, _ = RM
 
-        #_sz = vm.freg.allowed_sizes[0]
-        #data = vm.freg.registers[:_sz]  # get ST(0)
+        # _sz = vm.freg.allowed_sizes[0]
+        # data = vm.freg.registers[:_sz]  # get ST(0)
 
         if R[1] == 2:
             data = vm.freg.ST0
             if bits == 32:
                 data = DoubleToFloat(data)
-            if debug: print(f"fst {data} -> 0x{loc:02X}")
+
+            logger.debug('fst 0x%x := %s', loc, data[:bits // 8].hex())
+            # if debug: print(f"fst {data} -> 0x{loc:02X}")
             (vm.mem if type else vm.reg).set(loc, data[:bits // 8])
         elif R[1] == 3:
             data = vm.freg.ST0
             if bits == 32:
                 data = DoubleToFloat(data)
-            if debug: print(f"fstp {data} -> 0x{loc:02X}")
+
+            logger.debug('fstp 0x%x := %s', loc, data[:bits // 8].hex())
+            # if debug: print(f"fstp {data} -> 0x{loc:02X}")
             (vm.mem if type else vm.reg).set(loc, data[:bits // 8])
             vm.freg.pop()  # TOP may not equal 0
         else:
@@ -124,7 +132,7 @@ class FST(Instruction):
         return True
 
     def st(vm, i: int, do_pop: bool):
-        raise "Can't store to ST yet"
+        raise RuntimeError("Can't store to ST yet")
         old_eip = vm.eip
 
         sz = vm.operand_size
@@ -167,7 +175,8 @@ class FST(Instruction):
 
         assert do_pop is not None
 
-        if debug: print("{} 0x{:02x} (ctrl={:019_b})".format('fistp', -1, vm.freg.control))
+        logger.debug('fistp 0x%x (ctrl=0x%x)', -1, vm.freg.control)
+        # if debug: print("{} 0x{:02x} (ctrl={:019_b})".format('fistp', -1, vm.freg.control))
 
         ST0 = vm.freg.ST0
         ST0, = FPACK64.unpack(ST0)
@@ -204,7 +213,9 @@ class FMUL(Instruction):
         DST, = FPACK64.unpack(_DST)
 
         RET = SRC * DST
-        if debug: print(f"fmulp {_SRC}({SRC}) * {_DST}({DST}) = {RET}")
+
+        logger.debug('fmulp (%s == %f), (%s == %f)', _DST.hex(), DST, _SRC.hex(), SRC)
+        # if debug: print(f"fmulp {_SRC}({SRC}) * {_DST}({DST}) = {RET}")
 
         vm.freg._set_st(i, FPACK64.pack(RET))
         vm.freg.pop()
@@ -223,14 +234,16 @@ class FADD(Instruction):
         }
 
     def faddp(vm, i: int):
-        SRC, DST = vm.freg._get_st(i), vm.freg.ST0
+        _SRC, _DST = vm.freg._get_st(i), vm.freg.ST0
 
-        if debug: print(f"Add: {SRC} + {DST}")
+        # if debug: print(f"Add: {_SRC} + {_DST}")
 
-        SRC, = FPACK64.unpack(SRC)
-        DST, = FPACK64.unpack(DST)
+        SRC, = FPACK64.unpack(_SRC)
+        DST, = FPACK64.unpack(_DST)
 
         RET = SRC + DST
+
+        logger.debug('faddp (%s == %f), (%s == %f)', _SRC.hex(), SRC, _DST.hex(), DST)
         if debug: print(f"Add result: {RET}")
 
         vm.freg._set_st(i, FPACK64.pack(RET))

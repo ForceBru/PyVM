@@ -107,19 +107,10 @@ def process_ModRM(self, size1, size2=None):
 
 def sign_extend(number: bytes, nbytes: int) -> bytes:
     return int.from_bytes(number, byteorder, signed=True).to_bytes(nbytes, byteorder, signed=True)
-    
+
+
 def zero_extend(number: bytes, nbytes: int) -> bytes:
-  l = len(number)
-  assert l <= nbytes
-  
-  result = bytearray(nbytes)
-  
-  if byteorder == 'big':
-    result[-1:-l - 1:-1] = reversed(number)
-  else:
-    result[:l] = number
-    
-  return result
+    return int.from_bytes(number, byteorder, signed=False).to_bytes(nbytes, byteorder, signed=False)
 
 
 def parity(num: int, nbytes: int) -> bool:

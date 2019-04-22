@@ -1,10 +1,13 @@
-from ..debug import debug
+from ..debug import debug, reg_names
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
 from ..misc import parity, sign_extend, Shift
 
 from functools import partialmethod as P
 import operator
+
+import logging
+logger = logging.getLogger(__name__)
 
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
@@ -113,7 +116,8 @@ class BITWISE(Instruction):
         else:
             name = 'test'
 
-        if debug: print('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][sz], sz * 8, b))
+        logger.debug('%s %s=%d, imm%d=%d', name, reg_names[0][sz], a, sz * 8, b)
+        # if debug: print('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][sz], sz * 8, b))
 
         return True
 
@@ -124,7 +128,7 @@ class BITWISE(Instruction):
 
         RM, R = vm.process_ModRM(sz, sz)
 
-        if (operation == operator.and_):
+        if operation == operator.and_:
             if (not test) and (R[1] != 4):
                 vm.eip = old_eip
                 return False  # this is not AND
@@ -167,7 +171,8 @@ class BITWISE(Instruction):
         else:
             name = 'test'
 
-        if debug: print('{0} {5}{1}({2}),imm{3}({4})'.format(name, sz * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
+        logger.debug('%s %s=%d, imm%d=%d', name, hex(loc) if type else reg_names[loc][sz], a, sz * 8, b)
+        # if debug: print('{0} {5}{1}({2}),imm{3}({4})'.format(name, sz * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
 
         return True
 
@@ -201,7 +206,8 @@ class BITWISE(Instruction):
         else:
             name = 'test'
 
-        if debug: print('{0} {4}{1}({2}),r{1}({3})'.format(name, sz * 8, loc, R[1], ('m' if type else '_r')))
+        logger.debug('%s %s=%d, %s=%d', name, hex(loc) if type else reg_names[loc][sz], a, reg_names[R[1]][sz], b)
+        # if debug: print('{0} {4}{1}({2}),r{1}({3})'.format(name, sz * 8, loc, R[1], ('m' if type else '_r')))
 
         return True
 
@@ -235,7 +241,8 @@ class BITWISE(Instruction):
         else:
             name = 'test'
 
-        if debug: print('{0} r{1}({2}),{4}{1}({3})'.format(name, sz * 8, R[1], loc, ('m' if type else '_r')))
+        logger.debug('%s %s=%d, %s=%d', name, reg_names[R[1]][sz], a, hex(loc) if type else reg_names[loc][sz], b)
+        # if debug: print('{0} r{1}({2}),{4}{1}({3})'.format(name, sz * 8, R[1], loc, ('m' if type else '_r')))
 
         return True
 
@@ -316,7 +323,8 @@ class NEGNOT(Instruction):
 
         vm.reg.set(loc, b)
 
-        if debug: print('{0} {3}{1}({2})'.format(operation.__name__, sz * 8, loc, ('m' if type else '_r')))
+        logger.debug('%s %s=%d', operation.__name__, hex(loc) if type else reg_names[loc][sz], a)
+        # if debug: print('{0} {3}{1}({2})'.format(operation.__name__, sz * 8, loc, ('m' if type else '_r')))
 
         return True
 
@@ -391,7 +399,7 @@ class SHIFT(Instruction):
         tmp_cnt = cnt & 0x1F
         type, loc, _ = RM
 
-        dst = to_int((self.mem if type else self.reg).get(loc, sz), signed=(operation==Shift.SAR))
+        dst = to_int((self.mem if type else self.reg).get(loc, sz), signed=(operation == Shift.SAR))
         tmp_dst = dst
 
         if cnt == 0:
@@ -442,7 +450,8 @@ class SHIFT(Instruction):
         elif _cnt == Shift.C_imm8:
             op = ',imm8'
 
-        if debug: print('{} {}{}{}'.format(name, 'm' if type else '_r', sz * 8, op))
+        logger.debug('%s %s=%s, %s=%s', name, hex(loc) if type else reg_names[loc][sz], tmp_dst, op, dst)
+        # if debug: print('{} {}{}{}'.format(name, 'm' if type else '_r', sz * 8, op))
 
         return True
 

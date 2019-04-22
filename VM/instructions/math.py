@@ -5,6 +5,9 @@ from ..misc import parity, sign_extend
 
 from functools import partialmethod as P
 
+import logging
+logger = logging.getLogger(__name__)
+
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
 
@@ -134,8 +137,10 @@ class ADDSUB(Instruction):
         if not cmp:
             vm.reg.set(0, c)
 
-        name = 'sub' if sub else 'add'
-        if debug: print('{} {}, imm{}({})'.format('cmp' if cmp else name, reg_names[0][sz], sz * 8, b))
+        name = 'cmp' if cmp else ('sub' if sub else 'add')
+
+        logger.debug('%s %s, imm%d=%d', name, reg_names[0][sz], sz * 8, b)
+        # if debug: print('{} {}, imm{}({})'.format('cmp' if cmp else name, reg_names[0][sz], sz * 8, b))
 
         return True
 
@@ -207,9 +212,13 @@ class ADDSUB(Instruction):
         if not cmp:
             (vm.mem if type else vm.reg).set(loc, c)
 
-        if debug:
-            name = 'cmp' if cmp else ('sub' if sub else 'add')
-            print(f'{name} {hex(loc) if type else reg_names[loc][sz]}, {b}')
+        logger.debug('%s %s=%d, imm%d=%d',
+                     'cmp' if cmp else ('sub' if sub else 'add'),
+                     hex(loc) if type else reg_names[loc][sz],
+                     a, sz * 8, b)
+        # if debug:
+        # name = 'cmp' if cmp else ('sub' if sub else 'add')
+        # print(f'{name} {hex(loc) if type else reg_names[loc][sz]}, {b}')
 
         return True
 
@@ -254,9 +263,14 @@ class ADDSUB(Instruction):
         if not cmp:
             (vm.mem if type else vm.reg).set(loc, c)
 
-        if debug:
-            name = 'cmp' if cmp else ('sub' if sub else 'add')
-            print(f'{name} {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][R[2]]}')
+        logger.debug('%s %s=%d, %s=%d',
+                     'cmp' if cmp else ('sub' if sub else 'add'),
+                     hex(loc) if type else reg_names[loc][sz], a,
+                     reg_names[R[1]][R[2]], b
+                     )
+        # if debug:
+        # name = 'cmp' if cmp else ('sub' if sub else 'add')
+        # print(f'{name} {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][R[2]]}')
 
         return True
 
@@ -301,9 +315,14 @@ class ADDSUB(Instruction):
         if not cmp:
             vm.reg.set(R[1], c)
 
-        name = 'sub' if sub else 'add'
-        if debug: print(
-            '{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, sz * 8, R[1], hex(loc), ('m' if type else '_r')))
+        logger.debug('%s %s=%d, %s=%d',
+                     'cmp' if cmp else ('sub' if sub else 'add'),
+                     reg_names[R[1]][R[2]], a,
+                     hex(loc) if type else reg_names[loc][sz], b
+                     )
+        # name = 'sub' if sub else 'add'
+        # if debug: print(
+        # '{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, sz * 8, R[1], hex(loc), ('m' if type else '_r')))
 
         return True
 
@@ -389,7 +408,9 @@ class INCDEC(Instruction):
         vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
 
         (vm.mem if type else vm.reg).set(loc, c)
-        if debug: print('{3} {0}{1}({2})'.format('m' if type else '_r', sz * 8, loc, 'dec' if dec else 'inc'))
+
+        logger.debug('%s %s=%d', 'dec' if dec else 'inc', hex(loc) if type else reg_names[loc][sz], a)
+        # if debug: print('{3} {0}{1}({2})'.format('m' if type else '_r', sz * 8, loc, 'dec' if dec else 'inc'))
 
         return True
 
@@ -424,7 +445,9 @@ class INCDEC(Instruction):
         vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
 
         vm.reg.set(loc, c)
-        if debug: print('{3} {0}{1}({2})'.format('r', sz * 8, loc, 'dec' if dec else 'inc'))
+
+        logger.debug('%s %=%d', 'dec' if 'dec' else 'inc', reg_names[loc][sz], a)
+        # if debug: print('{3} {0}{1}({2})'.format('r', sz * 8, loc, 'dec' if dec else 'inc'))
 
         return True
 
@@ -472,7 +495,8 @@ class MUL(Instruction):
             self.reg.set(2, res[:sz])  # DX/EDX
             self.reg.set(0, res[sz:])  # AX/EAX
 
-        if debug: print('mul {}{}'.format('m' if type else '_r', sz * 8))
+        logger.debug('mul %s=%d, %s=%d', reg_names[0][sz], b, hex(loc) if type else reg_names[loc][sz], a,)
+        # if debug: print('mul {}{}'.format('m' if type else '_r', sz * 8))
         return True
 
 ####################
@@ -539,7 +563,8 @@ class DIV(Instruction):
         else:
             self.reg.set(2, rem)  # DX/EDX
 
-        if debug: print('{}div {}{}'.format('i' if idiv else '', 'm' if type else '_r', sz * 8))
+        logger.debug('%sdiv %s=%d, %s=%d', 'i' if idiv else '', reg_names[0][sz], dividend, hex(loc) if type else reg_names[loc][sz], divisor)
+        # if debug: print('{}div {}{}'.format('i' if idiv else '', 'm' if type else '_r', sz * 8))
 
         return True
 
@@ -587,7 +612,8 @@ class IMUL(Instruction):
             vm.reg.set(2, tmp_xp[:sz])  # DX/EDX
             vm.reg.set(0, tmp_xp[sz:])  # AX/EAX
 
-        if debug: print('imul {}{}'.format('m' if type else '_r', sz * 8))
+        logger.debug('imul %s=%d, %s=%d', reg_names[0][sz], dst, hex(loc) if type else reg_names[loc][sz], src)
+        # if debug: print('imul {}{}'.format('m' if type else '_r', sz * 8))
         return True
 
     def r_rm(vm) -> True:
@@ -609,7 +635,8 @@ class IMUL(Instruction):
 
         vm.reg.set(R[1], tmp_xp[:sz])
 
-        if debug: print('imul r{1}, {0}{1}'.format('m' if type else '_r', sz * 8))
+        logger.debug('imul %s=%d, %s=%d', reg_names[R[1]][sz], dst, hex(loc) if type else reg_names[loc][sz], src)
+        # if debug: print('imul r{1}, {0}{1}'.format('m' if type else '_r', sz * 8))
         return True
 
     def r_rm_imm(vm, _8bit_imm: int) -> True:
@@ -635,5 +662,10 @@ class IMUL(Instruction):
 
         vm.reg.set(R[1], tmp_xp[:sz])
 
-        if debug: print('imul r{1}, {0}{1}, imm{1}'.format('m' if type else '_r', sz * 8))
+        logger.debug('imul %s, %s=%d, imm%d=%d',
+                     reg_names[R[1]][sz],
+                     hex(loc) if type else reg_names[loc][sz],
+                     src2, sz * 8, src1)
+
+        # if debug: print('imul r{1}, {0}{1}, imm{1}'.format('m' if type else '_r', sz * 8))
         return True

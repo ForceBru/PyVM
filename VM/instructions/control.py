@@ -6,6 +6,9 @@ from ..misc import sign_extend
 from functools import partialmethod as P
 from unittest.mock import MagicMock
 
+import logging
+logger = logging.getLogger(__name__)
+
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-byte number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-byte number
 
@@ -18,6 +21,8 @@ class NOP(Instruction):
 
     def rm(vm) -> True:
         vm.process_ModRM(vm.operand_size)
+
+        logger.debug('nop')
 
         return True
 
@@ -110,7 +115,8 @@ class JMP(Instruction):
 
         vm.eip = tmpEIP
 
-        if debug: print('jmp rel{}({})'.format(sz * 8, hex(vm.eip)))
+        logger.debug('jmp rel%d %s', sz * 8, hex(vm.eip))
+        # if debug: print('jmp rel{}({})'.format(sz * 8, hex(vm.eip)))
         
         return True
 
@@ -129,7 +135,8 @@ class JMP(Instruction):
 
             assert vm.eip in vm.mem.bounds
 
-            if debug: print('jmp rm{}({})'.format(sz * 8, vm.eip))
+            logger.debug('jmp rm%d 0x%x', sz * 8, vm.eip)
+            # if debug: print('jmp rm{}({})'.format(sz * 8, vm.eip))
 
             return True
         elif R[1] == 5:  # this is jmp m
@@ -154,7 +161,8 @@ class JMP(Instruction):
             else:
                 vm.eip = tempEIP & 0x0000FFFF
 
-            if debug: print('jmp m{}({})'.format(sz * 8, vm.eip))
+            logger.debug('jmp m%d 0x%x', sz * 8, vm.eip)
+            # if debug: print('jmp m{}({})'.format(sz * 8, vm.eip))
 
             return True
 
@@ -180,15 +188,16 @@ class JMP(Instruction):
         else:
             vm.eip = tempEIP & 0x0000FFFF
 
-        if debug: print('jmp m{}({})'.format(sz * 8, vm.eip))
+        logger.debug('jmp m%d 0x%x', sz * 8, vm.eip)
+        # if debug: print('jmp m{}({})'.format(sz * 8, vm.eip))
 
         return True
 
 
 ####################
-# SETB
+# SETcc
 ####################
-class SETB(Instruction):
+class SETcc(Instruction):
     def __init__(self):
         SETNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
         SETG = compile(
@@ -213,6 +222,7 @@ class SETB(Instruction):
 
         self.opcodes = {
             0x0F92: P(self.rm8, SETB),
+            0x0F95: P(self.rm8, SETNZ),
             0x0F97: P(self.rm8, SETNBE),
         }
 
@@ -224,7 +234,8 @@ class SETB(Instruction):
         _bool = bytes([int(eval(cond))])
         (vm.mem if type else vm.reg).set(loc, _bool)
 
-        if debug: print(f'setcc {hex(loc) if type else reg_names[loc][1]} = {_bool[0]}')
+        logger.debug('setcc %s := %d', hex(loc) if type else reg_names[loc][1], _bool[0])
+        # if debug: print(f'setcc {hex(loc) if type else reg_names[loc][1]} = {_bool[0]}')
 
         return True
 
@@ -256,6 +267,7 @@ class CMOVCC(Instruction):
         CMOVB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
 
         self.opcodes = {
+            0x0F44: P(self.r_rm, CMOVE),
             0x0F45: P(self.r_rm, CMOVNZ),
             0x0F46: P(self.r_rm, CMOVBE),
             0x0F47: P(self.r_rm, CMOVNBE),
@@ -275,7 +287,8 @@ class CMOVCC(Instruction):
 
         vm.reg.set(R[1], data)
 
-        if debug: print(f'cmov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
+        logger.debug('cmov %s, %s=%s', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data.hex())
+        # if debug: print(f'cmov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
 
         return True
 
@@ -305,6 +318,8 @@ class INT(Instruction):
 
         vm.interrupt(imm)
 
+        logger.debug('int 0x%x', imm)
+
         return True
 
 ####################
@@ -322,7 +337,7 @@ class CALL(Instruction):
             }
 
     # TODO: implement far calls
-    #rm_m = MagicMock(return_value=False)
+    # rm_m = MagicMock(return_value=False)
     ptr = MagicMock(return_value=False)
     
     def rm_m(vm) -> bool:
@@ -332,28 +347,28 @@ class CALL(Instruction):
         RM, R = vm.process_ModRM(sz, sz)
         
         if R[1] == 2:  # this is call r/m
-          type, loc, size = RM
+            type, loc, size = RM
 
-          data = (vm.mem if type else vm.reg).get(loc, size)
+            data = (vm.mem if type else vm.reg).get(loc, size)
           
-          tmpEIP = to_int(data) & MAXVALS[sz]
+            tmpEIP = to_int(data) & MAXVALS[sz]
           
-          # TODO: check whether tmpEIP is OK
+            # TODO: check whether tmpEIP is OK
           
-          vm.stack_push(vm.eip.to_bytes(sz, byteorder))
+            vm.stack_push(vm.eip.to_bytes(sz, byteorder))
           
-          vm.eip = tmpEIP
+            vm.eip = tmpEIP
 
-          if debug: print(f'call {hex(loc) if type else reg_names[loc][sz]}={bytes(data)} => {hex(vm.eip)}')
-          
-          return True
+            logger.debug('call %s=%s => 0x%f', hex(loc) if type else reg_names[loc][sz], data.hex(), vm.eip)
+            # if debug: print(f'call {hex(loc) if type else reg_names[loc][sz]}={bytes(data)} => {hex(vm.eip)}')
+
+            return True
         elif R[1] == 3:  # this is call m
             vm.eip = old_eip
             return False
 
         vm.eip = old_eip
         return False
-          
 
     def rel(vm) -> True:
         sz = vm.operand_size
@@ -367,7 +382,8 @@ class CALL(Instruction):
         vm.stack_push(vm.eip.to_bytes(sz, byteorder, signed=True))
         vm.eip = tmpEIP
 
-        if debug: print(f'call {hex(dest)} => {hex(vm.eip)}')
+        logger.debug('call 0x%x => 0x%x', dest, vm.eip)
+        # if debug: print(f'call {hex(dest)} => {hex(vm.eip)}')
 
         return True
 
@@ -398,7 +414,8 @@ class RET(Instruction):
 
         assert vm.eip in vm.mem.bounds
 
-        if debug: print("ret (eip=0x{:02x})".format(vm.eip))
+        logger.debug('ret 0x%x', vm.eip)
+        # if debug: print("ret (eip=0x{:02x})".format(vm.eip))
 
         return True
 
@@ -413,7 +430,8 @@ class RET(Instruction):
 
         assert vm.eip in vm.mem.bounds
 
-        if debug: print("ret (eip=0x{:02x})".format(vm.eip))
+        logger.debug('ret 0x%x', vm.eip)
+        # if debug: print("ret (eip=0x{:02x})".format(vm.eip))
 
         return True
 
@@ -425,6 +443,7 @@ class LEAVE(Instruction):
         self.opcodes = {
             0xC9: self.leave
             }
+
     def leave(self) -> True:
         """
         High-level procedure exit.
@@ -437,5 +456,7 @@ class LEAVE(Instruction):
 
         self.reg.set(ESP, self.reg.get(EBP, self.address_size))
         self.reg.set(EBP, self.stack_pop(self.operand_size))
+
+        logger.debug('leave')
 
         return True

@@ -19,16 +19,18 @@ def execute_opcode(self) -> None:
         return
 
     opcode = self.opcode
-    if opcode == 0x0F:  # handle prefix
+    _off = 1
+
+    # handle prefixes
+    if opcode == 0x0F:
         op = self.mem.get(self.eip, 1)[0]  # 0xYY
         self.eip += 1
 
         opcode = (opcode << 8) + op  # opcode <- 0x0FYY
         self.opcode = op
+        _off += 1
 
-        if debug: print(self.fmt.format(self.eip - 2, opcode))
-    else:
-        if debug: print(self.fmt.format(self.eip - 1, opcode))
+    if debug: print(self.fmt.format(self.eip - _off, opcode))
      
     try:   
         for instruction in self.instr[opcode]:
@@ -90,26 +92,31 @@ def run(self):
     :return: None
     """
 
+    pref_segments = {0x2E, 0x36, 0x3E, 0x26, 0x64, 0x65}
+    pref_op_size_override = {0x66}
+
+    prefixes = pref_segments | pref_op_size_override
     self.running = True
 
     while self.running and self.eip + 1 in self.mem.bounds:
         override_name = ''
         self.opcode = self.mem.get(self.eip, 1)[0]
 
-        if self.opcode == 0x66:
-            override_name = 'operand_size'
+        while self.opcode in prefixes:
+            if self.opcode == 0x66:
+                override_name = 'operand_size'
 
-            self.override(override_name)
+                self.override(override_name)
+            elif self.opcode == 0x67:
+                override_name = 'address_size'
+
+                self.override(override_name)
+            elif self.opcode in pref_segments:
+                ...  # do nothing
 
             self.eip += 1
             self.opcode = self.mem.get(self.eip, 1)[0]
-        elif self.opcode == 0x67:
-            override_name = 'address_size'
 
-            self.override(override_name)
-
-            self.eip += 1
-            self.opcode = self.mem.get(self.eip, 1)[0]
 
         self.execute_opcode()
 
