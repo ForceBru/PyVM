@@ -446,7 +446,7 @@ class INCDEC(Instruction):
 
         vm.reg.set(loc, c)
 
-        logger.debug('%s %=%d', 'dec' if 'dec' else 'inc', reg_names[loc][sz], a)
+        logger.debug('%s %s=%d', 'dec' if 'dec' else 'inc', reg_names[loc][sz], a)
         # if debug: print('{3} {0}{1}({2})'.format('r', sz * 8, loc, 'dec' if dec else 'inc'))
 
         return True

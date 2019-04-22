@@ -1,7 +1,8 @@
 import functools
-import os, binascii
-
-from .debug import debug
+import os
+import binascii
+import logging
+logger = logging.getLogger(__name__)
 
 
 byteorder = 'little'
@@ -23,7 +24,7 @@ class InstructionMeta(type):
         if name == 'Instruction':
             return
 
-        if debug: print(f"Registering instruction {name}...")
+        logger.debug("Registering instruction %s...", name)
 
         if '__init__' not in dct.keys():
             raise AttributeError("Instructions must have an '__init__' method")
@@ -34,7 +35,7 @@ class InstructionMeta(type):
         setattr(cls, '__init__', lambda self: dct['__init__'](cls))
         cls.__class__.instruction_set.add(cls)
 
-        if debug: print(f"\tInstruction {name} registered")
+        logger.debug("\tInstruction %s registered", name)
 
 
 class CPUMeta(type):

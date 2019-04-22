@@ -164,7 +164,6 @@ def execute_elf(self, fname: str, args=tuple()):
             self.stack_init()
         
         for phdr in elf.phdrs:
-            print(phdr.p_type)
             if phdr.p_type not in (enums.p_type.PT_LOAD, enums.p_type.PT_GNU_EH_FRAME):
                 continue
                 
