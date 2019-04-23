@@ -131,9 +131,9 @@ class MOV(Instruction):
         msg = 'mov moffs{1}({2}), {0}({3})' if reverse else 'mov {0}, moffs{1}({2}:{3})'
 
         if reverse:
-            logger.debug('mov %s, %s=%s', reg_names[0][sz], hex(loc), data.hex())
-        else:
             logger.debug('mov %s, %s=%s', hex(loc), reg_names[0][sz], data.hex())
+        else:
+            logger.debug('mov %s, %s=%s', reg_names[0][sz], hex(loc), data.hex())
 
         # if debug: print(msg.format({1: 'al', 2: 'ax', 4: 'eax'}[sz], sz * 8, loc, data))
 

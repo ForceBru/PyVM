@@ -359,7 +359,7 @@ class CALL(Instruction):
           
             vm.eip = tmpEIP
 
-            logger.debug('call %s=%s => 0x%f', hex(loc) if type else reg_names[loc][sz], data.hex(), vm.eip)
+            logger.debug('call %s=%s => 0x%x', hex(loc) if type else reg_names[loc][sz], data.hex(), vm.eip)
             # if debug: print(f'call {hex(loc) if type else reg_names[loc][sz]}={bytes(data)} => {hex(vm.eip)}')
 
             return True
