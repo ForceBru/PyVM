@@ -218,7 +218,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
                 self.descriptors[fd].flush()
 
             size += ret if ret is not None else iov_len
-            iov_addr += struct_iovec.size  # address of the next struct
+            iov_addr += struct_iovec.size  # address of the next struct!
 
         self.reg.set(0, size.to_bytes(4, 'little'))
 
