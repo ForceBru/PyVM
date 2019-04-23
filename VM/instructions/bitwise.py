@@ -450,7 +450,7 @@ class SHIFT(Instruction):
         elif _cnt == Shift.C_imm8:
             op = 'imm8'
 
-        logger.debug('%s %s=%s, %s=%s', name, hex(loc) if type else reg_names[loc][sz], tmp_dst, op, dst.hex())
+        logger.debug('%s %s=%s, %s=%s', name, hex(loc) if type else reg_names[loc][sz], tmp_dst, op, cnt)
         # if debug: print('{} {}{}{}'.format(name, 'm' if type else '_r', sz * 8, op))
 
         return True

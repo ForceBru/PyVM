@@ -24,7 +24,7 @@ class InstructionMeta(type):
         if name == 'Instruction':
             return
 
-        logger.debug("Registering instruction %s...", name)
+        logger.log(logging.NOTSET, "Registering instruction %s...", name)
 
         if '__init__' not in dct.keys():
             raise AttributeError("Instructions must have an '__init__' method")
@@ -35,7 +35,7 @@ class InstructionMeta(type):
         setattr(cls, '__init__', lambda self: dct['__init__'](cls))
         cls.__class__.instruction_set.add(cls)
 
-        logger.debug("\tInstruction %s registered", name)
+        logger.log(logging.NOTSET, "\tInstruction %s registered", name)
 
 
 class CPUMeta(type):
