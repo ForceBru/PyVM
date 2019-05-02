@@ -495,7 +495,12 @@ class MUL(Instruction):
             self.reg.set(2, res[:sz])  # DX/EDX
             self.reg.set(0, res[sz:])  # AX/EAX
 
-        logger.debug('mul %s=%d, %s=%d', reg_names[0][sz], b, hex(loc) if type else reg_names[loc][sz], a,)
+            logger.debug(
+                'mul %s=%d, %s=%d (EDX:EAX := %s)',
+                reg_names[0][sz],
+                b, hex(loc) if type else reg_names[loc][sz], a,
+                res.hex()
+            )
         # if debug: print('mul {}{}'.format('m' if type else '_r', sz * 8))
         return True
 

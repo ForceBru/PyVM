@@ -94,6 +94,7 @@ class JMP(Instruction):
             0x0f8e: P(self.rel, _8bit=False, jump=JLE),
             0x0f8f: P(self.rel, _8bit=False, jump=JG),
             0x0f83: P(self.rel, _8bit=False, jump=JAE),
+            0x0f88: P(self.rel, _8bit=False, jump=JS),
             }
 
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
@@ -222,6 +223,7 @@ class SETcc(Instruction):
 
         self.opcodes = {
             0x0F92: P(self.rm8, SETB),
+            0x0F94: P(self.rm8, SETE),
             0x0F95: P(self.rm8, SETNZ),
             0x0F97: P(self.rm8, SETNBE),
         }
@@ -311,7 +313,11 @@ class BT(Instruction):
         RM, R = vm.process_ModRM(sz)
         type, loc, _ = RM
 
-        base = (vm.mem if type else vm.reg).get(loc, sz)
+        if type == 1:
+            base = vm.mem.get(loc, 1)  # read ONE BYTE
+        else:
+            base = vm.reg.get(loc, sz)
+
         base = to_int(base)
 
         offset = vm.mem.get_eip(vm.eip, 1)  # always 8 bits
