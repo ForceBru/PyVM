@@ -1,7 +1,5 @@
 import sys
-
-import logging
-#logging.basicConfig(format='%(process)d-%(levelname)s-%(message)s')
+import collections
 
 from .CPU import CPU32
 from .util import to_int, byteorder
@@ -22,6 +20,9 @@ class VM(CPU32, SyscallsMixin):
         self.fmt = '\t[0x{:0' + str(len(str(self.mem.size))//16) + 'x}]: 0x{:02x}'
 
         self.descriptors = [stdin, stdout, stderr]
+        self.GDT = [
+            b'\0' * 8  # 64-bit entry
+        ] * 6  # TODO: how many entries are there?
         self.valid_syscalls = {
             code: getattr(self, name)
             for code, name in self.valid_syscalls_names.items()

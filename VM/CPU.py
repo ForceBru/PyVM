@@ -2,7 +2,7 @@ from .Memory import Memory
 from .Registers import Reg32, FReg32
 from .util import CPU, byteorder, to_int
 
-from . import instructions # this line MUST be here for the instructions to be loaded correctly
+from . import instructions  # this line MUST be here for the instructions to be loaded correctly
 
 eax, ecx, edx, ebx, esp, ebp, esi, edi = range(8)
 
@@ -11,9 +11,9 @@ class CPU32(CPU):
     def __init__(self, memsize: int):
         super().__init__()
 
-        self.mem = Memory(memsize)  # stack grows downward, user memory - upward
         self.reg = Reg32()
         self.freg = FReg32()
+        self.mem = Memory(memsize, self.reg)  # stack grows downward, user memory - upward
 
         self.eip = 0
 

@@ -1,9 +1,16 @@
+from .util import SegmentRegs
+
+
 class Memory:
-    def __init__(self, size: int):
+    def __init__(self, size: int, reg: "registers"):
         self.memory = bytearray(size)
         self.bounds = range(size)
+        self.segment_registers = reg
         self.size = size
+
         self.program_break = None
+        self.__segment_override_type = SegmentRegs.DS
+        self.__segment_override = self.segment_registers.sreg[self.__segment_override_type]
 
     def __test_bounds(self, offset: int, size: int, func_name: str):
         if offset not in self.bounds:
@@ -20,6 +27,15 @@ class Memory:
             else:
                 raise RuntimeError(f"{func_name}: invalid memory access (requested address: {offset}, memory bounds: {self.bounds})")
 
+    @property
+    def segment_override(self):
+        return self.__segment_override
+
+    @segment_override.setter
+    def segment_override(self, segment_type: SegmentRegs):
+        self.__segment_override_type = segment_type
+        self.__segment_override = self.segment_registers.sreg[segment_type]
+
     def size_set(self, size: int):
         if self.size >= size:
             return
@@ -32,12 +48,21 @@ class Memory:
         self.bounds = range(self.size)
 
     def get(self, offset: int, size: int) -> bytes:
+        offset += self.__segment_override.base
+
+        self.__test_bounds(offset, size, 'Memory.get')
+
+        return self.memory[offset:offset + size]
+
+    def get_eip(self, offset: int, size: int) -> bytes:
         self.__test_bounds(offset, size, 'Memory.get')
 
         return self.memory[offset:offset + size]
 
     def set(self, offset: int, value: bytes) -> None:
         size = len(value)
+        offset += self.__segment_override.base
+
         self.__test_bounds(offset, size, 'Memory.set')
 
         self.memory[offset:offset + size] = value

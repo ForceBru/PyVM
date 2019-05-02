@@ -121,7 +121,8 @@ class st_bind(Flag):
     
     def _missing_(self):
         return self
-        
+
+
 class st_type(Flag):
     STT_NOTYPE = 0
     STT_OBJECT = 1

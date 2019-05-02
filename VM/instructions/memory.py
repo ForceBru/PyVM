@@ -1,6 +1,6 @@
 from ..debug import *
 from ..Registers import Reg32
-from ..util import Instruction, to_int, byteorder
+from ..util import Instruction, to_int, byteorder, SegmentRegs
 from ..misc import sign_extend, zero_extend
 
 from functools import partialmethod as P
@@ -45,8 +45,8 @@ class MOV(Instruction):
             0x8A: P(self.rm_r, _8bit=True, reverse=True),
             0x8B: P(self.rm_r, _8bit=False, reverse=True),
 
-            0x8C: P(self.rm_sreg, reverse=False),
-            0x8E: P(self.rm_sreg, reverse=True),
+            0x8C: P(self.sreg_rm, reverse=True),
+            0x8E: P(self.sreg_rm, reverse=False),
 
             0xA0: P(self.r_moffs, reverse=False, _8bit=True),
             0xA1: P(self.r_moffs, reverse=False, _8bit=False),
@@ -56,12 +56,12 @@ class MOV(Instruction):
             }
 
     # TODO: implement MOV with sreg
-    rm_sreg = MagicMock(return_value=False)
+    # sreg_rm = MagicMock(return_value=False)
 
     def r_imm(vm, _8bit) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        imm = vm.mem.get(vm.eip, sz)
+        imm = vm.mem.get_eip(vm.eip, sz)
 
         vm.eip += sz
 
@@ -84,7 +84,7 @@ class MOV(Instruction):
 
         type, loc, _ = RM
 
-        imm = vm.mem.get(vm.eip, sz)
+        imm = vm.mem.get_eip(vm.eip, sz)
         vm.eip += sz
 
         (vm.mem if type else vm.reg).set(loc, imm)
@@ -118,26 +118,50 @@ class MOV(Instruction):
     def r_moffs(vm, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        loc = to_int(vm.mem.get(vm.eip, vm.address_size))
+        loc = to_int(vm.mem.get_eip(vm.eip, vm.address_size))
         vm.eip += vm.address_size
 
         if reverse:
             data = vm.reg.get(0, sz)
             vm.mem.set(loc, data)
+
+            logger.debug('mov moffs %s, %s=%s', hex(loc), reg_names[0][sz], data.hex())
         else:
             data = vm.mem.get(loc, sz)
             vm.reg.set(0, data)
 
-        msg = 'mov moffs{1}({2}), {0}({3})' if reverse else 'mov {0}, moffs{1}({2}:{3})'
-
-        if reverse:
-            logger.debug('mov %s, %s=%s', hex(loc), reg_names[0][sz], data.hex())
-        else:
-            logger.debug('mov %s, %s=%s', reg_names[0][sz], hex(loc), data.hex())
-
-        # if debug: print(msg.format({1: 'al', 2: 'ax', 4: 'eax'}[sz], sz * 8, loc, data))
+            logger.debug('mov %s, moffs %s=%s', reg_names[0][sz], hex(loc), data.hex())
 
         return True
+
+    def sreg_rm(vm, reverse) -> True:
+        sz = 2
+
+        RM, R = vm.process_ModRM(sz)
+
+        type, From, size = RM
+
+        _SRC = (vm.mem if type else vm.reg).get(From, size)
+
+        SRC = to_int(_SRC)
+
+        index, TI, RPL = SRC >> 3, (SRC >> 2) & 1, SRC & 0b11
+
+        if not reverse:
+            logger.debug(f'About to move to sreg({SegmentRegs(R[1]).name}) from index={index}, table={["GDT", "LDT"][TI]}, privilege={RPL}')
+
+            if TI == 0:  # move from GDT
+                descr = vm.GDT[index]
+            else:  # move from LDT
+                raise RuntimeError('LDT not implemented')
+
+            vm.reg.sreg[R[1]].from_bytes(SRC, descr)
+        else:
+            logger.debug(f'About to load from sreg: {SRC}')
+
+        return True
+
+
 
 
 ####################
@@ -264,7 +288,7 @@ class PUSH(Instruction):
     def imm(vm, _8bit=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        data = vm.mem.get(vm.eip, sz)
+        data = vm.mem.get_eip(vm.eip, sz)
         vm.eip += sz
 
         if len(data) < vm.operand_size:

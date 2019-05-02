@@ -1,6 +1,13 @@
 from .debug import debug
-from .util import to_int
+from .util import to_int, byteorder, segment_descriptor_struct
 import os
+import struct
+
+import logging
+logger = logging.getLogger(__name__)
+
+struct_iovec = struct.Struct('<II')
+struct_user_desc = struct.Struct('<ILIBH4B')
 
 from io import UnsupportedOperation
 
@@ -131,13 +138,93 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         Arguments: (struct user_desc *u_info)
 
         Docs: http://man7.org/linux/man-pages/man2/set_thread_area.2.html
+
+        // TAKEN FROM: http://man7.org/linux/man-pages/man2/set_thread_area.2.html
+        struct user_desc {
+            unsigned int  entry_number;
+            unsigned long base_addr;
+            unsigned int  limit;
+            unsigned int  seg_32bit:1;
+            unsigned int  contents:2;
+            unsigned int  read_exec_only:1;
+            unsigned int  limit_in_pages:1;
+            unsigned int  seg_not_present:1;
+            unsigned int  useable:1;
+        };
         """
         u_info_addr = to_int(self.reg.get(3, 4))  # EBX
         
-        if debug: print(f'sys_set_thread_area({u_info_addr:04x})')
+        logger.debug(f'sys_set_thread_area(u_info=0x%x)', u_info_addr)
 
-        # return error
-        self.reg.set(1, (-1).to_bytes(4, 'little', signed=True))
+        u_info = struct_user_desc.unpack(self.mem.get(u_info_addr, struct_user_desc.size))
+
+        logger.debug(
+            """
+struct user_desc {
+    unsigned int  entry_number      = %d;
+    unsigned long base_addr         = %d;
+    unsigned int  limit             = %d;
+    unsigned int  seg_32bit:1       = %d;
+    unsigned int  contents:2        = %d;
+    unsigned int  read_exec_only:1  = %d;
+    unsigned int  limit_in_pages:1  = %d;
+    unsigned int  seg_not_present:1 = %d;
+    unsigned int  useable:1         = %d;
+};""", *u_info)
+
+        """
+        A `user_desc` is considered "empty" if `read_exec_only` and
+       `seg_not_present` are set to 1 and all of the other fields are 0.  If
+       an "empty" descriptor is passed to `set_thread_area()`, the correspond‐
+       ing TLS entry will be cleared.
+        """
+
+        selector_index = 0
+        if u_info[0] == 4294967295:  # a.k.a. (unsigned int)(-1)
+            """
+            When set_thread_area() is passed an entry_number of -1, it searches
+            for a free TLS entry.  If set_thread_area() finds a free TLS entry,
+            the value of u_info->entry_number is set upon return to show which
+            entry was changed.
+            """
+
+            for selector_index, entry in enumerate(self.GDT):
+                base3, limit2, info, base2, base1, limit1 = segment_descriptor_struct.unpack(entry)
+                segment_present = (info >> 8) & 1
+
+                if segment_present:
+                    continue
+
+                base_addr = u_info[1]
+
+                # BEGIN set up BASE
+                base1 = base_addr & 0xFFFF
+                base3 = (base_addr >> 24) & 0xFF
+                base2 = (base_addr >> 16) & 0xFF
+                # END set up BASE
+
+                limit = u_info[2]
+
+                # BEGIN set up LIMIT
+                limit1 = limit & 0xFFFF
+
+                limit2 &= 0xF0  # clear limit2
+                limit2 += (limit >> 16) & 0xF
+                # END set up LIMIT
+
+                info |= 1 << 7  # set segment present to True
+
+                descriptor = base3, limit2, info, base2, base1, limit1
+
+                self.GDT[selector_index] = segment_descriptor_struct.pack(
+                    *descriptor
+                )
+
+                break
+
+        self.mem.set(u_info_addr, selector_index.to_bytes(4, byteorder))  # set address of new selector
+        # return success (0) or error (-1)
+        self.reg.set(0, (0).to_bytes(4, 'little', signed=True))
         
     def sys_modify_ldt(self, code=0x7b):
         """
@@ -153,7 +240,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         if debug: print(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
         # do nothing, return error
-        self.reg.set(1, (-1).to_bytes(4, 'little', signed=True))
+        self.reg.set(0, (-1).to_bytes(4, 'little', signed=True))
         
     def sys_set_tid_address(self, code=0x102):
         """
@@ -169,47 +256,53 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         tid = self.mem.get(tidptr, 4)
 
-        if debug: print(f'sys_set_tid_address(tidptr={tidptr:04x} (tid={tid}))')
+        logger.debug(f'sys_set_tid_address(tidptr={tidptr:04x} (tid={tid}))')
 
         # do nothing, return tid (thread ID)
-        self.reg.set(1, tid)
+        self.reg.set(0, tid)
 
     def sys_exit_group(self, code=0xfc):
         return self.sys_exit()
 
     def sys_writev(self, code=0x92):
         """
-        ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
+        ssize_t writev(
+            int fd,  // file descriptor
+            const struct iovec *iov,  // pointer to the beginning of an _array_ of structs
+            int iovcnt  // number of elements in that array
+            );
 
         The `writev()` system call writes `iovcnt` buffers of data described by
-       `iov` to the file associated with the file descriptor `fd` ("gather
-       output").
+        `iov` to the file associated with the file descriptor `fd` ("gather output").
+
+        TAKEN FROM: http://man7.org/linux/man-pages/man2/writev.2.html
+
+        struct iovec
+        {
+            void * iov_base; / * Starting address * /
+            size_t iov_len; / * Number of bytes to transfer * /
+        };
         """
+
         fd = to_int(self.reg.get(3, 4), signed=1)  # EBX
         iov_addr = to_int(self.reg.get(1, 4))  # ECX
         iovcnt = to_int(self.reg.get(2, 4), signed=1)  # EDX
 
-        if debug: print(f'sys_writev(fd={fd}, iov=0x{iov_addr:04x}, iovcnt={iovcnt})')
-
-        import struct
-
-        # TAKEN FROM: http://man7.org/linux/man-pages/man2/writev.2.html
-        #
-        # struct iovec
-        # {
-        #     void * iov_base; / *Starting address * /
-        #     size_t iov_len; / *Number of bytes to transfer * /
-        # };
-        struct_iovec = struct.Struct('<II')
+        logger.debug('sys_writev(fd=%d, iov=0x%x, iovcnt=%d)', fd, iov_addr, iovcnt)
 
         size = 0
         for x in range(iovcnt):
             iov_base, iov_len = struct_iovec.unpack(self.mem.get(iov_addr, struct_iovec.size))
-            if debug: print('struct iovec {\n\tvoid *iov_base=%s;\n\tsize_t iov_len=%d;\n}' % (hex(iov_base), iov_len))
+
+            logger.debug('struct iovec {\n\tvoid *iov_base=0x%x;\n\tsize_t iov_len=%d;\n}', iov_base, iov_len)
+
+            if not iov_len:
+                iov_addr += struct_iovec.size
+                continue
 
             buf = self.mem.get(iov_base, iov_len)
 
-            if debug: print(f'iov_{x}=0x{iov_base:09_x}, {iov_len}; buf={buf}')
+            logger.debug('iov_%d=0x%x; iov_len=%d, buf=%s', x, iov_base, iov_len, buf)
 
             try:
                 ret = os.write(self.descriptors[fd].fileno(), buf)
@@ -285,7 +378,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         # 0x0000545A TIOCSERGETMULTI struct serial_multiport_struct *
         # 0x0000545B TIOCSERSETMULTI const struct serial_multiport_struct *
 
-        import enum, struct
+        import enum
         directions = enum.Flag('directions', '_IOC_NONE _IOC_READ _IOC_WRITE', start=0)
 
         # TAKEN FROM: https://elixir.bootlin.com/linux/v5.0.8/source/include/uapi/asm-generic/ioctl.h
@@ -346,5 +439,6 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
                 struct_winsize = struct.Struct('<HHHH')
 
                 self.mem.set(data_addr, struct_winsize.pack(256, 256, 0, 0))
-                self.reg.set(1, (0).to_bytes(4, 'little'))
-        self.reg.set(1, (-1).to_bytes(4, 'little', signed=True))
+                self.reg.set(0, (0).to_bytes(4, 'little'))
+                return
+        self.reg.set(0, (-1).to_bytes(4, 'little', signed=True))

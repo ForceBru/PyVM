@@ -1,7 +1,10 @@
 from .debug import debug
-from .util import byteorder, to_int
+from .util import byteorder, to_int, SegmentRegs
 
 from .ELF import ELF32, enums
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def execute_opcode(self) -> None:
@@ -15,7 +18,7 @@ def execute_opcode(self) -> None:
     self.eip += 1  # points to next data
 
     if self.opcode == 0x90:  # nop
-        if debug: print(self.fmt.format(self.eip - 1, self.opcode))
+        logger.debug(self.fmt.format(self.eip - 1, self.opcode))
         return
 
     opcode = self.opcode
@@ -30,7 +33,7 @@ def execute_opcode(self) -> None:
         self.opcode = op
         _off += 1
 
-    if debug: print(self.fmt.format(self.eip - _off, opcode))
+    logger.debug(self.fmt.format(self.eip - _off, opcode))
      
     try:   
         for instruction in self.instr[opcode]:
@@ -45,7 +48,7 @@ def execute_opcode(self) -> None:
         opcode = (opcode << 8) + op  # opcode <- 0x0FYY
         self.opcode = op
 
-        if debug: print(self.fmt.format(self.eip - 2, opcode))
+        logger.debug(self.fmt.format(self.eip - 2, opcode))
 
         try:
             for instruction in self.instr[opcode]:
@@ -62,7 +65,7 @@ def execute_opcode(self) -> None:
         opcode = (opcode << 8) + op  # opcode <- 0x0FYY
         self.opcode = op
 
-        if debug: print(self.fmt.format(self.eip - 2, opcode))
+        logger.debug(self.fmt.format(self.eip - 2, opcode))
 
         try:
             for instruction in self.instr[opcode]:
@@ -75,13 +78,10 @@ def execute_opcode(self) -> None:
     
 
 def override(self, name: str):
-    if not name:
-        return
-
     old_size = getattr(self, name)
     self.current_mode = not self.current_mode
     setattr(self, name, self.sizes[self.current_mode])
-    if debug: print('{} override ({} -> {})'.format(name, old_size, self.operand_size))
+    logger.debug('%s override (%d -> %d)', name, old_size, self.operand_size)
 
 
 def run(self):
@@ -92,35 +92,43 @@ def run(self):
     :return: None
     """
 
-    pref_segments = {0x2E, 0x36, 0x3E, 0x26, 0x64, 0x65}
+    pref_segments = {
+        0x2E: SegmentRegs.CS,
+        0x36: SegmentRegs.SS,
+        0x3E: SegmentRegs.DS,
+        0x26: SegmentRegs.ES,
+        0x64: SegmentRegs.FS,
+        0x65: SegmentRegs.GS
+    }
     pref_op_size_override = {0x66}
 
-    prefixes = pref_segments | pref_op_size_override
+    prefixes = set(pref_segments) | pref_op_size_override
     self.running = True
 
     while self.running and self.eip + 1 in self.mem.bounds:
-        override_name = ''
-        self.opcode = self.mem.get(self.eip, 1)[0]
+        overrides = []
+        self.opcode, = self.mem.get(self.eip, 1)
 
         while self.opcode in prefixes:
-            if self.opcode == 0x66:
-                override_name = 'operand_size'
-
-                self.override(override_name)
-            elif self.opcode == 0x67:
-                override_name = 'address_size'
-
-                self.override(override_name)
-            elif self.opcode in pref_segments:
-                ...  # do nothing
-
+            overrides.append(self.opcode)
             self.eip += 1
-            self.opcode = self.mem.get(self.eip, 1)[0]
+            self.opcode, = self.mem.get(self.eip, 1)
 
+        # apply overrides
+        for ov in overrides:
+            if ov == 0x66:
+                self.override('operand_size')
+            elif ov == 0x67:
+                self.override('address_size')
+            elif ov in pref_segments:
+                self.mem.segment_override = pref_segments[ov]
+                logger.debug('Segment override: %s', self.mem.segment_override)
 
         self.execute_opcode()
 
-        self.override(override_name)
+        # undo any overrides
+        # TODO: looks ugly
+        self.mem.segment_override = SegmentRegs.DS
 
     ebx = int.from_bytes(self.reg.get(3, 4), byteorder)
     return ebx

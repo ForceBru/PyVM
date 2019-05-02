@@ -1,11 +1,15 @@
 import functools
 import os
 import binascii
+import enum
+import struct
 import logging
 logger = logging.getLogger(__name__)
 
 
 byteorder = 'little'
+SegmentRegs = enum.IntEnum('SegmentRegs', 'ES CS SS DS FS GS', start=0)  # see vol. 2A 3.1.1.3 Sreg
+segment_descriptor_struct = struct.Struct('<4B2H')  # see vol. 3A 3.4.5
 
 
 def to_int(data: bytes, signed=False):

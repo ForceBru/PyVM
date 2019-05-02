@@ -1,3 +1,57 @@
+from .util import byteorder, to_int, SegmentRegs, segment_descriptor_struct
+
+
+class SegmentReg:
+    def __init__(self, name: str):
+        self.segment_selector = 0
+        self.__name = name
+        self.__hidden = [0, 0, 0]  # base address, limit, access info
+
+        self.__bytes = None
+
+    @property
+    def base(self):
+        return self.__hidden[0]
+
+    @property
+    def limit(self):
+        return self.__hidden[1]
+
+    def from_bytes(self, seg_sel: int, cache: bytes):
+        self.segment_selector = seg_sel
+
+        base3, _limit2, info, base2, base1, limit1 = segment_descriptor_struct.unpack(cache)
+
+        limit2 = _limit2 & 0xF
+        limit = (limit2 << 16) + limit1
+        base = (base3 << (3 * 8)) + (base2 << (2 * 8)) + base1
+
+        self.__hidden[:2] = base, limit
+        # TODO: do  something with access data
+
+        self.__bytes = None
+
+    def from_data(self, seg_sel: int, base: int, limit: int):
+        self.segment_selector = seg_sel
+        self.__hidden[:2] = base, limit
+
+        # TODO: do  something with access data
+
+        self.__bytes = None
+
+    def __str__(self):
+        return self.__name
+
+    def __bytes__(self):
+        if self.__bytes is None:
+            self.__bytes = self.segment_selector.to_bytes(2, byteorder) +\
+                           self.__hidden[0].to_bytes(4, byteorder) +\
+                           self.__hidden[1].to_bytes(3, byteorder) +\
+                           self.__hidden[2].to_bytes(1, byteorder)
+
+        return self.__bytes
+
+
 class Reg32:
     """
     Provides all the 32-, 16- and 8-bit registers of a IA-32 CPU.
@@ -10,16 +64,19 @@ class Reg32:
         self.allowed_sizes = [4, 2, 1]
         # self.registers = bytearray(self.allowed_sizes[0] * len(Reg32.names))
         self.eflags = 0x02  # initial value according to the Intel Software Development Manual
-        self.CS, self.DS, self.SS, self.ES, self.FS, self.GS = [0] * 6  # segment registers
+
+        self.sreg = [SegmentReg(n) for n in SegmentRegs._member_names_] # segment registers
+
+        self.GDTR = 0xFFFF  # Global Descriptor Table Register (see vol. 3A 2.4.1)
+        self.LDTR = 0xFFFF  # Local Descriptor Table Register (see vol. 3A 2.4.2)
 
         self.bounds = range(len(Reg32.names))
 
         reserved_eflags_bits = {1, 3, 5, 15}
         reserved_eflags_bits.update(set(range(22, 32)))
-
         self.eflags_bounds = set(range(32)) - reserved_eflags_bits
 
-        self.registers = [
+        registers = [
             b'\0\0\0\0',  # EAX (000)
             b'\0\0\0\0',  # ECX (001)
             b'\0\0\0\0',  # EDX (010)
@@ -29,7 +86,7 @@ class Reg32:
             b'\0\0\0\0',  # ESI (110)
             b'\0\0\0\0',  # EDI (111)
         ]
-        self.registers = list(map(bytearray, self.registers))
+        self.registers = list(map(bytearray, registers))
 
     def get(self, offset: int, size: int) -> bytes:
         """
