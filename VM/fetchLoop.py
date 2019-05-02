@@ -129,6 +129,9 @@ def run(self):
         # undo any overrides
         # TODO: looks ugly
         self.mem.segment_override = SegmentRegs.DS
+        self.current_mode = self.default_mode
+        self.operand_size = self.sizes[self.current_mode]
+        self.address_size = self.sizes[self.current_mode]
 
     ebx = int.from_bytes(self.reg.get(3, 4), byteorder)
     return ebx

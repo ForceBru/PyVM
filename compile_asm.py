@@ -1,6 +1,11 @@
 import subprocess
 from pathlib import Path
 
+import logging, sys
+FMT_1 = '%(levelname)s: %(module)s.%(funcName)s @ %(lineno)d: %(message)s'
+FMT_2 = '%(message)s'
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format=FMT_2)
+
 
 def find_nasm_executable(root=".") -> Path:
     '''

@@ -526,8 +526,8 @@ class MOVS(Instruction):
         edi = to_int(self.reg.get(7, self.address_size))  # should actually be DS:EDI
 
         esi_init = esi
-        edi_mem = self.mem.get(edi, sz)
-        self.mem.set(esi, edi_mem)
+        esi_mem = self.mem.get_seg(SegmentRegs.DS, esi, sz)
+        self.mem.set_seg(SegmentRegs.ES, edi, esi_mem)
 
         if not self.reg.eflags_get(Reg32.DF):
             esi += sz
@@ -542,7 +542,7 @@ class MOVS(Instruction):
         self.reg.set(6, esi.to_bytes(self.address_size, byteorder))
         self.reg.set(7, edi.to_bytes(self.address_size, byteorder))
 
-        logger.debug('movs%s [edi]=%s, [esi=%s]', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), edi_mem.hex(), hex(esi_init))
+        logger.debug('movs%s [edi]=%s, [esi=%s]', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), esi_mem.hex(), hex(esi_init))
         # if debug:
         # letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
         # print(f'movs{letter} [edi(0x{edi:09_x})]({edi_mem.hex()}), [esi(0x{esi:09_x})]')

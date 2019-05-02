@@ -54,8 +54,15 @@ class Memory:
 
         return self.memory[offset:offset + size]
 
+    def get_seg(self, seg: SegmentRegs, offset: int, size: int) -> bytes:
+        offset += self.segment_registers.sreg[seg].base
+
+        self.__test_bounds(offset, size, 'Memory.get_segment')
+
+        return self.memory[offset:offset + size]
+
     def get_eip(self, offset: int, size: int) -> bytes:
-        self.__test_bounds(offset, size, 'Memory.get')
+        self.__test_bounds(offset, size, 'Memory.get_eip')
 
         return self.memory[offset:offset + size]
 
@@ -64,6 +71,14 @@ class Memory:
         offset += self.__segment_override.base
 
         self.__test_bounds(offset, size, 'Memory.set')
+
+        self.memory[offset:offset + size] = value
+
+    def set_seg(self, seg: SegmentRegs, offset: int, value: bytes) -> None:
+        size = len(value)
+        offset += self.segment_registers.sreg[seg].base
+
+        self.__test_bounds(offset, size, 'Memory.set_segment')
 
         self.memory[offset:offset + size] = value
 
