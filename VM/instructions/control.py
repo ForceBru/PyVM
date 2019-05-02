@@ -267,10 +267,13 @@ class CMOVCC(Instruction):
         CMOVB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
 
         self.opcodes = {
+            0x0F42: P(self.r_rm, CMOVB),
             0x0F44: P(self.r_rm, CMOVE),
             0x0F45: P(self.r_rm, CMOVNZ),
             0x0F46: P(self.r_rm, CMOVBE),
             0x0F47: P(self.r_rm, CMOVNBE),
+            0x0F48: P(self.r_rm, CMOVS),
+            0x0F4C: P(self.r_rm, CMOVL),
         }
 
     def r_rm(vm, cond) -> True:
@@ -292,6 +295,40 @@ class CMOVCC(Instruction):
 
         return True
 
+
+####################
+# INT
+####################
+class BT(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0x0FBA: self.rm_imm
+        }
+
+    def rm_imm(vm) -> True:
+        sz = vm.operand_size
+
+        RM, R = vm.process_ModRM(sz)
+        type, loc, _ = RM
+
+        base = (vm.mem if type else vm.reg).get(loc, sz)
+        base = to_int(base)
+
+        offset = vm.mem.get_eip(vm.eip, 1)  # always 8 bits
+        offset = to_int(offset)
+        vm.eip += 1
+
+        logger.debug('bt %s, 0x%02x', hex(loc) if type else reg_names[loc][sz], offset)
+
+        if type == 0:  # first arg is a register
+            offset %= sz * 8
+
+        vm.reg.eflags_set(Reg32.CF, (base >> offset) & 1)
+
+        return True
+
+
+
 ####################
 # INT
 ####################
@@ -312,7 +349,7 @@ class INT(Instruction):
         return True
 
     def imm(vm) -> True:
-        imm = vm.mem.get(vm.eip, 1)  # always 8 bits
+        imm = vm.mem.get_eip(vm.eip, 1)  # always 8 bits
         imm = to_int(imm)
         vm.eip += 1
 
