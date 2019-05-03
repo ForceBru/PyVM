@@ -216,10 +216,7 @@ class ADDSUB(Instruction):
                      'cmp' if cmp else ('sub' if sub else 'add'),
                      hex(loc) if type else reg_names[loc][sz],
                      a, sz * 8, b)
-        # if debug:
-        # name = 'cmp' if cmp else ('sub' if sub else 'add')
-        # print(f'{name} {hex(loc) if type else reg_names[loc][sz]}, {b}')
-
+        
         return True
 
     def rm_r(vm, _8bit, sub=False, cmp=False, carry=False) -> True:
@@ -492,8 +489,9 @@ class MUL(Instruction):
         if sz == 1:
             self.reg.set(0, res)  # AX
         else:
-            self.reg.set(2, res[:sz])  # DX/EDX
-            self.reg.set(0, res[sz:])  # AX/EAX
+            # damn little endian(
+            self.reg.set(2, res[sz:])  # DX/EDX
+            self.reg.set(0, res[:sz])  # AX/EAX
 
             logger.debug(
                 'mul %s=%d, %s=%d (EDX:EAX := %s)',
