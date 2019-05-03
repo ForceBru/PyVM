@@ -50,3 +50,8 @@ class CPU32(CPU):
         self.reg.set(esp, new_esp)
 
         return data
+
+    def stack_get(self, size: int) -> bytes:
+        addr = to_int(self.reg.get(esp, self.stack_address_size))
+
+        return self.mem.get(addr, size)

@@ -344,15 +344,15 @@ class INCDEC(Instruction):
         self.opcodes = {
             # INC
             **{
-                o: P(self.r, _8bit=False)
+                o: P(self.r, _8bit=False, dec=False)
                 for o in range(0x40, 0x48)
                 },
             0xFE: [
-                P(self.rm, _8bit=True),
+                P(self.rm, _8bit=True, dec=False),
                 P(self.rm, _8bit=True, dec=True)
                 ],
             0xFF: [
-                P(self.rm, _8bit=False),
+                P(self.rm, _8bit=False, dec=False),
                 P(self.rm, _8bit=False, dec=True)
                 ],
 
@@ -363,7 +363,7 @@ class INCDEC(Instruction):
                 }
             }
 
-    def rm(vm, _8bit, dec=False) -> bool:
+    def rm(vm, _8bit, dec) -> bool:
         sz = 1 if _8bit else vm.operand_size
         old_eip = vm.eip
 
@@ -443,7 +443,7 @@ class INCDEC(Instruction):
 
         vm.reg.set(loc, c)
 
-        logger.debug('%s %s=%d', 'dec' if 'dec' else 'inc', reg_names[loc][sz], a)
+        logger.debug('%s %s=%d', 'dec' if dec else 'inc', reg_names[loc][sz], a)
         # if debug: print('{3} {0}{1}({2})'.format('r', sz * 8, loc, 'dec' if dec else 'inc'))
 
         return True

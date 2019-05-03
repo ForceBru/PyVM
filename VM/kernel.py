@@ -40,6 +40,9 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
             byte, = self.mem.get(address, 1)
             
         return ret
+
+    def __return(self, value: int):
+        self.reg.set(0, value.to_bytes(4, byteorder, signed=value < 0))
         
     def sys_py_dbg(self, code=0x00):
         raw = self.reg.get(3, 4)
@@ -80,9 +83,10 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         except (AttributeError, UnsupportedOperation):
             data = (self.descriptors[fd].read(count) + '\n').encode('ascii')
 
-        if debug: print('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
+        logger.debug('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
         self.mem.set(data_addr, data)
-        self.reg.set(0, len(data).to_bytes(4, 'little'))
+
+        self.__return(len(data))
 
     def sys_write(self, code=0x04):
         """
@@ -94,16 +98,18 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         buf = self.mem.get(buf_addr, count)
 
-        if debug: print('sys_write({}, {}({}), {})'.format(fd, buf_addr, buf, count))
+        logger.debug('sys_write({}, {}({}), {})'.format(fd, buf_addr, buf, count))
         try:
-            ret = os.write(self.descriptors[fd].fileno(), buf)
+            fileno = self.descriptors[fd].fileno()
+            ret = os.write(fileno, buf)
+            os.fsync(fileno)
         except (AttributeError, UnsupportedOperation):
             ret = self.descriptors[fd].write(buf.decode('ascii'))
             self.descriptors[fd].flush()
 
         size = ret if ret is not None else count
 
-        self.reg.set(0, size.to_bytes(4, 'little'))
+        self.__return(size)
 
     def sys_brk(self, code=0x2d):
         '''
@@ -125,14 +131,14 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         if oldbrk == newbrk:
             print(f'\t\tSYS_BRK: not changing break: {oldbrk} == {newbrk}')
-            self.reg.set(0, oldbrk.to_bytes(4, 'little'))
-            return
+
+            return self.__return(oldbrk)
 
         self.mem.program_break = brk
 
         print(f'\t\tSYS_BRK: changing break: {oldbrk} -> {self.mem.program_break} ({self.mem.program_break - oldbrk:+d})')
-        self.reg.set(0, self.mem.program_break.to_bytes(4, 'little'))
-        
+        self.__return(self.mem.program_break)
+
     def sys_set_thread_area(self, code=0xf3):
         """
         Arguments: (struct user_desc *u_info)
@@ -188,7 +194,7 @@ struct user_desc {
             entry was changed.
             """
 
-            for selector_index, entry in enumerate(self.GDT):
+            for selector_index, entry in enumerate(self.GDT[1:], 1):
                 base3, limit2, info, base2, base1, limit1 = segment_descriptor_struct.unpack(entry)
                 segment_present = (info >> 8) & 1
 
@@ -224,7 +230,7 @@ struct user_desc {
 
         self.mem.set(u_info_addr, selector_index.to_bytes(4, byteorder))  # set address of new selector
         # return success (0) or error (-1)
-        self.reg.set(0, (0).to_bytes(4, 'little', signed=True))
+        self.__return(0)
         
     def sys_modify_ldt(self, code=0x7b):
         """
@@ -240,7 +246,7 @@ struct user_desc {
 
         if debug: print(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
         # do nothing, return error
-        self.reg.set(0, (-1).to_bytes(4, 'little', signed=True))
+        self.__return(-1)
         
     def sys_set_tid_address(self, code=0x102):
         """
@@ -313,7 +319,38 @@ struct user_desc {
             size += ret if ret is not None else iov_len
             iov_addr += struct_iovec.size  # address of the next struct!
 
-        self.reg.set(0, size.to_bytes(4, 'little'))
+        self.__return(size)
+
+    def sys_llseek(self, code=0x8c):
+        """
+        Arguments: (unsigned int fd, unsigned long offset_high,
+                   unsigned long offset_low, loff_t *result,
+                   unsigned int whence)
+
+        See: http://man7.org/linux/man-pages/man2/llseek.2.html
+        """
+
+        fd = to_int(self.reg.get(3, 4))  # EBX
+        offset_high = to_int(self.reg.get(1, 4))  # ECX
+        offset_low = to_int(self.reg.get(2, 4))  # EDX
+        result_addr = to_int(self.reg.get(6, 4))  # ESI
+        whence = to_int(self.reg.get(7, 4))  # EDI
+
+        logger.debug('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%04X, whence=%d)',
+                     fd, offset_high, offset_low, result_addr, whence
+                     )
+
+        offset = (offset_high << 32) | offset_low
+
+        try:
+            ret = os.lseek(self.descriptors[fd].fileno(), offset & 0xFFFFFFFF, whence)
+        except OSError:
+            return self.__return(-1)
+        else:
+            self.mem.set(result_addr, ret.to_bytes(4, byteorder))
+
+        # return success
+        self.__return(0)
 
     def sys_ioctl(self, code=0x36):
         """
@@ -424,8 +461,7 @@ struct user_desc {
                 try:
                     self.descriptors[fd]
                 except IndexError:
-                    self.reg.set(1, (-1).to_bytes(4, 'little', signed=True))
-                    return
+                    return self.__return(-1)
 
                 # TAKEN FROM: http://man7.org/linux/man-pages/man4/tty_ioctl.4.html
                 #
@@ -439,6 +475,7 @@ struct user_desc {
                 struct_winsize = struct.Struct('<HHHH')
 
                 self.mem.set(data_addr, struct_winsize.pack(256, 256, 0, 0))
-                self.reg.set(0, (0).to_bytes(4, 'little'))
-                return
-        self.reg.set(0, (-1).to_bytes(4, 'little', signed=True))
+
+                return self.__return(0)
+
+        self.__return(-1)

@@ -299,7 +299,7 @@ class CMOVCC(Instruction):
 
 
 ####################
-# INT
+# BT
 ####################
 class BT(Instruction):
     def __init__(self):
@@ -368,6 +368,7 @@ class INT(Instruction):
 ####################
 # CALL
 ####################
+CALL_DEPTH = 0
 class CALL(Instruction):
     """
     Call a procedure.
@@ -420,6 +421,51 @@ class CALL(Instruction):
         dest = to_int(dest, True)
         tmpEIP = vm.eip + dest
 
+        '''
+        test = {
+            0x000008BD: 'printf_core',
+            0x0000050C: 'printf',
+            0x00000760: 'vprintf',
+            0x0000225e: 'pop_arg',
+            0x000023E8: '__fwritex [MUST WRITE]',
+            0x00006C08: '__memcpy_fwd',
+            0x00002618: '__towrite',
+            0x00000530: 'scanf',
+            0x00002974: 'vscanf',
+            0x00002A38: '__isoc99_vfscanf',
+            0x00004A70: '__shlim',
+            0x00004BA0: '__shgetc',
+            0x00004C90: '__uflow',
+            0x00004CD4: '__toread',
+            0x000004E0: '__vsyscall',
+            0x000004F6: 'fcn.000004f6',
+            0x000005D0: '__syscall_ret',
+            0x00004D40: '__intscan',
+            0x000005B8: '___errno_location',
+            0x0000049F: 'exit',
+            0x0000047C: 'dummy_1',
+            0x0000047D: 'libc_exit_fini',
+            0x00002668: '__stdio_exit',
+            0x000026A8: '__stdio_exit.close_file',
+            0x000006B4: '__stdio_write',
+            0x000026FC: '__ofl_lock',
+            0x00006E34: '__lock'
+        }
+
+        global CALL_DEPTH
+        if tmpEIP in test:
+            print('  ' * CALL_DEPTH + f'Calling {test[tmpEIP]} (0x{tmpEIP:08X}) @ 0x{vm.eip:08X}')
+            if '__fwritex' in test[tmpEIP]:
+                import struct
+                s, l, f = struct.unpack('<3I', vm.stack_get(4 + 4 + 4))
+                stri = vm.mem.get(s, l).decode()
+                print(f'Args: (char *s={stri!r}, size_t l={l}, FILE *f=0x{f:08X})')
+        else:
+            print('  ' * CALL_DEPTH + f'Calling 0x{tmpEIP:08X}')
+
+        CALL_DEPTH += 1
+        '''
+
         assert tmpEIP in vm.mem.bounds
 
         vm.stack_push(vm.eip.to_bytes(sz, byteorder, signed=True))
@@ -453,9 +499,16 @@ class RET(Instruction):
 
     def near(vm) -> True:
         sz = vm.operand_size
+        eip_old = vm.eip - 1
         vm.eip = to_int(vm.stack_pop(sz), True)
 
         assert vm.eip in vm.mem.bounds
+        '''
+        global CALL_DEPTH
+        eax = to_int(vm.reg.get(0, 4), True)
+        print('  ' * CALL_DEPTH + f'Return {eax} to 0x{vm.eip:08X} from 0x{eip_old:08X}')
+        CALL_DEPTH -= 1
+        '''
 
         logger.debug('ret 0x%x', vm.eip)
         # if debug: print("ret (eip=0x{:02x})".format(vm.eip))

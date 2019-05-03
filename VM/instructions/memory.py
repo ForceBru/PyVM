@@ -522,8 +522,8 @@ class MOVS(Instruction):
     def movs(self, _8bit) -> True:
         sz = 1 if _8bit else self.operand_size
 
-        esi = to_int(self.reg.get(6, self.address_size))  # should actually be DS:ESI
-        edi = to_int(self.reg.get(7, self.address_size))  # should actually be DS:EDI
+        esi = to_int(self.reg.get(6, self.address_size))
+        edi = to_int(self.reg.get(7, self.address_size))
 
         esi_init = esi
         esi_mem = self.mem.get_seg(SegmentRegs.DS, esi, sz)
