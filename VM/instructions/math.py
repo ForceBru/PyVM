@@ -480,26 +480,28 @@ class MUL(Instruction):
         a = to_int((self.mem if type else self.reg).get(loc, sz))
         b = to_int(self.reg.get(0, sz))  # AL/AX/EAX
 
-        res = (a * b).to_bytes(sz * 2, byteorder)
+        res = a * b
 
-        upper_half_not_zero = sum(res[len(res)//2:]) != 0
+        _sz = 2 if sz == 1 else sz
+        lo = res & MAXVALS[_sz]
+        hi = (res >> (sz * 8)) & MAXVALS[_sz]
+
+        upper_half_not_zero = hi != 0
         self.reg.eflags_set(Reg32.OF, upper_half_not_zero)
         self.reg.eflags_set(Reg32.CF, upper_half_not_zero)
 
-        if sz == 1:
-            self.reg.set(0, res)  # AX
-        else:
-            # damn little endian(
-            self.reg.set(2, res[sz:])  # DX/EDX
-            self.reg.set(0, res[:sz])  # AX/EAX
+        self.reg.set(0, lo.to_bytes(_sz, byteorder))  # (E)AX
 
-            logger.debug(
-                'mul %s=%d, %s=%d (EDX:EAX := %s)',
-                reg_names[0][sz],
-                b, hex(loc) if type else reg_names[loc][sz], a,
-                res.hex()
-            )
-        # if debug: print('mul {}{}'.format('m' if type else '_r', sz * 8))
+        if sz != 1:
+            self.reg.set(2, hi.to_bytes(_sz, byteorder))  # (E)DX
+
+        logger.debug(
+            'mul %s=%d, %s=%d (edx := 0x%x; eax := 0x%x)',
+            reg_names[0][sz],
+            b, hex(loc) if type else reg_names[loc][sz], a,
+            hi, lo
+        )
+
         return True
 
 ####################

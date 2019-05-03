@@ -26,10 +26,10 @@ test_rm:
 
 	mul bx
 
-	cmp dx, 23089
+	cmp dx, 0x020c
 	jne fail_rm
 
-	cmp ax, 524
+	cmp ax, 0x5a31
 	jne fail_rm
 
 	jmp success
