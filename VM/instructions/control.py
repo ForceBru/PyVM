@@ -556,3 +556,50 @@ class LEAVE(Instruction):
         logger.debug('leave')
 
         return True
+
+####################
+# CPUID
+####################
+class CPUID(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0x0FA2: self.cpuid
+        }
+
+    def cpuid(self) -> True:
+        """
+        See: https://en.wikipedia.org/wiki/CPUID
+        """
+        eax, ebx, ecx, edx = 0, 3, 1, 2
+        max_input_value = 0x01
+        EAX_val = to_int(self.reg.get(eax, 4))
+
+        if EAX_val == 0x00:
+            self.reg.set(eax, max_input_value.to_bytes(4, byteorder))
+            self.reg.set(ebx, b'Genu')
+            self.reg.set(edx, b'ineI')
+            self.reg.set(ecx, b'ntel')
+        elif EAX_val == 0x01:
+            # Processor Model, Family, Stepping in EAX (https://en.wikichip.org/wiki/intel/cpuid)
+            # Family 3, core 80486DX
+            #
+            # Reserved: 0b0000
+            # extended family: 0b0000_0000
+            # extended model: 0b0000,
+            # reserved + type: 0b0000 (original OEM processor),
+            # family: 0b0100,
+            # model: 0b0001,
+            # stepping: 0b0000
+            EAX_val = 0b0000_0000_0000_0000_0000_0100_0001_0000
+            EBX_val = 0
+            ECX_val = 0  # no extra technologies available
+            EDX_val = 0b0000_0000_0000_0000_1000_0000_0000_0001  # CMOV (bit 5), fpu (bit 0)
+
+            self.reg.set(eax, EAX_val.to_bytes(4, byteorder))
+            self.reg.set(ebx, EBX_val.to_bytes(4, byteorder))
+            self.reg.set(ecx, ECX_val.to_bytes(4, byteorder))
+            self.reg.set(edx, EDX_val.to_bytes(4, byteorder))
+        else:
+            raise RuntimeError(f'Unsupported EAX value for CPUID: 0x{EAX_val:08X}')
+
+        return True

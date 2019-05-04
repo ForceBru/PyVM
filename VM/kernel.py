@@ -479,3 +479,62 @@ struct user_desc {
                 return self.__return(0)
 
         self.__return(-1)
+
+    def sys_newuname(self, code=0x7a):
+        """
+        int sys_newuname(struct new_utsname *buf);
+
+        // See: https://elixir.bootlin.com/linux/v2.6.35/source/include/linux/utsname.h#L24
+        struct new_utsname {
+            char sysname[__NEW_UTS_LEN + 1];
+            char nodename[__NEW_UTS_LEN + 1];
+            char release[__NEW_UTS_LEN + 1];
+            char version[__NEW_UTS_LEN + 1];
+            char machine[__NEW_UTS_LEN + 1];
+            char domainname[__NEW_UTS_LEN + 1];
+        };
+        """
+
+        buf_addr = to_int(self.reg.get(3, 4))  # EBX
+
+        logger.debug(f'sys_newuname(struct new_utsname *buf=0x%08X)', buf_addr)
+
+        __NEW_UTS_LEN = 64
+        struct_new_utsname = struct.Struct('<{0}s{0}s{0}s{0}s{0}s{0}s'.format(__NEW_UTS_LEN + 1))
+
+        sysname = 'PyVM_Linux'.encode('ascii')
+        nodename = 'PyVM_Linux'.encode('ascii')
+        release = '0.0.1'.encode('ascii')
+        version = '0.0.1'.encode('ascii')
+        machine = 'PyVM - Intel IA-32 on Python'.encode('ascii')
+        domainname = 'PyVM_Linux.local'.encode('ascii')
+
+        buf = struct_new_utsname.pack(
+            sysname, nodename, release, version, machine, domainname
+        )
+
+        self.mem.set(buf_addr, buf)
+
+        self.__return(0)
+
+    def sys_open(self, code=0x05):
+        """
+        int open(const char *pathname, int flags, mode_t mode);
+        """
+
+        pathname_addr = to_int(self.reg.get(3, 4))  # EBX
+        flags = to_int(self.reg.get(1, 4))  # ECX
+        mode = to_int(self.reg.get(2, 4))  # EDX
+
+        pathname = self.__read_string(pathname_addr).decode()
+        logger.debug(f'sys_open(const char *pathname=%r, int flags=%d, mode_t mode=%d)', pathname, flags, mode)
+
+        self.__return(-1)
+
+    def sys_mmap_pgoff(self, code=0xc0):
+        """
+        void *mmap(void *addr, size_t length, int prot, int flags,
+                  int fd, off_t offset);
+        """
+
+        self.__return(-1)
