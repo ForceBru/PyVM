@@ -17,6 +17,7 @@ hello_world = 'hello_world'
 hello = 'hello'
 helloc = 'helloc'
 helloc_native = 'helloc_native'
+helloc_native_musl = 'helloc_native_musl'
 hello_dyn = 'hello_dynamic'
 bash  = 'elf-Linux-x86-bash'
 
@@ -25,5 +26,5 @@ if __name__ == '__main__':
     mem = 50_000  # 344_860_000
     vm = VM.VM(mem)  # memory will be allocated automatically
 
-    vm.execute_elf(f'VM/ELF/samples/{helloc}')
+    vm.execute_elf(f'VM/ELF/samples/{helloc_native_musl}')
 
