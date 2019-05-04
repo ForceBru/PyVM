@@ -92,6 +92,7 @@ def run(self):
     :return: None
     """
 
+    # opcode perfixes
     pref_segments = {
         0x2E: SegmentRegs.CS,
         0x36: SegmentRegs.SS,
@@ -101,8 +102,9 @@ def run(self):
         0x65: SegmentRegs.GS
     }
     pref_op_size_override = {0x66}
+    pref_lock = {0xf0}
 
-    prefixes = set(pref_segments) | pref_op_size_override
+    prefixes = set(pref_segments) | pref_op_size_override | pref_lock
     self.running = True
 
     while self.running and self.eip + 1 in self.mem.bounds:
@@ -123,6 +125,8 @@ def run(self):
             elif ov in pref_segments:
                 self.mem.segment_override = pref_segments[ov]
                 logger.debug('Segment override: %s', self.mem.segment_override)
+            elif ov in pref_lock:
+                ...  # do nothing; all operations are atomic anyway. Right?
 
         self.execute_opcode()
 

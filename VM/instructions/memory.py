@@ -1,7 +1,7 @@
 from ..debug import *
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder, SegmentRegs
-from ..misc import sign_extend, zero_extend
+from ..misc import sign_extend, zero_extend, parity
 
 from functools import partialmethod as P
 from unittest.mock import MagicMock
@@ -474,6 +474,60 @@ class XCHG(Instruction):
             logger.debug('xchg %s, %s', hex(loc) if type else reg_names[loc][sz], hex(loc) if type else reg_names[loc][sz])
 
         # if debug: print('xchg r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], tmp))
+        return True
+
+####################
+# CMPXCHG
+####################
+class CMPXCHG(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0x0FB0: P(self.rm_r, _8bit=True),
+            0x0FB1: P(self.rm_r, _8bit=False)
+        }
+
+    def rm_r(vm, _8bit) -> True:
+        sz = 1 if _8bit else vm.operand_size
+        old_eip = vm.eip
+
+        RM, R = vm.process_ModRM(sz)
+
+        type, loc, _ = RM
+
+        a = to_int(vm.reg.get(0, sz))  # AL/AX/EAX
+        b = to_int((vm.mem if type else vm.reg).get(loc, sz))
+
+        # BEGIN compare a and b
+        c = a + MAXVALS[sz] + 1 - b
+
+        sign_a = (a >> (sz * 8 - 1)) & 1
+        sign_b = (b >> (sz * 8 - 1)) & 1
+        sign_c = (c >> (sz * 8 - 1)) & 1
+
+        vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+        vm.reg.eflags_set(Reg32.CF, b > a)
+        vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
+
+        vm.reg.eflags_set(Reg32.SF, sign_c)
+
+        c &= MAXVALS[sz]
+
+        vm.reg.eflags_set(Reg32.ZF, c == 0)
+
+        c = c.to_bytes(sz, byteorder)
+
+        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        # END compare a and b
+
+        accumulator, temp = a, b
+
+        if vm.reg.eflags_get(Reg32.ZF):
+            (vm.mem if type else vm.reg).set(loc, vm.reg.get(R[1], sz))
+        else:
+            _temp = temp.to_bytes(sz, byteorder)
+            vm.reg.set(0, _temp)
+            (vm.mem if type else vm.reg).set(loc, _temp)
+
         return True
 
 ####################

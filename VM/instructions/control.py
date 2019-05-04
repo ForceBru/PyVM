@@ -603,3 +603,15 @@ class CPUID(Instruction):
             raise RuntimeError(f'Unsupported EAX value for CPUID: 0x{EAX_val:08X}')
 
         return True
+
+####################
+# HLT
+####################
+class HLT(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0xF4: self.hlt
+        }
+
+    def hlt(self):
+        raise RuntimeError(f'HALT @ 0x{self.eip:08X}')

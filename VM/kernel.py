@@ -538,3 +538,42 @@ struct user_desc {
         """
 
         self.__return(-1)
+
+    def sys_rt_gprocmask(self, code=0xaf):
+        """
+        int rt_sigprocmask(int how, const kernel_sigset_t *set,
+                          kernel_sigset_t *oldset, size_t sigsetsize);
+        """
+
+        self.__return(0)  # return success anyway
+
+    def sys_tgkill(self, code=0x10e):
+        """
+        int tgkill(int tgid, int tid, int sig);
+
+        `tgkill()` sends the signal `sig` to the thread with the thread ID `tid` in
+       the thread group `tgid`.  (By contrast, kill(2) can be used to send a
+       signal only to a process (i.e., thread group) as a whole, and the
+       signal will be delivered to an arbitrary thread within that process.)
+        """
+
+        tgid = to_int(self.reg.get(3, 4))  # EBX
+        tid = to_int(self.reg.get(1, 4))  # ECX
+        sig = to_int(self.reg.get(2, 4))  # EDX
+
+        logging.debug('sys_tgkill(int tgid=%d, int tid=%d, int sig=%d)', tgid, tid, sig)
+
+        self.__return(0)  # return success anyway
+
+    def sys_sigaction(self, code=0xae):
+        """
+        int sigaction(int signum, const struct sigaction *act,
+                     struct sigaction *oldact);
+
+        See: http://man7.org/linux/man-pages/man2/rt_sigaction.2.html
+        The `sigaction()` system call is used to change the action taken by a
+       process on receipt of a specific signal.  (See signal(7) for an
+       overview of signals.)
+        """
+
+        self.__return(-1)
