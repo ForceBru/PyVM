@@ -577,3 +577,71 @@ struct user_desc {
         """
 
         self.__return(-1)
+
+    def sys_geteuid(self, code=0xc9):
+        """
+        uid_t geteuid(void);
+
+        See: http://man7.org/linux/man-pages/man2/geteuid.2.html
+        geteuid() returns the effective user ID of the calling process.
+        """
+
+        self.__return(os.geteuid())
+
+    def sys_getuid(self, code=0xc7):
+        """
+        uid_t getuid(void);
+
+        See: http://man7.org/linux/man-pages/man2/geteuid.2.html
+        getuid() returns the real user ID of the calling process.
+        """
+
+        self.__return(os.getuid())
+
+    def sys_getegid(self, code=0xca):
+        """
+        uid_t getegid(void);
+
+        See: http://man7.org/linux/man-pages/man2/getegid.2.html
+        getegid() returns the effective group ID of the calling process.
+        """
+
+        self.__return(os.getegid())
+
+    def sys_getgid(self, code=0xc8):
+        """
+        uid_t getgid(void);
+
+        See: http://man7.org/linux/man-pages/man2/getegid.2.html
+        getgid() returns the real group ID of the calling process.
+        """
+
+        self.__return(os.getgid())
+
+    def sys_readlink(self, code=0x55):
+        """
+        ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
+
+        See: http://man7.org/linux/man-pages/man2/readlink.2.html
+        `readlink()` places the contents of the symbolic link `pathname` in the
+       buffer `buf`, which has size `bufsiz`.  `readlink()` does not append a null
+       byte to `buf`.  It will (silently) truncate the contents (to a length
+       of `bufsiz` characters), in case the buffer is too small to hold all of
+       the contents.
+        """
+
+        pathname_addr = to_int(self.reg.get(3, 4))  # EBX
+        buf_addr = to_int(self.reg.get(1, 4))  # ECX
+        bufsiz = to_int(self.reg.get(2, 4))  # EDX
+
+        pathname = self.__read_string(pathname_addr)
+        logger.debug('sys_readlink(const char *pathname=%r, char *buf=0x%08x, size_t bufsiz=%d)', pathname.decode(), buf_addr, bufsiz)
+
+        try:
+            ret = os.readlink(pathname)
+        except FileNotFoundError:
+            return self.__return(-1)
+
+        self.mem.set(buf_addr, ret)
+
+        self.__return(0)
