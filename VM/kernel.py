@@ -504,8 +504,8 @@ struct user_desc {
 
         sysname = 'PyVM_Linux'.encode('ascii')
         nodename = 'PyVM_Linux'.encode('ascii')
-        release = '0.0.1'.encode('ascii')
-        version = '0.0.1'.encode('ascii')
+        release = '3.14'.encode('ascii')
+        version = '3.14'.encode('ascii')
         machine = 'PyVM - Intel IA-32 on Python'.encode('ascii')
         domainname = 'PyVM_Linux.local'.encode('ascii')
 

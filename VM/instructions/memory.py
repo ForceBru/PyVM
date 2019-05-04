@@ -635,7 +635,9 @@ class CLC(Instruction):
             0xFD: P(self.set_stuff, Reg32.DF, 1)
             }
 
-    def set_stuff(self, flag, val):
+    def set_stuff(self, flag, val) -> True:
         self.reg.eflags_set(flag, val)
 
         logger.debug('clc %s := %d', flag, val)
+
+        return True
