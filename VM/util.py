@@ -45,10 +45,18 @@ class InstructionMeta(type):
 class CPUMeta(type):
     """
     This metaclass transfers all the needed methods of all the registered instructions' classes into the name space of 'cls'.
-     Duplicate function names are handled accordingly.
+    Duplicate function names are handled accordingly.
     """
+    
+    loaded = False
     def __init__(cls, name, bases, dct):
         super().__init__(name, bases, dct)
+        
+        if cls.__class__.loaded or not Instruction.instruction_set:
+            # Metaclasses are called _on class creation_, so this will be called
+            # for every class that uses this metaclass, which will result in
+            # duplicates of opcode implementations.
+            return
 
         cls._opcodes_names = {} # TODO: this looks ugly
         cls._concrete_names = []
@@ -60,6 +68,8 @@ class CPUMeta(type):
                         CPUMeta.load_instruction(cls, instruction, opcode, impl)
                 else:
                     CPUMeta.load_instruction(cls, instruction, opcode, implementation)
+                    
+        cls.__class__.loaded = True
 
     @staticmethod
     def load_instruction(cls, instruction, opcode, implementation):
