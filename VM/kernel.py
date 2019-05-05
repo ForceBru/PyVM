@@ -43,6 +43,18 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
     def __return(self, value: int):
         self.reg.set(0, value.to_bytes(4, byteorder, signed=value < 0))
+
+    def __args(self, types: str):
+        """
+
+        :param types: Indicates signed ('s') or unsigned types.
+        Example:
+            'sus' => arguments 1 and 3 are signed, argument 2 is unsigned
+        :return:
+        """
+        registers = [3, 1, 2, 6, 7]  # ebx, ecx, edx, esi, edi
+
+        return [to_int(self.reg.get(reg, 4), signed=type == 's')for reg, type in zip(registers, types)]
         
     def sys_py_dbg(self, code=0x00):
         raw = self.reg.get(3, 4)
@@ -67,16 +79,14 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
             print(f'[PY_DBG_UNRECOGNIZED] {raw}')
 
     def sys_exit(self, code=0x01):
-        code = to_int(self.reg.get(3, 4), True)  # EBX
+        code, = self.__args('s')
 
         self.descriptors[2].write('[!] Process exited with code {}\n'.format(code))
         self.RETCODE = code
         self.running = False
 
     def sys_read(self, code=0x03):
-        fd = to_int(self.reg.get(3, 4))  # EBX
-        data_addr = to_int(self.reg.get(1, 4))  # ECX
-        count = to_int(self.reg.get(2, 4))  # EDX
+        fd, data_addr, count = self.__args('uuu')
 
         try:
             data = os.read(self.descriptors[fd].fileno(), count)
@@ -92,9 +102,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         Arguments: (unsigned int fd, const char * buf, size_t count)
         """
-        fd = to_int(self.reg.get(3, 4), signed=1)  # EBX
-        buf_addr = to_int(self.reg.get(1, 4))  # ECX
-        count = to_int(self.reg.get(2, 4), signed=1)  # EDX
+        fd, buf_addr, count = self.__args('uuu')
 
         buf = self.mem.get(buf_addr, count)
 
@@ -117,7 +125,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         https://elixir.bootlin.com/linux/v2.6.35/source/mm/mmap.c#L245
         '''
-        brk = to_int(self.reg.get(3, 4))  # EBX
+        brk, = self.__args('u')
 
         min_brk = self.code_segment_end
 
@@ -158,7 +166,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
             unsigned int  useable:1;
         };
         """
-        u_info_addr = to_int(self.reg.get(3, 4))  # EBX
+        u_info_addr, = self.__args('u')
         
         logger.debug(f'sys_set_thread_area(u_info=0x%x)', u_info_addr)
 
@@ -257,8 +265,7 @@ struct user_desc {
 
         :return: always returns the caller's thread ID.
         """
-
-        tidptr = to_int(self.reg.get(3, 4))  # EBX
+        tidptr, = self.__args('u')
 
         tid = self.mem.get(tidptr, 4)
 
@@ -289,10 +296,7 @@ struct user_desc {
             size_t iov_len; / * Number of bytes to transfer * /
         };
         """
-
-        fd = to_int(self.reg.get(3, 4), signed=1)  # EBX
-        iov_addr = to_int(self.reg.get(1, 4))  # ECX
-        iovcnt = to_int(self.reg.get(2, 4), signed=1)  # EDX
+        fd, iov_addr, iovcnt = self.__args('sus')
 
         logger.debug('sys_writev(fd=%d, iov=0x%x, iovcnt=%d)', fd, iov_addr, iovcnt)
 
@@ -330,11 +334,7 @@ struct user_desc {
         See: http://man7.org/linux/man-pages/man2/llseek.2.html
         """
 
-        fd = to_int(self.reg.get(3, 4))  # EBX
-        offset_high = to_int(self.reg.get(1, 4))  # ECX
-        offset_low = to_int(self.reg.get(2, 4))  # EDX
-        result_addr = to_int(self.reg.get(6, 4))  # ESI
-        whence = to_int(self.reg.get(7, 4))  # EDI
+        fd, offset_high, offset_low, result_addr, whence = self.__args('uuuuu')
 
         logger.debug('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%04X, whence=%d)',
                      fd, offset_high, offset_low, result_addr, whence
@@ -356,9 +356,8 @@ struct user_desc {
         """
         Arguments: (int fd, unsigned long request, ...)
         """
-        fd = to_int(self.reg.get(3, 4), signed=1)  # EBX
-        request = to_int(self.reg.get(1, 4))  # ECX
-        data_addr = to_int(self.reg.get(2, 4))  # EDX
+
+        fd, request, data_addr = self.__args('suu')
 
         # SOURCE: http://man7.org/linux/man-pages/man2/ioctl_list.2.html
         # < include / asm - i386 / termios.h >
@@ -495,7 +494,7 @@ struct user_desc {
         };
         """
 
-        buf_addr = to_int(self.reg.get(3, 4))  # EBX
+        buf_addr, = self.__args('u')
 
         logger.debug(f'sys_newuname(struct new_utsname *buf=0x%08X)', buf_addr)
 
@@ -522,9 +521,7 @@ struct user_desc {
         int open(const char *pathname, int flags, mode_t mode);
         """
 
-        pathname_addr = to_int(self.reg.get(3, 4))  # EBX
-        flags = to_int(self.reg.get(1, 4))  # ECX
-        mode = to_int(self.reg.get(2, 4))  # EDX
+        pathname_addr, flags, mode = self.__args('uuu')
 
         pathname = self.__read_string(pathname_addr).decode()
         logger.debug(f'sys_open(const char *pathname=%r, int flags=%d, mode_t mode=%d)', pathname, flags, mode)
@@ -557,9 +554,7 @@ struct user_desc {
        signal will be delivered to an arbitrary thread within that process.)
         """
 
-        tgid = to_int(self.reg.get(3, 4))  # EBX
-        tid = to_int(self.reg.get(1, 4))  # ECX
-        sig = to_int(self.reg.get(2, 4))  # EDX
+        tgid, tid, sig = self.__args('sss')
 
         logging.debug('sys_tgkill(int tgid=%d, int tid=%d, int sig=%d)', tgid, tid, sig)
 
@@ -630,9 +625,7 @@ struct user_desc {
        the contents.
         """
 
-        pathname_addr = to_int(self.reg.get(3, 4))  # EBX
-        buf_addr = to_int(self.reg.get(1, 4))  # ECX
-        bufsiz = to_int(self.reg.get(2, 4))  # EDX
+        pathname_addr, buf_addr, bufsiz = self.__args('uuu')
 
         pathname = self.__read_string(pathname_addr)
         logger.debug('sys_readlink(const char *pathname=%r, char *buf=0x%08x, size_t bufsiz=%d)', pathname.decode(), buf_addr, bufsiz)
@@ -643,5 +636,33 @@ struct user_desc {
             return self.__return(-1)
 
         self.mem.set(buf_addr, ret)
+
+        self.__return(0)
+
+    def sys_clock_gettime(self, code=0x109):
+        """
+        int clock_gettime(clockid_t clk_id, struct timespec *tp);
+
+        The functions clock_gettime() and clock_settime() retrieve and set
+       the time of the specified clock clk_id.
+
+       The res and tp arguments are timespec structures, as specified in
+       <time.h>:
+
+        struct timespec {
+            time_t   tv_sec;        /* seconds */
+            long     tv_nsec;       /* nanoseconds */
+        };
+        """
+
+        clk_id, tp_addr = self.__args('uu')
+
+        struct_timespec = struct.Struct('<II')
+
+        import time
+
+        sec, nsec = divmod(time.time_ns(), 1_000_000_000)
+
+        self.mem.set(tp_addr, struct_timespec.pack(sec, nsec))
 
         self.__return(0)
