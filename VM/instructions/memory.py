@@ -157,7 +157,7 @@ class MOV(Instruction):
 
             vm.reg.sreg[R[1]].from_bytes(SRC, descr)
         else:
-            logger.debug(f'About to load from sreg: {SRC}')
+            raise RuntimeError('mov r/m, sreg is not supported yet')
 
         return True
 
