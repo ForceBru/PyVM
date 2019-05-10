@@ -130,21 +130,29 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         min_brk = self.code_segment_end
 
         if brk < min_brk:
-            print(f'\t\tSYS_BRK: invalid break: {brk} < {min_brk}; return {self.mem.program_break}')
-            self.reg.set(0, self.mem.program_break.to_bytes(4, 'little'))
-            return
+            logger.debug(
+                'SYS_BRK: invalid break: 0x%08x < 0x%08x; return 0x%08x',
+                brk, min_brk, self.mem.program_break
+            )
+            return self.__return(self.mem.program_break)
 
         newbrk = brk
         oldbrk = self.mem.program_break
 
         if oldbrk == newbrk:
-            print(f'\t\tSYS_BRK: not changing break: {oldbrk} == {newbrk}')
+            logger.debug(
+                'SYS_BRK: not changing break: 0x%08x == 0x%08x',
+                oldbrk, newbrk
+            )
 
             return self.__return(oldbrk)
 
         self.mem.program_break = brk
 
-        print(f'\t\tSYS_BRK: changing break: {oldbrk} -> {self.mem.program_break} ({self.mem.program_break - oldbrk:+d})')
+        logger.debug(
+            'SYS_BRK: changing break: 0x%08x -> 0x%08x (%d bytes)',
+            oldbrk, self.mem.program_break, self.mem.program_break - oldbrk
+        )
         self.__return(self.mem.program_break)
 
     def sys_set_thread_area(self, code=0xf3):
@@ -530,9 +538,51 @@ struct user_desc {
 
     def sys_mmap_pgoff(self, code=0xc0):
         """
-        void *mmap(void *addr, size_t length, int prot, int flags,
+        void *mmap2(void *addr, size_t length, int prot, int flags,
                   int fd, off_t offset);
+
+        See: http://www.man7.org/linux/man-pages/man2/mmap2.2.html
         """
+
+        import enum
+
+        class MAP_FLAGS(enum.Flag):
+            # see http://people.seas.harvard.edu/~apw/sreplay/src/linux/mmap.c
+            MAP_SHARED    = 0x01   # Share changes
+            MAP_PRIVATE   = 0x02   # Changes are private.
+            MAP_FIXED     = 0x10   # Interpret addr exactly.
+            MAP_FILE      = 0
+            MAP_ANONYMOUS = 0x20   # Don't use a file.
+
+        class MAP_PROT(enum.Flag):
+            # see above
+            PROT_READ  = 0x1  # Page can be read.
+            PROT_WRITE = 0x2  # Page can be written.
+            PROT_EXEC  = 0x4  # Page can be executed.
+            PROT_NONE  = 0x0  # Page can not be accessed.
+
+        addr, length, prot, flags, fd = self.__args('uusss')
+
+        flags = MAP_FLAGS(flags)
+        prot = MAP_PROT(prot)
+
+        logger.debug(
+            'mmap(void *addr=0x%08x, size_t length=%d, int prot=%s, int flags=%s, int fd=%d, off_t offset=%d)',
+            addr, length, str(prot), str(flags), fd, -1
+        )
+
+        if flags & MAP_FLAGS.MAP_ANONYMOUS:
+            # TODO: Do something with protection?
+            old_brk = self.mem.program_break
+            self.mem.program_break += length
+
+            logger.debug(
+                'mmap: allocated %d bytes', length
+            )
+
+            return self.__return(old_brk)
+
+        # TODO: mmap with file descriptors?
 
         self.__return(-1)
 

@@ -460,3 +460,79 @@ class SHIFT(Instruction):
 
         return True
 
+
+####################
+# SHRD / SHLD
+####################
+class SHIFTD(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0x0FA4: P(self.shift, operation=Shift.SHL, cnt=Shift.C_imm8),
+            0x0FA5: P(self.shift, operation=Shift.SHL, cnt=Shift.C_CL),
+
+            0x0FAC: P(self.shift, operation=Shift.SHR, cnt=Shift.C_imm8),
+            0x0FAD: P(self.shift, operation=Shift.SHR, cnt=Shift.C_CL)
+        }
+
+    def shift(vm, operation, cnt) -> True:
+        sz = vm.operand_size
+
+        RM, R = vm.process_ModRM(sz)
+        type, loc, _ = RM
+
+        dst = to_int((vm.mem if type else vm.reg).get(loc, sz))
+        src = to_int(vm.reg.get(R[1], sz))
+
+        dst_init = dst
+
+        if cnt == Shift.C_imm8:
+            cnt = to_int(vm.mem.get(vm.eip, 1))
+            vm.eip += 1
+        else:
+            cnt = to_int(vm.reg.get(1, 1))
+
+        cnt %= 32
+
+        if cnt == 0:
+            return True
+
+        if cnt > sz * 8:
+            # Bad parameters
+            return True
+
+        _sign_dst = (dst >> (sz * 8 - 1)) & 1
+
+        _src = src >> (sz * 8 - cnt)
+        if operation == Shift.SHL:
+            vm.reg.eflags_set(Reg32.CF, (dst >> (sz * 8 - cnt)) & 1)
+            dst <<= cnt
+            dst |= _src
+        else:
+            vm.reg.eflags_set(Reg32.CF, (dst >> (cnt - 1)) & 1)
+            dst >>= cnt
+            dst |= _src << cnt
+
+        # set flags
+        sign_dst = (dst >> (sz * 8 - 1)) & 1
+        vm.reg.eflags_set(Reg32.SF, sign_dst)
+        dst &= MAXVALS[sz]
+        vm.reg.eflags_set(Reg32.ZF, dst == 0)
+        _dst = dst.to_bytes(sz, byteorder)
+        vm.reg.eflags_set(Reg32.PF, parity(_dst[0], sz))
+
+        # set OF flag
+        if cnt == 1:
+            vm.reg.eflags_set(Reg32.OF, _sign_dst != sign_dst)
+
+        (vm.mem if type else vm.reg).set(loc, _dst)
+
+        logger.debug(
+            'sh%sd %s=0x%x, %s=0x%x, 0x%x (%s := 0x%x)',
+            'l' if operation == Shift.SHL else 'r',
+            hex(loc) if type else reg_names[loc][sz], dst_init,
+            reg_names[R[1]][sz], src,
+            cnt,
+            hex(loc) if type else reg_names[loc][sz], dst,
+        )
+
+        return True

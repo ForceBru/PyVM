@@ -271,12 +271,14 @@ class CMOVCC(Instruction):
 
         self.opcodes = {
             0x0F42: P(self.r_rm, CMOVB),
+            0x0F43: P(self.r_rm, CMOVAE),
             0x0F44: P(self.r_rm, CMOVE),
             0x0F45: P(self.r_rm, CMOVNZ),
             0x0F46: P(self.r_rm, CMOVBE),
             0x0F47: P(self.r_rm, CMOVNBE),
             0x0F48: P(self.r_rm, CMOVS),
             0x0F4C: P(self.r_rm, CMOVL),
+            0x0F4E: P(self.r_rm, CMOVLE),
         }
 
     def r_rm(vm, cond) -> True:

@@ -13,18 +13,10 @@ def enable_logging(verbose=False):
     )
 
 
-hello_world = 'hello_world'
-hello = 'hello'
-helloc = 'helloc'
-helloc_native = 'helloc_native'
-helloc_native_musl = 'helloc_native_musl'
-hello_dyn = 'hello_dynamic'
-bash  = 'elf-Linux-x86-bash'
-
-
 if __name__ == '__main__':
-    mem = 50_000  # 344_860_000
+    # enable_logging()
+    mem = 50_000
     vm = VM.VM(mem)  # memory will be allocated automatically
 
-    vm.execute_elf(f'VM/ELF/samples/{helloc_native_musl}')
-
+    # vm.execute_elf(f'C/bin/calculator.elf')  # doesn't work yet
+    vm.execute_elf(f'C/bin/io.elf')
