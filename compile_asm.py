@@ -83,7 +83,7 @@ def compile_many(nasm_executable: Path,
     return failed
 
 
-def compile_all():
+def compile_all() -> int:
     executable = find_nasm_executable()
     filepath = Path.cwd() / "asm"
 
@@ -97,6 +97,8 @@ def compile_all():
     else:
         print("Assembled successfully!")
 
+    return len(failed)
+
 
 if __name__ == '__main__':
     # compile_all()
@@ -106,7 +108,7 @@ if __name__ == '__main__':
 
     vm = VM.VM(262145 * 3)
 
-    fname = f'asm/bin/test_mul.bin'
+    fname = f'asm/bin/test_imul2.bin'
     print(f'\tExecuting {fname!r}...')
 
     ebx = vm.execute_file(fname)

@@ -29,6 +29,11 @@ class TestInserter(type):
         return type(cls_name, parents, scope)
 
 
+class TestAssemble(unittest.TestCase):
+    def test_compile(self):
+        self.assertEqual(compile_all(), 0, 'Failed to assemble binaries!')
+
+
 class TestInstructions(unittest.TestCase, metaclass=TestInserter):
     MEMSZ = 1024 * 10
 
@@ -57,6 +62,7 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
         'test_div': Msg('Testing div...\n'),
         'test_idiv': Msg('Testing idiv...\n'),
         'test_imul': Msg('Testing imul...\n'),
+        'test_imul2': Ret(0),
         'test_inc_dec': Ret(0),
         'test_jmp_int': Msg('Testing unconditional jumps and interrupts...\nSuccess!\n'),
         'test_lea': Msg('Testing lea...\nSuccess!\n'),
@@ -95,5 +101,4 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
 
 
 if __name__ == '__main__':
-    compile_all()
     unittest.main(verbosity=2)

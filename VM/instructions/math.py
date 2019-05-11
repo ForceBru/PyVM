@@ -621,12 +621,6 @@ class IMUL(Instruction):
         vm.reg.eflags_set(Reg32.OF, set_flags)
         vm.reg.eflags_set(Reg32.CF, set_flags)
 
-        # if sz == 1:
-        #     vm.reg.set(0, tmp_xp)  # AX
-        # else:
-        #     vm.reg.set(2, tmp_xp[:sz])  # DX/EDX
-        #     vm.reg.set(0, tmp_xp[sz:])  # AX/EAX
-
         logger.debug(
             'imul %s=%d, %s=%d (%s := %d; %s := %d)',
             reg_names[0][sz], dst,
@@ -647,26 +641,27 @@ class IMUL(Instruction):
         src = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
         dst = to_int(vm.reg.get(R[1], sz), True)
 
-        tmp_xp = (src * dst).to_bytes(sz * 2, byteorder, signed=True)
+        tmp_xp = src * dst
+        dest = tmp_xp & MAXVALS[sz]
 
-        set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
+        vm.reg.set(R[1], dest.to_bytes(sz, byteorder))
+
+        set_flags = sign_extend((dest >> (sz * 8)).to_bytes(sz, byteorder, signed=True), sz * 2) != tmp_xp
 
         vm.reg.eflags_set(Reg32.OF, set_flags)
         vm.reg.eflags_set(Reg32.CF, set_flags)
 
-        vm.reg.set(R[1], tmp_xp[:sz])
-
         logger.debug('imul %s=%d, %s=%d', reg_names[R[1]][sz], dst, hex(loc) if type else reg_names[loc][sz], src)
-        # if debug: print('imul r{1}, {0}{1}'.format('m' if type else '_r', sz * 8))
+
         return True
 
     def r_rm_imm(vm, _8bit_imm: int) -> True:
         sz = vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz)
 
-        imm = vm.mem.get(vm.eip, imm_sz)
+        imm = vm.mem.get_eip(vm.eip, imm_sz)
         vm.eip += imm_sz
 
         type, loc, _ = RM
