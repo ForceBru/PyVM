@@ -1,7 +1,7 @@
 from ..debug import debug, reg_names
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
-from ..misc import parity, sign_extend, Shift
+from ..misc import parity, sign_extend, Shift, MSB, LSB
 
 from functools import partialmethod as P
 import operator
@@ -396,34 +396,39 @@ class SHIFT(Instruction):
         else:
             raise RuntimeError('Invalid count')
 
-        tmp_cnt = cnt & 0x1F
+        countMASK = 0x1F
+
+        tmp_cnt = cnt & countMASK
+
+        if tmp_cnt == 0:
+            return True
+
         type, loc, _ = RM
 
         dst = to_int((self.mem if type else self.reg).get(loc, sz), signed=(operation == Shift.SAR))
         tmp_dst = dst
 
-        if cnt == 0:
-            return True
-
-        while tmp_cnt:
+        while tmp_cnt != 0:
             if operation == Shift.SHL:
-                self.reg.eflags_set(Reg32.CF, (dst >> (sz * 8)) & 1)
+                # self.reg.eflags_set(Reg32.CF, (dst >> (sz * 8)) & 1)
+                self.reg.eflags_set(Reg32.CF, MSB(dst, sz))
                 dst <<= 1
             else:
-                self.reg.eflags_set(Reg32.CF, dst & 1)
+                # self.reg.eflags_set(Reg32.CF, dst & 1)
+                self.reg.eflags_set(Reg32.CF, LSB(dst, 1))
                 dst >>= 1
 
             tmp_cnt -= 1
 
-        if cnt & 0x1F == 1:
+        if cnt & countMASK == 1:
             if operation == Shift.SHL:
-                self.reg.eflags_set(Reg32.OF, ((dst >> (sz * 8)) & 1) ^ self.reg.eflags_get(Reg32.CF))
+                self.reg.eflags_set(Reg32.OF, MSB(dst, sz) ^ self.reg.eflags_get(Reg32.CF))
             elif operation == Shift.SAR:
                 self.reg.eflags_set(Reg32.OF, 0)
             else:
-                self.reg.eflags_set(Reg32.OF, (tmp_dst >> (sz * 8)) & 1)
+                self.reg.eflags_set(Reg32.OF, MSB(tmp_dst, sz))
 
-        sign_dst = (dst >> (sz * 8 - 1)) & 1
+        sign_dst = MSB(dst, sz)  # (dst >> (sz * 8 - 1)) & 1
         self.reg.eflags_set(Reg32.SF, sign_dst)
 
         dst &= MAXVALS[sz]
@@ -456,7 +461,6 @@ class SHIFT(Instruction):
             tmp_dst, op, cnt,
             hex(loc) if type else reg_names[loc][sz], to_int(dst)
         )
-        # if debug: print('{} {}{}{}'.format(name, 'm' if type else '_r', sz * 8, op))
 
         return True
 

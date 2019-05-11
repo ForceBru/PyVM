@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def execute_opcode(self) -> None:
+def _execute_opcode(self) -> None:
     """
     Attempts to execute the current opcode `op`. The calls to `_<mnemonic name>` check whether the opcode corresponds to
     a mnemonic. This basically checks whether the opcode is supported and executes it if so.
@@ -75,6 +75,63 @@ def execute_opcode(self) -> None:
             raise RuntimeError(f'Opcode 0x{opcode:02x} is not implemented yet (@0x{self.eip:02x})')
 
         raise ValueError(f'Unknown opcode: 0x{opcode:02x}')
+
+
+def execute_opcode(self) -> None:
+    """
+    Attempts to execute the current opcode `op`. The calls to `_<mnemonic name>` check whether the opcode corresponds to
+    a mnemonic. This basically checks whether the opcode is supported and executes it if so.
+    :param self: passed implicitly
+    :return: None
+    """
+
+    self.eip += 1  # points to next data
+
+    if self.opcode == 0x90:  # nop
+        logger.debug(self.fmt.format(self.eip - 1, self.opcode))
+        return
+
+    opcode = self.opcode
+    _off = 1
+
+    # handle prefixes
+    if opcode == 0x0F:
+        op, = self.mem.get_eip(self.eip, 1)  # 0xYY
+        self.eip += 1
+
+        opcode = (opcode << 8) + op  # opcode <- 0x0FYY
+        self.opcode = op
+        _off += 1
+
+    logger.debug(self.fmt.format(self.eip - _off, opcode))
+
+    # try to execute `opcode`
+    try:
+        for instruction in self.instr[opcode]:
+            if instruction():
+                # `opcode` executed
+                return
+    except KeyError:
+        # `opcode` was not found
+        ...
+
+    # No valid implementation for `opcode` was found (`instruction()` was always `False`)
+    # or no implementation was found at all. Try to interpret `opcode` as being two bytes long.
+    op, = self.mem.get_eip(self.eip, 1)
+    self.eip += 1
+
+    opcode = (opcode << 8) + op
+    self.opcode = op
+
+    try:
+        for instruction in self.instr[opcode]:
+            if instruction():
+                # `opcode` executed
+                return
+    except KeyError:
+        raise RuntimeError(f'Opcode 0x{opcode:02x} is not implemented yet (@0x{self.eip - _off - 1:02x})')
+
+    raise RuntimeError(f'No suitable implementation found for opcode 0x{opcode:02x} (@0x{self.eip - _off - 1:02x})')
     
 
 def override(self, name: str):

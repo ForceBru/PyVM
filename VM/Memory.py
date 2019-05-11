@@ -15,17 +15,17 @@ class Memory:
     def __test_bounds(self, offset: int, size: int, func_name: str):
         if offset not in self.bounds:
             if offset > self.bounds.stop:
-                raise MemoryError(f"{func_name}: not enough memory (requested address: {offset}, memory available: {len(self.bounds)})")
+                raise MemoryError(f"{func_name}: not enough memory (requested address: 0x{offset:08x}, memory available: {len(self.bounds)} bytes)")
             else:
-                raise RuntimeError(f"{func_name}: invalid memory access (requested address: {offset}, memory bounds: {self.bounds})")
+                raise RuntimeError(f"{func_name}: invalid memory access (requested address: 0x{offset:08x}, memory bounds: {self.bounds})")
 
         offset += size
 
         if offset not in self.bounds:
             if offset > self.bounds.stop:
-                raise MemoryError(f"{func_name}: not enough memory (requested address: {offset}, memory available: {len(self.bounds)})")
+                raise MemoryError(f"{func_name}: not enough memory (requested address: 0x{offset:08x}, memory available: {len(self.bounds)} bytes)")
             else:
-                raise RuntimeError(f"{func_name}: invalid memory access (requested address: {offset}, memory bounds: {self.bounds})")
+                raise RuntimeError(f"{func_name}: invalid memory access (requested address: 0x{offset:08x}, memory bounds: {self.bounds})")
 
     @property
     def segment_override(self):

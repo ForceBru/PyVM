@@ -130,16 +130,20 @@ class ADDSUB(Instruction):
 
         vm.reg.eflags_set(Reg32.ZF, c == 0)
 
-        c = c.to_bytes(sz, byteorder)
+        _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
 
         if not cmp:
-            vm.reg.set(0, c)
+            vm.reg.set(0, _c)
 
-        name = 'cmp' if cmp else ('sub' if sub else 'add')
-
-        logger.debug('%s %s, imm%d=%d', name, reg_names[0][sz], sz * 8, b)
+        logger.debug(
+            '%s %s=%d, imm%d=%d',
+            ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
+            reg_names[0][sz], a,
+            sz * 8, b,
+            reg_names[0][sz], c
+        )
         # if debug: print('{} {}, imm{}({})'.format('cmp' if cmp else name, reg_names[0][sz], sz * 8, b))
 
         return True
@@ -205,17 +209,19 @@ class ADDSUB(Instruction):
 
         vm.reg.eflags_set(Reg32.ZF, c == 0)
 
-        c = c.to_bytes(sz, byteorder)
+        _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
 
         if not cmp:
-            (vm.mem if type else vm.reg).set(loc, c)
+            (vm.mem if type else vm.reg).set(loc, _c)
 
-        logger.debug('%s %s=%d, imm%d=%d',
-                     'cmp' if cmp else ('sub' if sub else 'add'),
+        logger.debug('%s %s=%d, imm%d=%d (%s := %d)',
+                     ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
                      hex(loc) if type else reg_names[loc][sz],
-                     a, sz * 8, b)
+                     a, sz * 8, b,
+                     hex(loc) if type else reg_names[loc][sz], c
+                     )
         
         return True
 
@@ -253,21 +259,19 @@ class ADDSUB(Instruction):
 
         vm.reg.eflags_set(Reg32.ZF, c == 0)
 
-        c = c.to_bytes(sz, byteorder)
+        _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
 
         if not cmp:
-            (vm.mem if type else vm.reg).set(loc, c)
+            (vm.mem if type else vm.reg).set(loc, _c)
 
-        logger.debug('%s %s=%d, %s=%d',
-                     'cmp' if cmp else ('sub' if sub else 'add'),
+        logger.debug('%s %s=%d, %s=%d (%s := %d)',
+                     ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
                      hex(loc) if type else reg_names[loc][sz], a,
-                     reg_names[R[1]][R[2]], b
+                     reg_names[R[1]][R[2]], b,
+                     hex(loc) if type else reg_names[loc][sz], c
                      )
-        # if debug:
-        # name = 'cmp' if cmp else ('sub' if sub else 'add')
-        # print(f'{name} {hex(loc) if type else reg_names[loc][sz]}, {reg_names[R[1]][R[2]]}')
 
         return True
 
@@ -305,21 +309,19 @@ class ADDSUB(Instruction):
 
         vm.reg.eflags_set(Reg32.ZF, c == 0)
 
-        c = c.to_bytes(sz, byteorder)
+        _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
 
         if not cmp:
-            vm.reg.set(R[1], c)
+            vm.reg.set(R[1], _c)
 
-        logger.debug('%s %s=%d, %s=%d',
-                     'cmp' if cmp else ('sub' if sub else 'add'),
+        logger.debug('%s %s=%d, %s=%d (%s := %d)',
+                     ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
                      reg_names[R[1]][R[2]], a,
-                     hex(loc) if type else reg_names[loc][sz], b
+                     hex(loc) if type else reg_names[loc][sz], b,
+                     reg_names[R[1]][R[2]], c
                      )
-        # name = 'sub' if sub else 'add'
-        # if debug: print(
-        # '{0} r{1}({2}),{4}{1}({3})'.format('cmp' if cmp else name, sz * 8, R[1], hex(loc), ('m' if type else '_r')))
 
         return True
 

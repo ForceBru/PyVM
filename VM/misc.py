@@ -117,4 +117,26 @@ def parity(num: int, nbytes: int) -> bool:
     'Calculate the parity of a byte'
     assert 0 <= num <= 255
 
-    return (((num * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1
+    return bool((((num * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1)
+
+
+def MSB(num: int, size: int) -> bool:
+    """
+    Get the most significant bit of a `size`-byte number `num`.
+    :param num: A number.
+    :param size: The number of bytes in this number.
+    :return:
+    """
+
+    return bool(num >> (size * 8 - 1))
+
+
+def LSB(num: int, size: int) -> bool:
+    """
+    Get the least significant bit of a `size`-byte number `num`.
+    :param num: A number.
+    :param size: The number of bytes in this number.
+    :return:
+    """
+
+    return bool(num & 1)
