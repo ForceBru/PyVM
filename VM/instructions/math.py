@@ -1,7 +1,7 @@
 from ..debug import *
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
-from ..misc import parity, sign_extend
+from ..misc import parity, sign_extend, MSB
 
 from functools import partialmethod as P
 
@@ -605,21 +605,36 @@ class IMUL(Instruction):
         src = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
         dst = to_int(vm.reg.get(0, sz), True)  # AL/AX/EAX
 
-        tmp_xp = (src * dst).to_bytes(sz * 2, byteorder, signed=True)
+        tmp_xp = src * dst
 
-        set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
+        _sz = 2 if sz == 1 else sz
+        lo = tmp_xp & MAXVALS[_sz]
+        hi = (tmp_xp >> (sz * 8)) & MAXVALS[_sz]
+
+        vm.reg.set(0, lo.to_bytes(_sz, byteorder))  # (E)AX
+
+        if sz != 1:
+            vm.reg.set(2, hi.to_bytes(sz * 2, byteorder))  # (E)DX
+
+        set_flags = sign_extend((tmp_xp >> (sz * 8)).to_bytes(sz, byteorder, signed=True), sz * 2) != tmp_xp
 
         vm.reg.eflags_set(Reg32.OF, set_flags)
         vm.reg.eflags_set(Reg32.CF, set_flags)
 
-        if sz == 1:
-            vm.reg.set(0, tmp_xp)  # AX
-        else:
-            vm.reg.set(2, tmp_xp[:sz])  # DX/EDX
-            vm.reg.set(0, tmp_xp[sz:])  # AX/EAX
+        # if sz == 1:
+        #     vm.reg.set(0, tmp_xp)  # AX
+        # else:
+        #     vm.reg.set(2, tmp_xp[:sz])  # DX/EDX
+        #     vm.reg.set(0, tmp_xp[sz:])  # AX/EAX
 
-        logger.debug('imul %s=%d, %s=%d', reg_names[0][sz], dst, hex(loc) if type else reg_names[loc][sz], src)
-        # if debug: print('imul {}{}'.format('m' if type else '_r', sz * 8))
+        logger.debug(
+            'imul %s=%d, %s=%d (%s := %d; %s := %d)',
+            reg_names[0][sz], dst,
+            hex(loc) if type else reg_names[loc][sz], src,
+            reg_names[2][_sz], hi,
+            reg_names[0][_sz], lo
+        )
+
         return True
 
     def r_rm(vm) -> True:

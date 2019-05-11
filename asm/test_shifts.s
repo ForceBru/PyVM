@@ -8,7 +8,7 @@ global _start
 _start:
     mov ebx, 1 ; error code
 
-    ; TEST SHL
+test_shl:
     mov eax, 0xffffffff
     shl eax, 5
     cmp eax, 0xffffffe0
@@ -45,7 +45,7 @@ _start:
     cmp eax, 0xffff0000
     jne error
 
-    ; TEST SHR
+test_shr:
     mov eax, 0xffffffff
     shr eax, 5
     inc ebx
@@ -84,7 +84,7 @@ _start:
     cmp eax, 0x000000ff
     jne error
 
-    ; TEST SAR
+test_sar:
     mov eax, 0xffffffff
     sar eax, 5
     inc ebx
