@@ -614,7 +614,7 @@ class IMUL(Instruction):
         vm.reg.set(0, lo.to_bytes(_sz, byteorder))  # (E)AX
 
         if sz != 1:
-            vm.reg.set(2, hi.to_bytes(sz * 2, byteorder))  # (E)DX
+            vm.reg.set(2, hi.to_bytes(_sz, byteorder))  # (E)DX
 
         set_flags = sign_extend((tmp_xp >> (sz * 8)).to_bytes(sz, byteorder, signed=True), sz * 2) != tmp_xp
 

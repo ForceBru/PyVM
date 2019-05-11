@@ -44,6 +44,72 @@ test_single_op_16bit:
     inc ebx
     cmp dx, (0x8dd * 0x8e1) >> 16
     jne error
+    cmp ax, (0x8dd * 0x8e1) & 0xFFFF
+    jne error
+
+    mov ax, -0x8dd ; prime number
+    mov cx, 0x8e1 ; next prime number
+    imul cx
+    inc ebx
+    cmp dx, (-0x8dd * 0x8e1) >> 16
+    jne error
+    cmp ax, (-0x8dd * 0x8e1) & 0xFFFF
+    jne error
+
+    mov ax, 0x8dd ; prime number
+    mov cx, -0x8e1 ; next prime number
+    imul cx
+    inc ebx
+    cmp dx, (0x8dd * -0x8e1) >> 16
+    jne error
+    cmp ax, (0x8dd * -0x8e1) & 0xFFFF
+    jne error
+
+    mov ax, -0x8dd ; prime number
+    mov cx, -0x8e1 ; next prime number
+    imul cx
+    inc ebx
+    cmp dx, (-0x8dd * -0x8e1) >> 16
+    jne error
+    cmp ax, (-0x8dd * -0x8e1) & 0xFFFF
+    jne error
+
+test_single_op_32bit:
+    mov eax, 0x196bb ; prime number
+    mov ecx, 0x196d3 ; next prime number
+    imul ecx
+    inc ebx
+    cmp edx, (0x196bb * 0x196d3) >> 32
+    jne error
+    cmp eax, (0x196bb * 0x196d3) & 0xFFFFFFFF
+    jne error
+
+    mov eax, -0x196bb ; prime number
+    mov ecx, 0x196d3 ; next prime number
+    imul ecx
+    inc ebx
+    cmp edx, (-0x196bb * 0x196d3) >> 32
+    jne error
+    cmp eax, (-0x196bb * 0x196d3) & 0xFFFFFFFF
+    jne error
+
+    mov eax, 0x196bb ; prime number
+    mov ecx, -0x196d3 ; next prime number
+    imul ecx
+    inc ebx
+    cmp edx, (0x196bb * -0x196d3) >> 32
+    jne error
+    cmp eax, (0x196bb * -0x196d3) & 0xFFFFFFFF
+    jne error
+
+    mov eax, -0x196bb ; prime number
+    mov ecx, -0x196d3 ; next prime number
+    imul ecx
+    inc ebx
+    cmp edx, (-0x196bb * -0x196d3) >> 32
+    jne error
+    cmp eax, (-0x196bb * -0x196d3) & 0xFFFFFFFF
+    jne error
 
 success:
     mov eax, SYS_EXIT
