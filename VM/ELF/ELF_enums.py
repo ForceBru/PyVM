@@ -1,6 +1,7 @@
 from enum import Enum, Flag
 
 # Also have a look at this: https://sourceware.org/git/?p=binutils.git;a=blob_plain;f=include/elf/common.h
+# Also see: https://github.com/lattera/glibc/blob/master/elf/elf.h
 
 EI_CLASS = Enum('EI_CLASS', 'ELFCLASSNONE ELFCLASS32 ELFCLASS64', start=0)
 EI_DATA = Enum('EI_DATA', 'ELFDATANONE ELFDATA2LSB ELFDATA2MSB', start=0)
@@ -63,14 +64,27 @@ class p_type(Enum):
     PT_NOTE = 0x00000004  # Auxiliary information
     PT_SHLIB = 0x00000005  # reserved
     PT_PHDR = 0x00000006  # segment containing program header table itself
+    PT_TLS = 0x00000007  # Thread-local storage segment
+    PT_NUM = 0x00000008  # Number of defined types
+
     PT_LOOS = 0x60000000
     PT_HIOS = 0x6FFFFFFF
     PT_LOPROC = 0x70000000
+    
     PT_GNU_EH_FRAME = 0x60000000 + 0x474e550
+    PT_GNU_STACK = 0x6474e551  # Indicates stack executability
+    PT_GNU_RELRO = 0x6474e552  # Read-only after relocation
+    
     PT_HIPROC = 0x7FFFFFFF
     
     def _missing_(self):
         return self
+        
+    
+class p_flags(Flag):
+    PF_X = 0x01  # Segment is executable
+    PF_W = 0x02  # Segment is writable
+    PF_R = 0x04  # Segment is readable
         
     
 class sh_type(Enum):

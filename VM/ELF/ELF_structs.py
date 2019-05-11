@@ -42,7 +42,7 @@ class ELF32_Phdr(ELF_parser):
     p_paddr : 'I'
     p_filesz: 'I'
     p_memsz : 'I'
-    p_flags : 'I'
+    p_flags : 'I' = enums.p_flags
     p_align : 'I'
     
     
