@@ -435,11 +435,11 @@ class SHIFT(Instruction):
 
         self.reg.eflags_set(Reg32.ZF, dst == 0)
 
-        dst = dst.to_bytes(sz, byteorder)
+        _dst = dst.to_bytes(sz, byteorder)
 
-        self.reg.eflags_set(Reg32.PF, parity(dst[0], sz))
+        self.reg.eflags_set(Reg32.PF, parity(_dst[0], sz))
 
-        (self.mem if type else self.reg).set(loc, dst)
+        (self.mem if type else self.reg).set(loc, _dst)
 
         if operation == Shift.SHL:
             name = 'shl'
@@ -459,7 +459,7 @@ class SHIFT(Instruction):
             '%s %s=%s, %s=%s (%s := %d)',
             name, hex(loc) if type else reg_names[loc][sz],
             tmp_dst, op, cnt,
-            hex(loc) if type else reg_names[loc][sz], to_int(dst)
+            hex(loc) if type else reg_names[loc][sz], dst
         )
 
         return True

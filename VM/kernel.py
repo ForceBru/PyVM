@@ -110,7 +110,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         try:
             fileno = self.descriptors[fd].fileno()
             ret = os.write(fileno, buf)
-            os.fsync(fileno)
+            # os.fsync(fileno)
         except (AttributeError, UnsupportedOperation):
             ret = self.descriptors[fd].write(buf.decode('ascii'))
             self.descriptors[fd].flush()

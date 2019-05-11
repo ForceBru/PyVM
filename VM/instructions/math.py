@@ -138,13 +138,12 @@ class ADDSUB(Instruction):
             vm.reg.set(0, _c)
 
         logger.debug(
-            '%s %s=%d, imm%d=%d',
+            '%s %s=%d, imm%d=%d (%s := %d)',
             ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
             reg_names[0][sz], a,
             sz * 8, b,
             reg_names[0][sz], c
         )
-        # if debug: print('{} {}, imm{}({})'.format('cmp' if cmp else name, reg_names[0][sz], sz * 8, b))
 
         return True
 
