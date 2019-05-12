@@ -1,6 +1,6 @@
 from ..debug import *
 from ..Registers import Reg32
-from ..util import Instruction, to_int, byteorder
+from ..util import Instruction, to_int, byteorder,SegmentRegs
 from ..misc import sign_extend, zero_extend
 
 from functools import partialmethod as P
@@ -26,18 +26,18 @@ class STOS(Instruction):
 
         eax = self.reg.get(0, sz)
 
-        edi = to_int(self.reg.get(7, sz))  # should actually be DS:EDI
+        edi = to_int(self.reg.get(7, self.address_size))
 
-        self.mem.set(edi, eax)
+        self.mem.set_seg(SegmentRegs.ES, edi, eax)
 
         if not self.reg.eflags_get(Reg32.DF):
             edi += sz
         else:
             edi -= sz
 
-        edi &= MAXVALS[sz]
+        edi &= MAXVALS[self.address_size]
 
-        self.reg.set(7, edi.to_bytes(sz, byteorder))
+        self.reg.set(7, edi.to_bytes(self.address_size, byteorder))
 
         logger.debug('stos%s [0x%x], eax=%s', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), edi, eax.hex())
         # if debug:

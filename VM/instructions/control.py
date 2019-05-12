@@ -534,6 +534,44 @@ class RET(Instruction):
 
         return True
 
+
+####################
+# ENTER
+####################
+class ENTER(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0xC8: self.enter
+        }
+
+    def enter(vm):
+        AllocSize = to_int(vm.mem.get_eip(vm.eip, 2))
+        vm.eip += 2
+
+        NestingLevel = to_int(vm.mem.get_eip(vm.eip, 1)) % 32
+        vm.eip += 1
+
+        ebp = vm.reg.get(5, vm.operand_size)
+        vm.stack_push(ebp)
+        FrameTemp = to_int(vm.reg.get(4, vm.operand_size))  # ESP
+
+        if NestingLevel == 0:
+            ...
+        elif NestingLevel == 1:
+            vm.stack_push(FrameTemp.to_bytes(vm.stack_address_size, byteorder))
+        else:
+            raise RuntimeError(f"Instruction 'enter {AllocSize}, {NestingLevel}' is not implemented yet")
+
+        vm.reg.set(5, (FrameTemp & MAXVALS[vm.operand_size]).to_bytes(4, byteorder))  # EBP
+        esp = to_int(vm.reg.get(4, vm.operand_size)) - AllocSize
+        vm.reg.set(4, esp.to_bytes(4, byteorder))
+
+        logger.debug('enter 0x%04x, 0x%02x', AllocSize, NestingLevel)
+
+        return True
+
+
+
 ####################
 # LEAVE
 ####################

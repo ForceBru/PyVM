@@ -174,8 +174,8 @@ class MOVSX(Instruction):
 
     def __init__(self):
         self.opcodes = {
-            0x0FBE: P(self.r_rm, _8bit=True),
-            0x0FBF: P(self.r_rm, _8bit=False),
+            0x0FBE: P(self.r_rm, _8bit=True, movsxd=False),
+            0x0FBF: P(self.r_rm, _8bit=False, movsxd=False),
 
             0x63: P(self.r_rm, _8bit=False, movsxd=True),
 
@@ -201,19 +201,21 @@ class MOVSX(Instruction):
 
         return True
 
-    def r_rm(vm, _8bit, movsxd=False) -> True:
+    def r_rm(vm, _8bit, movsxd) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        if movsxd:
-            RM, R = vm.process_ModRM(sz, sz)
+        if not movsxd:
+            RM, R = vm.process_ModRM(1 if _8bit else 2, vm.operand_size)  # r/m8 or r/m16
         else:
-            RM, R = vm.process_ModRM(sz, vm.operand_size)  # different sizes!
+            RM, R = vm.process_ModRM(vm.operand_size)  # same sizes!
 
         type, From, size = RM
 
         SRC = (vm.mem if type else vm.reg).get(From, size)
 
         SRC_ = sign_extend(SRC, R[2])
+
+        # print(f'Sign-extend {size} bytes to fit {R[2]} bytes ({SRC.hex()} -> {SRC_.hex()})')
 
         vm.reg.set(R[1], SRC_)
 
@@ -319,6 +321,111 @@ class PUSH(Instruction):
 
         return True
 
+
+####################
+# PUSHF / PUSHFD
+####################
+class PUSHF(Instruction):
+    """
+    Decrements the stack pointer by 4 (if the current operand-size attribute is 32) and pushes the entire contents of
+    the EFLAGS register onto the stack, or decrements the stack pointer by 2 (if the operand-size attribute is 16) and
+    pushes the lower 16 bits of the EFLAGS register (that is, the FLAGS register) onto the stack.
+    These instructions reverse the operation of the POPF/POPFD instructions.
+    """
+    def __init__(self):
+        self.opcodes = {
+            0x9C: self.pushf
+        }
+
+    def pushf(vm) -> True:
+        # TODO: this should check for some kind of mode or whatnot
+        tmpEFLAGS = vm.reg.eflags & (0x00FCFFFF if vm.operand_size == 4 else 0x0000FFFF)
+
+        vm.stack_push(tmpEFLAGS.to_bytes(vm.stack_address_size, byteorder))
+
+        logger.debug('pushf%s', 'd' if vm.operand_size == 4 else '')
+
+        return True
+
+
+####################
+# PUSHA / PUSHAD
+####################
+class PUSHA(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0x60: self.pusha
+        }
+
+    def pusha(vm) -> True:
+        regs_to_push_1 = 0, 1, 2, 3
+        regs_to_push_2 = 5, 6, 7
+
+        Temp = vm.reg.get(4, vm.operand_size)
+
+        for reg in regs_to_push_1:
+            vm.stack_push(vm.reg.get(reg, vm.operand_size))
+
+        vm.stack_push(Temp)
+
+        for reg in regs_to_push_2:
+            vm.stack_push(vm.reg.get(reg, vm.operand_size))
+
+        logger.debug('pusha%s', 'd' if vm.operand_size == 4 else '')
+
+        return True
+
+
+####################
+# POPA / POPAD
+####################
+class POPA(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0x61: self.popa
+        }
+
+    def popa(vm) -> True:
+        regs_to_pop_1 = 7, 6, 5
+        regs_to_pop_2 = 3, 2, 1, 0
+
+        for reg in regs_to_pop_1:
+            vm.reg.set(reg, vm.stack_pop(vm.operand_size))
+
+        esp = to_int(vm.reg.get(4, vm.operand_size))
+        vm.reg.set(4, (esp + vm.operand_size).to_bytes(4, byteorder))
+
+        for reg in regs_to_pop_2:
+            vm.reg.set(reg, vm.stack_pop(vm.operand_size))
+
+        logger.debug('popa%s', 'd' if vm.operand_size == 4 else '')
+
+        return True
+
+
+####################
+# POPF / POPFD
+####################
+class POPF(Instruction):
+    """
+    Pops a doubleword (POPFD) from the top of the stack (if the current operand-size attribute is 32) and stores
+    the value in the EFLAGS register, or pops a word from the top of the stack (if the operand-size attribute is 16) and
+    stores it in the lower 16 bits of the EFLAGS register (that is, the FLAGS register). These instructions reverse
+    the operation of the PUSHF/PUSHFD/PUSHFQ instructions.
+    """
+    def __init__(self):
+        self.opcodes = {
+            0x9D: self.popf
+        }
+
+    def popf(vm) -> True:
+        # TODO: this should check for some kind of mode or whatnot
+        tmpEFLAGS = to_int(vm.stack_pop(vm.stack_address_size))
+        vm.reg.eflags = tmpEFLAGS & MAXVALS[vm.operand_size]
+
+        logger.debug('popf%s', 'd' if vm.operand_size == 4 else '')
+
+        return True
 
 ####################
 # POP
