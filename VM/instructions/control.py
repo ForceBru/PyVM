@@ -310,6 +310,9 @@ class BT(Instruction):
         RM, R = vm.process_ModRM(sz)
         type, loc, _ = RM
 
+        if R[1] != 4:  # this is not bt
+            return False
+
         if type == 1:
             base = vm.mem.get(loc, 1)  # read ONE BYTE
         else:
