@@ -39,15 +39,13 @@ class JMP(Instruction):
 
     def __init__(self):
         JNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        JG = compile(
-            'not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)',
-            'jump', 'eval')
+        JG = compile('not vm.reg.eflags_get(Reg32.ZF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         JAE = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
         JGE = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         JNO = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         JNS = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
         JPE = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        JO = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        JO = compile('vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         JL = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         JCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
         JNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
@@ -202,15 +200,13 @@ class JMP(Instruction):
 class SETcc(Instruction):
     def __init__(self):
         SETNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        SETG = compile(
-            'not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)',
-            'jump', 'eval')
+        SETG = compile('not vm.reg.eflags_get(Reg32.ZF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         SETAE = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
         SETGE = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         SETNO = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         SETNS = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
         SETPE = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        SETO = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        SETO = compile('vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         SETL = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         SETCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
         SETNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
@@ -249,15 +245,13 @@ class SETcc(Instruction):
 class CMOVCC(Instruction):
     def __init__(self):
         CMOVNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        CMOVG = compile(
-            'not vm.reg.eflags_get(Reg32.PF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)',
-            'jump', 'eval')
+        CMOVG = compile('not vm.reg.eflags_get(Reg32.ZF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         CMOVAE = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
         CMOVGE = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         CMOVNO = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         CMOVNS = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
         CMOVPE = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        CMOVO = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
+        CMOVO = compile('vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         CMOVL = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
         CMOVCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
         CMOVNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
