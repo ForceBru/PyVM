@@ -2,7 +2,7 @@
 
 PyVM is a Python module that allows to execute x86 32-bit (IA-32) bytecode on any hardware where Python can run, with no external dependencies.
 
-The instructions' opcodes as well as their operation algorithms have been taken from the [Intel Software Development Manual](https://software.intel.com/en-us/articles/intel-sdm).
+The instructions' opcodes as well as their operation algorithms have been taken from the [Intel Software Developer Manual](https://software.intel.com/en-us/articles/intel-sdm).
 
 ## Features
 
