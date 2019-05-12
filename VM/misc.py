@@ -22,10 +22,13 @@ def process_ModRM(self, size1, size2=None):
                 0 - register
                 1 - address
     '''
+    if self.address_size < 4:
+        raise RuntimeError('16-bit addressing is not supported, apparently')
+
     if size2 is None:
         size2 = size1
 
-    ModRM = self.mem.get(self.eip, 1)[0]
+    ModRM, = self.mem.get(self.eip, 1)
     self.eip += 1
     
     RM  = ModRM & 0b111; ModRM >>= 3

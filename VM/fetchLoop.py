@@ -138,7 +138,7 @@ def override(self, name: str):
     old_size = getattr(self, name)
     self.current_mode = not self.current_mode
     setattr(self, name, self.sizes[self.current_mode])
-    logger.debug('%s override (%d -> %d)', name, old_size, self.operand_size)
+    logger.debug('%s override (%d -> %d)', name, old_size, getattr(self, name))
 
 
 def run(self):
@@ -158,7 +158,7 @@ def run(self):
         0x64: SegmentRegs.FS,
         0x65: SegmentRegs.GS
     }
-    pref_op_size_override = {0x66}
+    pref_op_size_override = {0x66, 0x67}
     pref_lock = {0xf0}
 
     prefixes = set(pref_segments) | pref_op_size_override | pref_lock
@@ -174,11 +174,29 @@ def run(self):
             self.opcode, = self.mem.get(self.eip, 1)
 
         # apply overrides
+        size_override_active = False
         for ov in overrides:
             if ov == 0x66:
-                self.override('operand_size')
+                if not size_override_active:
+                    self.current_mode = not self.current_mode
+                    size_override_active = True
+                old_operand_size = self.operand_size
+                self.operand_size = self.sizes[self.current_mode]
+                logger.debug(
+                    'Operand size override: %d -> %d',
+                    old_operand_size, self.operand_size
+                )
+                # logger.debug(f'operand_size override ({old_operand_size} -> {self.operand_size})')
             elif ov == 0x67:
-                self.override('address_size')
+                if not size_override_active:
+                    self.current_mode = not self.current_mode
+                    size_override_active = True
+                old_address_size = self.address_size
+                self.address_size = self.sizes[self.current_mode]
+                logger.debug(
+                    'Address size override: %d -> %d',
+                    old_address_size, self.address_size
+                )
             elif ov in pref_segments:
                 self.mem.segment_override = pref_segments[ov]
                 logger.debug('Segment override: %s', self.mem.segment_override)
@@ -239,7 +257,7 @@ def execute_elf(self, fname: str, args=tuple()):
             if phdr.p_type not in (enums.p_type.PT_LOAD, enums.p_type.PT_GNU_EH_FRAME):
                 continue
                 
-            print(f'LOAD {phdr.p_memsz:10,d} bytes at address 0x{phdr.p_vaddr:09_x}')
+            logger.debug(f'LOAD {phdr.p_memsz:10,d} bytes at address 0x{phdr.p_vaddr:09_x}')
             elf.file.seek(phdr.p_offset)
             
             self.mem.set(phdr.p_vaddr, elf.file.read(phdr.p_filesz))            
@@ -270,6 +288,6 @@ def execute_elf(self, fname: str, args=tuple()):
     self.stack_push((name_addr).to_bytes(4, byteorder))  # pointer to program name
     self.stack_push(ARG_COUNT.to_bytes(4, byteorder))
     
-    print(f'EXEC at 0x{self.eip:09_x}')
+    logger.debug(f'EXEC at 0x{self.eip:09_x}')
     
     return self.run()

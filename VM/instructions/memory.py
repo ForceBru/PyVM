@@ -508,7 +508,7 @@ class LEA(Instruction):
             }
 
     def r_rm(self) -> True:
-        RM, R = self.process_ModRM(self.operand_size, self.operand_size)
+        RM, R = self.process_ModRM(self.address_size, self.operand_size)  # should be address_size
 
         type, loc, sz = RM
 
