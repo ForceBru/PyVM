@@ -1,80 +1,10 @@
 from .debug import debug
-from .util import byteorder, to_int, SegmentRegs
+from .util import byteorder, to_int, SegmentRegs, MissingOpcodeError
 
 from .ELF import ELF32, enums
 
 import logging
 logger = logging.getLogger(__name__)
-
-
-def _execute_opcode(self) -> None:
-    """
-    Attempts to execute the current opcode `op`. The calls to `_<mnemonic name>` check whether the opcode corresponds to
-    a mnemonic. This basically checks whether the opcode is supported and executes it if so.
-    :param self: passed implicitly
-    :param op: the current opcode
-    :return: None
-    """
-    self.eip += 1  # points to next data
-
-    if self.opcode == 0x90:  # nop
-        logger.debug(self.fmt.format(self.eip - 1, self.opcode))
-        return
-
-    opcode = self.opcode
-    _off = 1
-
-    # handle prefixes
-    if opcode == 0x0F:
-        op = self.mem.get(self.eip, 1)[0]  # 0xYY
-        self.eip += 1
-
-        opcode = (opcode << 8) + op  # opcode <- 0x0FYY
-        self.opcode = op
-        _off += 1
-
-    logger.debug(self.fmt.format(self.eip - _off, opcode))
-     
-    try:   
-        for instruction in self.instr[opcode]:
-            if instruction():
-                return
-
-        # TODO: this is a mess
-        # Try to interpret two-byte instruction
-        op = self.mem.get(self.eip, 1)[0]  # 0xYY
-        self.eip += 1
-
-        opcode = (opcode << 8) + op  # opcode <- 0x0FYY
-        self.opcode = op
-
-        logger.debug(self.fmt.format(self.eip - 2, opcode))
-
-        try:
-            for instruction in self.instr[opcode]:
-                if instruction():
-                    return
-        except KeyError:
-            raise RuntimeError(f'Opcode 0x{opcode:02x} is not implemented yet (@0x{self.eip:02x})')
-    except KeyError:
-        # TODO: this is a mess as well
-        # Try to interpret two-byte instruction
-        op = self.mem.get(self.eip, 1)[0]  # 0xYY
-        self.eip += 1
-
-        opcode = (opcode << 8) + op  # opcode <- 0x0FYY
-        self.opcode = op
-
-        logger.debug(self.fmt.format(self.eip - 2, opcode))
-
-        try:
-            for instruction in self.instr[opcode]:
-                if instruction():
-                    return
-        except KeyError:
-            raise RuntimeError(f'Opcode 0x{opcode:02x} is not implemented yet (@0x{self.eip:02x})')
-
-        raise ValueError(f'Unknown opcode: 0x{opcode:02x}')
 
 
 def execute_opcode(self) -> None:
@@ -129,9 +59,9 @@ def execute_opcode(self) -> None:
                 # `opcode` executed
                 return
     except KeyError:
-        raise RuntimeError(f'Opcode 0x{opcode:02x} is not implemented yet (@0x{self.eip - _off - 1:02x})')
+        raise MissingOpcodeError(f'Opcode 0x{opcode:02x} is not recognized yet (@0x{self.eip - _off - 1:02x})')
 
-    raise RuntimeError(f'No suitable implementation found for opcode 0x{opcode:02x} (@0x{self.eip - _off - 1:02x})')
+    raise NotImplementedError(f'No suitable implementation found for opcode 0x{opcode:02x} (@0x{self.eip - _off - 1:02x})')
     
 
 def override(self, name: str):
@@ -186,7 +116,6 @@ def run(self):
                     'Operand size override: %d -> %d',
                     old_operand_size, self.operand_size
                 )
-                # logger.debug(f'operand_size override ({old_operand_size} -> {self.operand_size})')
             elif ov == 0x67:
                 if not size_override_active:
                     self.current_mode = not self.current_mode

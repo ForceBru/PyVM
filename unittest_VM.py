@@ -30,7 +30,7 @@ class TestInserter(type):
 
 
 class TestAssemble(unittest.TestCase):
-    def test_compile(self):
+    def test_assemble(self):
         self.assertEqual(compile_all(), 0, 'Failed to assemble binaries!')
 
 

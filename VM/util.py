@@ -16,6 +16,10 @@ def to_int(data: bytes, signed=False):
     return int.from_bytes(data, byteorder, signed=signed)
 
 
+class MissingOpcodeError(RuntimeError):
+    ...
+
+
 class InstructionMeta(type):
     """
     This metaclass simply registers all the classes that inherit from 'Instruction' (see below).
