@@ -223,6 +223,7 @@ class SETcc(Instruction):
             0x0F94: P(self.rm8, SETE),
             0x0F95: P(self.rm8, SETNZ),
             0x0F97: P(self.rm8, SETNBE),
+            0x0F9F: P(self.rm8, SETG),
         }
 
     def rm8(vm, cond) -> True:
