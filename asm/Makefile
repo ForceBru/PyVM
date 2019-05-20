@@ -1,5 +1,5 @@
 ASM=nasm
-ASMFLAGS=-f bin -O0
+ASMFLAGS=-f bin -O0 -Wall
 
 SOURCES=$(sort $(wildcard test_*.s) $(wildcard c_*.s))
 BINARIES=$(SOURCES:.s=.bin)

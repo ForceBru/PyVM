@@ -70,6 +70,7 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
         # 'test_push_pop':
         'test_registers': Ret(0),
         'test_sbb': Msg('Testing sbb...\nSubtracting two large numbers...\nSuccess!\n'),
+        'test_stos': Both('0', 0),
         'test_shifts': Ret(0),
         'test_shr_shl': Msg('Testing shifts...\nSuccess!\n'),
         'test_test': Msg('Testing test...\nSuccess!\n'),
