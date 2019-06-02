@@ -37,21 +37,21 @@ class CPU32(CPU):
         self.reg.set4(esp, self.mem.size - 1)
         self.reg.set4(ebp, self.mem.size - 1)
 
-    def stack_push(self, value: bytes) -> None:
+    def stack_push(self, value: int) -> None:
         new_esp = self.reg.get(esp, self.stack_address_size) - self.operand_size
 
         if new_esp < self.mem.program_break:
             raise RuntimeError(f"The stack cannot grow larger than {self.mem.program_break}")
 
-        self.mem.set(new_esp, value)
-        self.reg.set(esp, new_esp.to_bytes(self.stack_address_size, byteorder))
+        self.mem.set(new_esp, self.stack_address_size, value)
+        self.reg.set(esp, self.stack_address_size, new_esp) #.to_bytes(self.stack_address_size, byteorder))
 
     def stack_pop(self, size: int) -> bytes:
-        old_esp = to_int(self.reg.get(esp, self.stack_address_size))
+        old_esp = self.reg.get(esp, self.stack_address_size)
 
         data = self.mem.get(old_esp, size)
-        new_esp = (old_esp + size).to_bytes(self.stack_address_size, byteorder)
-        self.reg.set(esp, new_esp)
+        new_esp = old_esp + size #.to_bytes(self.stack_address_size, byteorder)
+        self.reg.set(esp, self.stack_address_size, new_esp)
 
         return data
 

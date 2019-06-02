@@ -43,6 +43,29 @@ def GenReg(tail: str):
 
     return _Reg32
 
+class _Eflags_bits(ctypes.LittleEndianStructure):
+    _fields_ = [
+        ('CF', ubyte, 1),
+        ('_', ubyte, 1),
+        ('PF', ubyte, 1),
+        ('_', ubyte, 1),
+        ('AF', ubyte, 1),
+        ('_', ubyte, 1),
+        ('ZF', ubyte, 1),
+        ('SF', ubyte, 1),
+        ('TF', ubyte, 1),
+        ('IF', ubyte, 1),
+        ('DF', ubyte, 1),
+        ('OF', ubyte, 1),
+    ]
+
+class _Eflags(ctypes.Union):
+    _anonymous_ = '__bits',
+    _fields_ = [
+        ('eflags', uword),
+        ('__bits', _Eflags_bits)
+    ]
+
 
 class _Reg32_base(ctypes.Structure):
     a = ['reg_' + l for l in REG_LETTERS]
@@ -56,7 +79,9 @@ class _Reg32_base(ctypes.Structure):
                ] + [
                    (name, GenReg(name[4:]))
                    for name in b
-               ]
+               ] + [
+        ('eflags', _Eflags)
+    ]
 
     del a, b
 

@@ -26,7 +26,7 @@ def execute_opcode(self) -> None:
 
     # handle prefixes
     if opcode == 0x0F:
-        op, = self.mem.get_eip(self.eip, 1)  # 0xYY
+        op = self.mem.get_eip(self.eip, 1)  # 0xYY
         self.eip += 1
 
         opcode = (opcode << 8) + op  # opcode <- 0x0FYY
@@ -169,10 +169,11 @@ def execute_bytes(self, data: bytes, offset=0):
 def execute_file(self, fname: str, offset=0):
     with open(fname, 'rb') as f:
         data = f.read()
-        self.mem.set(offset, data)
+        l = len(data)
+        self.mem.set_bytes(offset, l, data)
 
     self.eip = offset
-    self.code_segment_end = self.eip + len(data) - 1
+    self.code_segment_end = self.eip + l - 1
     self.mem.program_break = self.code_segment_end
     
     return self.run()

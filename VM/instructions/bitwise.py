@@ -182,27 +182,31 @@ class BITWISE(Instruction):
 
         type, loc, _ = RM
 
-        vm.reg.eflags_set(Reg32.OF, 0)
-        vm.reg.eflags_set(Reg32.CF, 0)
+        vm.reg.eflags.OF = vm.reg.eflags.CF = 0
+        #vm.reg.eflags_set(Reg32.OF, 0)
+        #vm.reg.eflags_set(Reg32.CF, 0)
 
-        a = to_int((vm.mem if type else vm.reg).get(loc, sz))
-        b = to_int(vm.reg.get(R[1], sz))
+        a = (vm.mem if type else vm.reg).get(loc, sz)
+        b = vm.reg.get(R[1], sz)
 
         c = operation(a, b)
 
-        vm.reg.eflags_set(Reg32.SF, (c >> (sz * 8 - 1)) & 1)
+        vm.reg.eflags.SF = (c >> (sz * 8 - 1)) & 1
+        #vm.reg.eflags_set(Reg32.SF, (c >> (sz * 8 - 1)) & 1)
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
+        vm.reg.eflags.ZF = c == 0
+        #vm.reg.eflags_set(Reg32.ZF, c == 0)
 
-        c = c.to_bytes(sz, byteorder)
+        _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags.PF = parity(_c[0], sz)  # TODO: do normal parity
+        #vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
 
         if not test:
             name = operation.__name__
-            (vm.mem if type else vm.reg).set(loc, c)
+            (vm.mem if type else vm.reg).set(loc, sz, c)
         else:
             name = 'test'
 
@@ -287,7 +291,7 @@ class NEGNOT(Instruction):
         sz = 1 if _8bit else vm.operand_size
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz)
 
         if operation == 0:  # NEG
             if R[1] != 3:
@@ -304,26 +308,28 @@ class NEGNOT(Instruction):
 
         type, loc, _ = RM
 
-        a = to_int((vm.mem if type else vm.reg).get(loc, sz))
+        a = (vm.mem if type else vm.reg).get(loc, sz)
         if operation == NEGNOT.operation_neg:
-            vm.reg.eflags_set(Reg32.CF, a != 0)
+            vm.reg.eflags.CF = a != 0
 
         b = operation(a, sz) & MAXVALS[sz]
 
         sign_b = (b >> (sz * 8 - 1)) & 1
 
         if operation == NEGNOT.operation_neg:
-            vm.reg.eflags_set(Reg32.SF, sign_b)
-            vm.reg.eflags_set(Reg32.ZF, b == 0)
+            vm.reg.eflags.SF = sign_b
+            vm.reg.eflags.ZF = b == 0
 
-        b = b.to_bytes(sz, byteorder)
+        _b = b.to_bytes(sz, byteorder)
 
         if operation == NEGNOT.operation_neg:
-            vm.reg.eflags_set(Reg32.PF, parity(b[0], sz))
+            vm.reg.eflags.PF = parity(_b[0], sz)
 
-        vm.reg.set(loc, b)
+        vm.reg.set(loc, sz, b)
 
-        logger.debug('%s %s=%d', operation.__name__, hex(loc) if type else reg_names[loc][sz], a)
+        logger.debug('%s %s=%d (%s := %d)', operation.__name__, hex(loc) if type else reg_names[loc][sz], a,
+                     hex(loc) if type else reg_names[loc][sz], b
+                     )
         # if debug: print('{0} {3}{1}({2})'.format(operation.__name__, sz * 8, loc, ('m' if type else '_r')))
 
         return True

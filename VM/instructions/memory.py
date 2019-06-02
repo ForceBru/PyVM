@@ -87,9 +87,9 @@ class MOV(Instruction):
         imm = vm.mem.get_eip(vm.eip, sz)
         vm.eip += sz
 
-        (vm.mem if type else vm.reg).set(loc, imm)
+        (vm.mem if type else vm.reg).set(loc, sz, imm)
 
-        logger.debug('mov %s, %s', hex(loc) if type else reg_names[loc][sz], imm.hex())
+        logger.debug('mov %s, 0x%x', hex(loc) if type else reg_names[loc][sz], imm)
 
         return True
 
@@ -109,9 +109,9 @@ class MOV(Instruction):
         else:
             data = vm.reg.get(R[1], R[2])
             
-            (vm.mem if type else vm.reg).set(loc, data)
+            (vm.mem if type else vm.reg).set(loc, R[2], data)
 
-            logger.debug('mov %s, %s=%s', hex(loc) if type else reg_names[loc][sz], reg_names[R[1]][sz], data.hex())
+            logger.debug('mov %s, %s=%x', hex(loc) if type else reg_names[loc][sz], reg_names[R[1]][sz], data)
 
         return True
 
@@ -194,9 +194,9 @@ class MOVSX(Instruction):
 
         SRC_ = zero_extend(SRC, R[2])
 
-        vm.reg.set(R[1], SRC_)
+        vm.reg.set(R[1], sz, SRC_)
 
-        logger.debug('movzx %s, %s=%s', reg_names[R[1]][4], hex(loc) if type else reg_names[loc][size], SRC_.hex())
+        logger.debug('movzx %s, %s=0x%x', reg_names[R[1]][4], hex(loc) if type else reg_names[loc][size], SRC_)
         # if debug: print(f'movzx {reg_names[R[1]][4]}, {hex(loc) if type else reg_names[loc][size]}(data={SRC_})')
 
         return True
@@ -262,7 +262,7 @@ class PUSH(Instruction):
 
         vm.stack_push(data)
 
-        logger.debug('push %s=%s', reg_names[loc][sz], data.hex())
+        logger.debug('push %s=%x', reg_names[loc][sz], data)
         # if debug: print(f'push {reg_names[loc][sz]} -> {bytes(data)}')
 
         return True
@@ -456,9 +456,9 @@ class POP(Instruction):
 
         loc = vm.opcode & 0b111
         data = vm.stack_pop(sz)
-        vm.reg.set(loc, data)
+        vm.reg.set(loc, sz, data)
 
-        logger.debug('pop %s := %s', reg_names[loc][sz], data.hex())
+        logger.debug('pop %s := %x', reg_names[loc][sz], data)
         # if debug: print(f'pop {reg_names[loc][sz]} <- {bytes(data)}')
 
         return True
@@ -525,10 +525,10 @@ class LEA(Instruction):
 
         tmp &= MAXVALS[self.address_size]
 
-        data = tmp.to_bytes(self.operand_size, byteorder)
-        self.reg.set(R[1], data)
+        data = tmp #.to_bytes(self.operand_size, byteorder)
+        self.reg.set(R[1], self.operand_size, data)
 
-        logger.debug('lea %s, %s == %s', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data.hex())
+        logger.debug('lea %s, %s == %08x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
         # if debug: print(f'lea {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
 
         return True

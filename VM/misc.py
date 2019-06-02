@@ -1,5 +1,5 @@
 import enum
-from .util import to_int, byteorder
+from .util import to_int, byteorder, to_signed
 
 @enum.unique
 class Shift(enum.Enum):
@@ -28,7 +28,7 @@ def process_ModRM(self, size1, size2=None):
     if size2 is None:
         size2 = size1
 
-    ModRM, = self.mem.get(self.eip, 1)
+    ModRM = self.mem.get_eip(self.eip, 1)
     self.eip += 1
     
     RM  = ModRM & 0b111; ModRM >>= 3
@@ -44,10 +44,10 @@ def process_ModRM(self, size1, size2=None):
             # read d32 (32-bit displacement)
             addr = self.mem.get(self.eip, 4)
             self.eip += 4
-            addr = to_int(addr, True)
+            addr = to_signed(addr, 4)
         else:
             # read register
-            addr = to_int(self.reg.get(RM, 4), True)
+            addr = to_signed(self.reg.get(RM, 4), 4)
             
         # Read displacement
         # The number of bytes to read (b) depends on (MOD) in the following way:
@@ -112,13 +112,17 @@ def sign_extend_bytes(number: bytes, nbytes: int) -> bytes:
     return int.from_bytes(number, byteorder, signed=True).to_bytes(nbytes, byteorder, signed=True)
 
 
-def sign_extend(value: int, bytes: int):
+def sign_extend(value: int, bytes: int) -> int:
     '''
     See: https://stackoverflow.com/a/32031543/4354477
     :param value:
     :param bytes:
     :return:
     '''
+
+    raise NotImplementedError("This does not work because it needs one more argument. Like 'extend from this size to this size'")
+    if bytes == 1:
+        return value  # TODO: right?
     if bytes == 2:
         sign_bit = 1 << (16 - 1)
     elif bytes == 4:
@@ -126,8 +130,11 @@ def sign_extend(value: int, bytes: int):
     return (value & (sign_bit - 1)) - (value & sign_bit)
 
 
-def zero_extend(number: bytes, nbytes: int) -> bytes:
+def zero_extend_bytes(number: bytes, nbytes: int) -> bytes:
     return int.from_bytes(number, byteorder, signed=False).to_bytes(nbytes, byteorder, signed=False)
+
+def zero_extend(number: int, nbytes: int) -> int:
+    return number
 
 
 def parity(num: int, nbytes: int) -> bool:

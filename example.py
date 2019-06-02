@@ -45,12 +45,19 @@ f:  ba 0e 00 00 00          ;mov    edx,0xe   ; length of the message
 29: 48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A ; "Hello, world!",10
              """
 
-    vm = VM.VM(64)
+    vm = VM.VM(1024)
     binary = parse_code(code)
+
+    #vm.execute_file(f'asm/bin/test_lea.bin')
+    #vm.execute_file(f'asm/bin/test_call_ret.bin')
+    #vm.execute_file(f'asm/bin/test_mul.bin')
+    #vm.execute_file(f'asm/bin/test_add_sub.bin')
+    vm.execute_file(f'asm/bin/test_cmp_jcc.bin')
+    #vm.execute_file(f'asm/bin/test_test.bin')
 
     # pr = cProfile.Profile()
     # pr.enable()
-    vm.execute_bytes(binary)
+    #vm.execute_bytes(binary)
     # pr.disable()
 
     # Stats(pr)

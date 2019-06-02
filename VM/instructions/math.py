@@ -102,12 +102,11 @@ class ADDSUB(Instruction):
 
         b = vm.mem.get(vm.eip, sz)
         vm.eip += sz
-        b = to_int(b)
 
         if carry:
-            b += vm.reg.eflags_get(Reg32.CF)
+            b += vm.reg.eflags.CF  #vm.reg.eflags_get(Reg32.CF)
 
-        a = to_int(vm.reg.get(0, sz))
+        a = vm.reg.get(0, sz)
 
         c = a + (b if not sub else MAXVALS[sz] + 1 - b)
 
@@ -120,22 +119,28 @@ class ADDSUB(Instruction):
             vm.reg.eflags_set(Reg32.CF, c > MAXVALS[sz])
             vm.reg.eflags_set(Reg32.AF, ((a & 255) + (b & 255)) > MAXVALS[1])
         else:
-            vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.CF, b > a)
-            vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
+            vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.CF = b > a
+            vm.reg.eflags.AF = (b & 255) > (a & 255)
+            # vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
+            #vm.reg.eflags_set(Reg32.CF, b > a)
+            #vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
 
-        vm.reg.eflags_set(Reg32.SF, sign_c)
+        vm.reg.eflags.SF = sign_c
+        #vm.reg.eflags_set(Reg32.SF, sign_c)
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
+        vm.reg.eflags.ZF = c == 0
+        #vm.reg.eflags_set(Reg32.ZF, c == 0)
 
-        _c = c.to_bytes(sz, byteorder)
+        _c = c.to_bytes(sz, byteorder)  # TODO: compute parity of an integer
 
-        vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
+        vm.reg.eflags.PF = parity(_c[0], sz)
+        #vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
 
         if not cmp:
-            vm.reg.set(0, _c)
+            vm.reg.set(0, c)
 
         logger.debug(
             '%s %s=%d, imm%d=%d (%s := %d)',
@@ -178,15 +183,19 @@ class ADDSUB(Instruction):
 
         b = vm.mem.get(vm.eip, imm_sz)
         vm.eip += imm_sz
+
+        print(f"CMP read rm={b}, size={imm_sz}")
         b = sign_extend(b, sz)
-        b = to_int(b)
 
         if carry:
-            b += vm.reg.eflags_get(Reg32.CF)
+            b += vm.reg.eflags.CF
 
         type, loc, _ = RM
 
-        a = to_int((vm.mem if type else vm.reg).get(loc, sz))
+        a = (vm.mem if type else vm.reg).get(loc, sz)
+
+        print(f'CMP {a}, {b}')
+
         c = a + (b if not sub else MAXVALS[sz] + 1 - b)
 
         sign_a = (a >> (sz * 8 - 1)) & 1
@@ -194,26 +203,29 @@ class ADDSUB(Instruction):
         sign_c = (c >> (sz * 8 - 1)) & 1
 
         if not sub:
-            vm.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.CF, c > MAXVALS[sz])
-            vm.reg.eflags_set(Reg32.AF, ((a & 255) + (b & 255)) > MAXVALS[1])
+            vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.CF = c > MAXVALS[sz]
+            vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
-            vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.CF, b > a)
-            vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
+            vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.CF = b > a
+            vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags_set(Reg32.SF, sign_c)
+        vm.reg.eflags.SF = sign_c
+        #vm.reg.eflags_set(Reg32.SF, sign_c)
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
+        vm.reg.eflags.ZF = c == 0
+        #vm.reg.eflags_set(Reg32.ZF, c == 0)
 
         _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
+        vm.reg.eflags.PF = parity(_c[0], sz)  # TODO: do normal parity
+        #vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
 
         if not cmp:
-            (vm.mem if type else vm.reg).set(loc, _c)
+            (vm.mem if type else vm.reg).set(loc, sz, c)
 
         logger.debug('%s %s=%d, imm%d=%d (%s := %d)',
                      ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
@@ -231,11 +243,11 @@ class ADDSUB(Instruction):
 
         type, loc, _ = RM
 
-        a = to_int((vm.mem if type else vm.reg).get(loc, sz))
-        b = to_int(vm.reg.get(R[1], sz))
+        a = (vm.mem if type else vm.reg).get(loc, sz)
+        b = vm.reg.get(R[1], sz)
 
         if carry:
-            b += vm.reg.eflags_get(Reg32.CF)
+            b += vm.reg.eflags.CF
 
         c = a + (b if not sub else MAXVALS[sz] + 1 - b)
 
@@ -244,26 +256,27 @@ class ADDSUB(Instruction):
         sign_c = (c >> (sz * 8 - 1)) & 1
 
         if not sub:
-            vm.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.CF, c > MAXVALS[sz])
-            vm.reg.eflags_set(Reg32.AF, ((a & 255) + (b & 255)) > MAXVALS[1])
+            vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.CF = c > MAXVALS[sz]
+            vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
-            vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.CF, b > a)
-            vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
+            vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.CF = b > a
+            vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags_set(Reg32.SF, sign_c)
+        vm.reg.eflags.SF = sign_c
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
+        vm.reg.eflags.ZF = c == 0
+        #vm.reg.eflags_set(Reg32.ZF, c == 0)
 
         _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
+        vm.reg.eflags.PF = parity(_c[0], sz)  # TODO: do normal parity
 
         if not cmp:
-            (vm.mem if type else vm.reg).set(loc, _c)
+            (vm.mem if type else vm.reg).set(loc, sz, c)
 
         logger.debug('%s %s=%d, %s=%d (%s := %d)',
                      ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
@@ -379,7 +392,7 @@ class INCDEC(Instruction):
 
         type, loc, _ = RM
 
-        a = to_int((vm.mem if type else vm.reg).get(loc, sz))
+        a = (vm.mem if type else vm.reg).get(loc, sz)
         b = 1
 
         c = a + (b if not dec else MAXVALS[sz] - 1 + b)
@@ -389,23 +402,23 @@ class INCDEC(Instruction):
         sign_c = (c >> (sz * 8 - 1)) & 1
 
         if not dec:
-            vm.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.AF, ((a & 255) + (b & 255)) > MAXVALS[1])
+            Reg32.OF = (sign_a == sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
-            vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
+            vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags_set(Reg32.SF, sign_c)
+        vm.reg.eflags.SF = sign_c
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
+        vm.reg.eflags.ZF = c == 0
 
-        c = c.to_bytes(sz, byteorder)
+        _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags.PF = parity(_c[0], sz)
 
-        (vm.mem if type else vm.reg).set(loc, c)
+        (vm.mem if type else vm.reg).set(loc, sz, c)
 
         logger.debug('%s %s=%d', 'dec' if dec else 'inc', hex(loc) if type else reg_names[loc][sz], a)
         # if debug: print('{3} {0}{1}({2})'.format('m' if type else '_r', sz * 8, loc, 'dec' if dec else 'inc'))
@@ -416,7 +429,7 @@ class INCDEC(Instruction):
         sz = 1 if _8bit else vm.operand_size
         loc = vm.opcode & 0b111
 
-        a = to_int(vm.reg.get(loc, sz))
+        a = vm.reg.get(loc, sz)
         b = 1
 
         c = a + (b if not dec else MAXVALS[sz] - 1 + b)
@@ -426,23 +439,23 @@ class INCDEC(Instruction):
         sign_c = (c >> (sz * 8 - 1)) & 1
 
         if not dec:
-            vm.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.AF, ((a & 255) + (b & 255)) > MAXVALS[1])
+            vm.reg.eflags.OF = (sign_a == sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
-            vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
+            vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags_set(Reg32.SF, sign_c)
+        vm.reg.eflags.SF = sign_c
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
+        vm.reg.eflags.ZF = c == 0
 
-        c = c.to_bytes(sz, byteorder)
+        _c = c.to_bytes(sz, byteorder)
 
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags.PF = parity(_c[0], sz) # TODO: do parity
 
-        vm.reg.set(loc, c)
+        vm.reg.set(loc, sz, c)
 
         logger.debug('%s %s=%d', 'dec' if dec else 'inc', reg_names[loc][sz], a)
         # if debug: print('{3} {0}{1}({2})'.format('r', sz * 8, loc, 'dec' if dec else 'inc'))
@@ -478,8 +491,8 @@ class MUL(Instruction):
 
         type, loc, _ = RM
 
-        a = to_int((self.mem if type else self.reg).get(loc, sz))
-        b = to_int(self.reg.get(0, sz))  # AL/AX/EAX
+        a = (self.mem if type else self.reg).get(loc, sz)
+        b = self.reg.get(0, sz)  # AL/AX/EAX
 
         res = a * b
 
@@ -488,13 +501,14 @@ class MUL(Instruction):
         hi = (res >> (sz * 8)) & MAXVALS[_sz]
 
         upper_half_not_zero = hi != 0
-        self.reg.eflags_set(Reg32.OF, upper_half_not_zero)
-        self.reg.eflags_set(Reg32.CF, upper_half_not_zero)
+        self.reg.eflags.OF = self.reg.eflags.CF = upper_half_not_zero
+        #self.reg.eflags_set(Reg32.OF, upper_half_not_zero)
+        #self.reg.eflags_set(Reg32.CF, upper_half_not_zero)
 
-        self.reg.set(0, lo.to_bytes(_sz, byteorder))  # (E)AX
+        self.reg.set(0, _sz, lo)  # (E)AX
 
         if sz != 1:
-            self.reg.set(2, hi.to_bytes(_sz, byteorder))  # (E)DX
+            self.reg.set(2, _sz, hi)  # (E)DX
 
         logger.debug(
             'mul %s=%d, %s=%d (edx := 0x%x; eax := 0x%x)',

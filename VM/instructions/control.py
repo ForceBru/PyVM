@@ -1,6 +1,6 @@
 from ..debug import *
 from ..Registers import Reg32
-from ..util import Instruction, to_int, byteorder
+from ..util import Instruction, to_int, to_signed, byteorder
 from ..misc import sign_extend
 
 from functools import partialmethod as P
@@ -38,24 +38,24 @@ class JMP(Instruction):
     """
 
     def __init__(self):
-        JNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        JG = compile('not vm.reg.eflags_get(Reg32.ZF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        JAE = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
-        JGE = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        JNO = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        JNS = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
-        JPE = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        JO = compile('vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        JL = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        JCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
-        JNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        JNZ = compile('not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        JE = compile('vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        JS = compile('vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
-        JBE = compile('vm.reg.eflags_get(Reg32.CF) or vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        JLE = compile('vm.reg.eflags_get(Reg32.ZF) or vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)',
+        JNP = compile('not vm.reg.eflags.PF', 'jump', 'eval')
+        JG = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
+        JAE = compile('not vm.reg.eflags.CF', 'jump', 'eval')
+        JGE = compile('vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
+        JNO = compile('not vm.reg.eflags.OF', 'jump', 'eval')
+        JNS = compile('not vm.reg.eflags.SF', 'jump', 'eval')
+        JPE = compile('vm.reg.eflags.PF', 'jump', 'eval')
+        JO = compile('vm.reg.eflags.OF', 'jump', 'eval')
+        JL = compile('vm.reg.eflags.SF != vm.reg.eflags.OF', 'jump', 'eval')
+        JCXZ = compile('not vm.reg.get(0, sz)', 'jump', 'eval')
+        JNBE = compile('not vm.reg.eflags.CF and not vm.reg.eflags.ZF', 'jump', 'eval')
+        JNZ = compile('not vm.reg.eflags.ZF', 'jump', 'eval')
+        JE = compile('vm.reg.eflags.ZF', 'jump', 'eval')
+        JS = compile('vm.reg.eflags.SF', 'jump', 'eval')
+        JBE = compile('vm.reg.eflags.CF or vm.reg.eflags.ZF', 'jump', 'eval')
+        JLE = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF',
                       'jump', 'eval')
-        JB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
+        JB = compile('vm.reg.eflags.CF', 'jump', 'eval')
 
         self.opcodes = {
             0xEB: P(self.rel, _8bit=True),
@@ -99,8 +99,8 @@ class JMP(Instruction):
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        d = vm.mem.get(vm.eip, sz)
-        d = sign_extend(d, 4)
+        d = to_signed(vm.mem.get(vm.eip, sz), sz)
+        d = sign_extend(d, sz)
         vm.eip += sz
 
         if not eval(jump):
@@ -114,7 +114,7 @@ class JMP(Instruction):
 
         vm.eip = tmpEIP
 
-        logger.debug('jmp rel%d %s', sz * 8, hex(vm.eip))
+        logger.debug('jmp rel%d 0x%08x', sz * 8, vm.eip)
         # if debug: print('jmp rel{}({})'.format(sz * 8, hex(vm.eip)))
         
         return True
@@ -418,7 +418,7 @@ class CALL(Instruction):
         sz = vm.operand_size
         dest = vm.mem.get(vm.eip, sz)
         vm.eip += sz
-        dest = to_int(dest, True)
+        dest = to_signed(dest, sz)
         tmpEIP = vm.eip + dest
 
         '''
@@ -466,9 +466,9 @@ class CALL(Instruction):
         CALL_DEPTH += 1
         '''
 
-        assert tmpEIP in vm.mem.bounds
+        assert tmpEIP < vm.mem.size
 
-        vm.stack_push(vm.eip.to_bytes(sz, byteorder, signed=True))
+        vm.stack_push(vm.eip)
         vm.eip = tmpEIP
 
         logger.debug('call 0x%x => 0x%x', dest, vm.eip)
@@ -500,9 +500,9 @@ class RET(Instruction):
     def near(vm) -> True:
         sz = vm.operand_size
         eip_old = vm.eip - 1
-        vm.eip = to_int(vm.stack_pop(sz), True)
+        vm.eip = to_signed(vm.stack_pop(sz), sz)
 
-        assert vm.eip in vm.mem.bounds
+        assert vm.eip < vm.mem.size
         '''
         global CALL_DEPTH
         eax = to_int(vm.reg.get(0, 4), True)

@@ -15,6 +15,19 @@ segment_descriptor_struct = struct.Struct('<4B2H')  # see vol. 3A 3.4.5
 def to_int(data: bytes, signed=False):
     return int.from_bytes(data, byteorder, signed=signed)
 
+def to_signed(num: int, bytes: int) -> int:
+    if bytes == 1:
+        if num > 127:
+            return num - 256
+    elif bytes == 2:
+        if num > 32767:
+            return num - 65536
+    elif bytes == 4:
+        if num > 2147483647:
+            return num - 4294967296
+
+    return num
+
 
 class MissingOpcodeError(RuntimeError):
     ...

@@ -14,9 +14,10 @@ def enable_logging(verbose=False):
 
 
 if __name__ == '__main__':
-    # enable_logging()
-    mem = 50_000
+    enable_logging()
+    mem = 512
     vm = VM.VM(mem)  # memory will be allocated automatically
 
+    vm.execute_file(f'asm/bin/test_bitwise.bin')
     # vm.execute_elf(f'C/bin/calculator.elf')  # doesn't work yet
-    vm.execute_elf(f'C/bin/io.elf')
+    #vm.execute_elf(f'C/bin/io.elf')
