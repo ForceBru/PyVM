@@ -66,9 +66,9 @@ class MOV(Instruction):
         vm.eip += sz
 
         r = vm.opcode & 0b111
-        vm.reg.set(r, imm)
+        vm.reg.set(r, sz, imm)
 
-        logger.debug('mov %s, %s', reg_names[r][sz], imm.hex())
+        logger.debug('mov %s, %x', reg_names[r][sz], imm)
 
         return True
 

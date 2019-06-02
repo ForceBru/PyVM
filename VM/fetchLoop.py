@@ -96,14 +96,14 @@ def run(self):
     prefixes = set(pref_segments) | pref_op_size_override | pref_lock | rep
     self.running = True
 
-    while self.running and self.eip + 1 in self.mem.bounds:
+    while self.running and self.eip + 1 < self.mem.size:
         overrides = []
-        self.opcode, = self.mem.get(self.eip, 1)
+        self.opcode = self.mem.get(self.eip, 1)
 
         while self.opcode in prefixes:
             overrides.append(self.opcode)
             self.eip += 1
-            self.opcode, = self.mem.get(self.eip, 1)
+            self.opcode = self.mem.get(self.eip, 1)
 
         # apply overrides
         size_override_active = False
@@ -151,15 +151,16 @@ def run(self):
         self.operand_size = self.sizes[self.current_mode]
         self.address_size = self.sizes[self.current_mode]
 
-    ebx = int.from_bytes(self.reg.get(3, 4), byteorder)
+    ebx = self.reg.get(3, 4)
     return ebx
 
 
 def execute_bytes(self, data: bytes, offset=0):
-    self.mem.set(offset, data)
+    l = len(data)
+    self.mem.set_bytes(offset, l, data)
 
     self.eip = offset
-    self.code_segment_end = self.eip + len(data) - 1
+    self.code_segment_end = self.eip + l - 1
     self.mem.program_break = self.code_segment_end
     
     return self.run()

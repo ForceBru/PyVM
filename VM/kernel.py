@@ -42,7 +42,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         return ret
 
     def __return(self, value: int):
-        self.reg.set(0, value.to_bytes(4, byteorder, signed=value < 0))
+        self.reg.set4(0, value)
 
     def __args(self, types: str):
         """
@@ -54,7 +54,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         registers = [3, 1, 2, 6, 7]  # ebx, ecx, edx, esi, edi
 
-        return [to_int(self.reg.get(reg, 4), signed=type == 's')for reg, type in zip(registers, types)]
+        return [self.reg.get(reg, 4) for reg, type in zip(registers, types)]
         
     def sys_py_dbg(self, code=0x00):
         raw = self.reg.get(3, 4)

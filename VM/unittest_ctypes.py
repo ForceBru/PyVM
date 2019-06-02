@@ -1,7 +1,6 @@
 import unittest
 import os
 import ctypes
-import random
 
 from Memory_ctypes import Memory
 from Registers_ctypes import Reg32

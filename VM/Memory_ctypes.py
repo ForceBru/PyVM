@@ -1,5 +1,5 @@
 from ctypes import addressof, pointer, memmove
-from ctypes_types import ubyte, uword, udword
+from .ctypes_types import ubyte, uword, udword
 
 __all_ = 'Memory',
 
@@ -7,7 +7,7 @@ __all_ = 'Memory',
 class Memory:
     types = [None, ubyte, uword, None, udword]
 
-    def __init__(self, memsz: int):
+    def __init__(self, memsz: int, registers=None):
         self.mem = (ubyte * memsz)()
 
         self.base = addressof(self.mem)
@@ -15,12 +15,27 @@ class Memory:
         self.size = memsz
 
     def get(self, offset: int, size: int) -> int:
-        return self.types[size].from_address(self.base + offset).value
+        # add segments support here
+        if size == 4 or size == 2:
+            return self.types[size].from_address(self.base + offset).value
+        elif size == 1:
+            return self.mem[offset]
+        return bytes(self.mem[offset:offset + size])
 
-    def set(self, offset: int, size: int, addr: int) -> None:
+    def get_eip(self, offset: int, size: int) -> int:
+        if size == 4 or size == 2:
+            return self.types[size].from_address(self.base + offset).value
+        elif size == 1:
+            return self.mem[offset]
+        return bytes(self.mem[offset:offset + size])
+
+    def set_addr(self, offset: int, size: int, addr: int) -> None:
         memmove(self.base + offset, addr, size)
 
-    def set_val(self, offset: int, size: int, val: int) -> None:
+    def set_bytes(self, offset: int, size: int, val: bytes) -> None:
+        self.mem[offset:offset + size] = val
+
+    def set(self, offset: int, size: int, val: int) -> None:
         if size == 4:
             # faster than byte unpacking with shifts
             self.mem[offset:offset + 4] = (val & 0xFFFFFFFF).to_bytes(4, 'little')

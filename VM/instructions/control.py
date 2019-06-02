@@ -101,7 +101,6 @@ class JMP(Instruction):
 
         d = vm.mem.get(vm.eip, sz)
         d = sign_extend(d, 4)
-        d = to_int(d, True)
         vm.eip += sz
 
         if not eval(jump):
@@ -111,7 +110,7 @@ class JMP(Instruction):
         if vm.operand_size == 2:
           tmpEIP &= MAXVALS[vm.operand_size]
           
-        assert tmpEIP in vm.mem.bounds
+        assert tmpEIP < vm.mem.size
 
         vm.eip = tmpEIP
 
@@ -357,7 +356,7 @@ class INT(Instruction):
 
     def imm(vm) -> True:
         imm = vm.mem.get_eip(vm.eip, 1)  # always 8 bits
-        imm = to_int(imm)
+        #imm = to_int(imm)
         vm.eip += 1
 
         vm.interrupt(imm)

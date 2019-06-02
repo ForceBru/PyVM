@@ -34,7 +34,7 @@ class VM(CPU32, SyscallsMixin):
         valid_codes = [0x80]
 
         if code == valid_codes[0]:  # syscall
-            syscall = to_int(self.reg.get(0, 4))  # EAX
+            syscall = self.reg.get(0, 4)  # EAX
 
             try:
                 self.valid_syscalls[syscall]()

@@ -1,6 +1,6 @@
 import ctypes
 
-from ctypes_types import ubyte, uword, udword
+from .ctypes_types import ubyte, uword, udword
 
 __all__ = 'Reg32',
 
@@ -81,7 +81,7 @@ class Reg32(_Reg32_base):
 
         raise ValueError(f'Reg32.get(offset={offset}, size={size}): unexpected size: {size}')
 
-    def set_val(self, offset: int, size: int, value: int) -> None:
+    def set(self, offset: int, size: int, value: int) -> None:
         if size == 4:
             self.__ptr32[offset] = value
         elif size == 2:
@@ -91,4 +91,5 @@ class Reg32(_Reg32_base):
         else:
             raise ValueError(f'Reg32.set_val(offset={offset}, size={size}, value={value}): unexpected size: {size}')
 
-        return value
+    def set4(self, offset: int, value: int):
+        self.__ptr32[offset] = value

@@ -108,8 +108,22 @@ def process_ModRM(self, size1, size2=None):
     return RM, R
 
 
-def sign_extend(number: bytes, nbytes: int) -> bytes:
+def sign_extend_bytes(number: bytes, nbytes: int) -> bytes:
     return int.from_bytes(number, byteorder, signed=True).to_bytes(nbytes, byteorder, signed=True)
+
+
+def sign_extend(value: int, bytes: int):
+    '''
+    See: https://stackoverflow.com/a/32031543/4354477
+    :param value:
+    :param bytes:
+    :return:
+    '''
+    if bytes == 2:
+        sign_bit = 1 << (16 - 1)
+    elif bytes == 4:
+        sign_bit = 1 << (32 - 1)
+    return (value & (sign_bit - 1)) - (value & sign_bit)
 
 
 def zero_extend(number: bytes, nbytes: int) -> bytes:

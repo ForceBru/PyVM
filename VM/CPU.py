@@ -1,5 +1,9 @@
-from .Memory import Memory
-from .Registers import Reg32, FReg32
+#from .Memory import Memory
+#from .Registers import Reg32, FReg32
+
+from .Memory_ctypes import Memory
+from .Registers_ctypes import Reg32
+from .Registers import FReg32
 from .util import CPU, byteorder, to_int
 
 from . import instructions  # this line MUST be here for the instructions to be loaded correctly
@@ -30,11 +34,11 @@ class CPU32(CPU):
         self.stack_init()
         
     def stack_init(self):
-        self.reg.set(esp, (self.mem.size - 1).to_bytes(4, byteorder))
-        self.reg.set(ebp, (self.mem.size - 1).to_bytes(4, byteorder))
+        self.reg.set4(esp, self.mem.size - 1)
+        self.reg.set4(ebp, self.mem.size - 1)
 
     def stack_push(self, value: bytes) -> None:
-        new_esp = to_int(self.reg.get(esp, self.stack_address_size)) - self.operand_size
+        new_esp = self.reg.get(esp, self.stack_address_size) - self.operand_size
 
         if new_esp < self.mem.program_break:
             raise RuntimeError(f"The stack cannot grow larger than {self.mem.program_break}")
