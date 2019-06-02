@@ -1,5 +1,21 @@
 # PyVM - execute x86 bytecode in pure Python!
 
+------
+> _WARNING!_ This branch is highly unstable and doesn't really work right now.
+
+This branch attempts to use the `ctypes` module to implement registers and memory.
+
+Tests have shown that reimplementing `Registers.Reg32` and `Memory.Memory` using `ctypes` may have the following benefits:
+
+ * It provides about 2.1 speedup for register access and 1.56 speedup for memory access on a 64-bit machine:
+   * Accessing one single bytes of memory can be more than 2 times faster compared to the current version;
+   * Accessing two or four bytes of memory at once is at least 1.5 times faster
+ * Speedups on a 32-bit machine seem to be even greater
+ * The new implementation will deal with unsigned integers only, as opposed to `bytes` in the current version. This means that conversion between `bytes` and `int` will no longer be required, which should simplify the implementation of instructions.
+  
+
+------
+
 PyVM is a Python module that allows to execute x86 32-bit (IA-32) bytecode on any hardware where Python can run, with no external dependencies.
 
 The instructions' opcodes as well as their operation algorithms have been taken from the [Intel Software Developer Manual](https://software.intel.com/en-us/articles/intel-sdm).
