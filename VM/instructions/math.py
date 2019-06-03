@@ -129,9 +129,7 @@ class ADDSUB(Instruction):
 
         vm.reg.eflags.ZF = c == 0
 
-        _c = c.to_bytes(sz, byteorder)  # TODO: compute parity of an integer
-
-        vm.reg.eflags.PF = parity(_c[0], sz)
+        vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not cmp:
             vm.reg.set(0, sz, c)
@@ -211,9 +209,7 @@ class ADDSUB(Instruction):
         vm.reg.eflags.ZF = c == 0
         #vm.reg.eflags_set(Reg32.ZF, c == 0)
 
-        _c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags.PF = parity(_c[0], sz)  # TODO: do normal parity
+        vm.reg.eflags.PF = parity(c & 0xFF)
         #vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
 
         if not cmp:
@@ -262,11 +258,7 @@ class ADDSUB(Instruction):
         c &= MAXVALS[sz]
 
         vm.reg.eflags.ZF = c == 0
-        #vm.reg.eflags_set(Reg32.ZF, c == 0)
-
-        _c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags.PF = parity(_c[0], sz)  # TODO: do normal parity
+        vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not cmp:
             (vm.mem if type else vm.reg).set(loc, sz, c)
@@ -444,10 +436,7 @@ class INCDEC(Instruction):
         c &= MAXVALS[sz]
 
         vm.reg.eflags.ZF = c == 0
-
-        _c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags.PF = parity(_c[0], sz) # TODO: do parity
+        vm.reg.eflags.PF = parity(c & 0xFF)
 
         vm.reg.set(loc, sz, c)
 

@@ -113,10 +113,11 @@ def sign_extend_bytes(number: bytes, nbytes: int) -> bytes:
 
 
 def sign_extend(num: int, nbytes: int) -> int:
+    # TODO: this is basically converting an unsigned number to signed. Maybe rename the function?
     '''
     See: https://stackoverflow.com/a/32031543/4354477
     :param num: The integer to sign-extend
-    :param bytes: The number of bytes _in that integer_.
+    :param nbytes: The number of bytes _in that integer_.
     :return:
     '''
     if num < 0:
@@ -129,15 +130,21 @@ def sign_extend(num: int, nbytes: int) -> int:
 def zero_extend_bytes(number: bytes, nbytes: int) -> bytes:
     return int.from_bytes(number, byteorder, signed=False).to_bytes(nbytes, byteorder, signed=False)
 
+
 def zero_extend(number: int, nbytes: int) -> int:
+    # TODO: to be removed because we're dealing with integers already, and zero-extension is done automatically.
     return number
 
 
-def parity(num: int, nbytes: int) -> bool:
-    'Calculate the parity of a byte'
+def parity(num: int) -> int:
+    '''
+    Calculate the parity of a byte. See: https://graphics.stanford.edu/~seander/bithacks.html#ParityWith64Bits
+    :param num: The byte to calculate the parity of.
+    :return:
+    '''
     assert 0 <= num <= 255
 
-    return bool((((num * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1)
+    return (((num * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1
 
 
 def MSB(num: int, size: int) -> bool:

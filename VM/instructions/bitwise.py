@@ -195,12 +195,7 @@ class BITWISE(Instruction):
         c &= MAXVALS[sz]
 
         vm.reg.eflags.ZF = c == 0
-        #vm.reg.eflags_set(Reg32.ZF, c == 0)
-
-        _c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags.PF = parity(_c[0], sz)  # TODO: do normal parity
-        #vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not test:
             name = operation.__name__
@@ -209,7 +204,6 @@ class BITWISE(Instruction):
             name = 'test'
 
         logger.debug('%s %s=%d, %s=%d', name, hex(loc) if type else reg_names[loc][sz], a, reg_names[R[1]][sz], b)
-        # if debug: print('{0} {4}{1}({2}),r{1}({3})'.format(name, sz * 8, loc, R[1], ('m' if type else '_r')))
 
         return True
 
@@ -318,10 +312,8 @@ class NEGNOT(Instruction):
             vm.reg.eflags.SF = sign_b
             vm.reg.eflags.ZF = b == 0
 
-        _b = b.to_bytes(sz, byteorder)
-
         if operation == NEGNOT.operation_neg:
-            vm.reg.eflags.PF = parity(_b[0], sz)
+            vm.reg.eflags.PF = parity(b & 0xFF)
 
         vm.reg.set(loc, sz, b)
 
@@ -440,10 +432,7 @@ class SHIFT(Instruction):
         dst &= MAXVALS[sz]
 
         self.reg.eflags.ZF = dst == 0
-
-        _dst = dst.to_bytes(sz, byteorder)
-
-        self.reg.eflags.PF = parity(_dst[0], sz) # TODO: parity
+        self.reg.eflags.PF = parity(dst & 0xFF)
 
         (self.mem if type else self.reg).set(loc, sz, dst)
 
