@@ -93,10 +93,12 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         except (AttributeError, UnsupportedOperation):
             data = (self.descriptors[fd].read(count) + '\n').encode('ascii')
 
+        print(f'read data: {data}')
         logger.debug('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
-        self.mem.set(data_addr, data)
+        l = len(data)
+        self.mem.set_bytes(data_addr, l, data)
 
-        self.__return(len(data))
+        self.__return(l)
 
     def sys_write(self, code=0x04):
         """
@@ -321,6 +323,9 @@ struct user_desc {
                 continue
 
             buf = self.mem.get(iov_base, iov_len)
+
+            if isinstance(buf, int):
+                buf = buf.to_bytes(iov_len, 'little')
 
             logger.debug('iov_%d=0x%x; iov_len=%d, buf=%s', x, iov_base, iov_len, buf)
 

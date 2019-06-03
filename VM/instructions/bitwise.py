@@ -206,27 +206,23 @@ class BITWISE(Instruction):
 
         type, loc, _ = RM
 
-        vm.reg.eflags_set(Reg32.OF, 0)
-        vm.reg.eflags_set(Reg32.CF, 0)
+        vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
-        a = to_int((vm.mem if type else vm.reg).get(loc, sz))
-        b = to_int(vm.reg.get(R[1], sz))
+        a = (vm.mem if type else vm.reg).get(loc, sz)
+        b = vm.reg.get(R[1], sz)
 
         c = operation(a, b)
 
-        vm.reg.eflags_set(Reg32.SF, (c >> (sz * 8 - 1)) & 1)
+        vm.reg.eflags.SF = (c >> (sz * 8 - 1)) & 1
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
-
-        c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags.ZF = c == 0
+        vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not test:
             name = operation.__name__
-            vm.reg.set(R[1], c)
+            vm.reg.set(R[1], sz, c)
         else:
             name = 'test'
 

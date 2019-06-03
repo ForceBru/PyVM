@@ -198,24 +198,23 @@ class JMP(Instruction):
 ####################
 class SETcc(Instruction):
     def __init__(self):
-        SETNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        SETG = compile('not vm.reg.eflags_get(Reg32.ZF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        SETAE = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
-        SETGE = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        SETNO = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        SETNS = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
-        SETPE = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        SETO = compile('vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        SETL = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        SETCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
-        SETNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        SETNZ = compile('not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        SETE = compile('vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        SETS = compile('vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
-        SETBE = compile('vm.reg.eflags_get(Reg32.CF) or vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        SETLE = compile('vm.reg.eflags_get(Reg32.ZF) or vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)',
-                      'jump', 'eval')
-        SETB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
+        SETNP = compile('not vm.reg.eflags.PF', 'jump', 'eval')
+        SETG = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
+        SETAE = compile('not vm.reg.eflags.CF', 'jump', 'eval')
+        SETGE = compile('vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
+        SETNO = compile('not vm.reg.eflags.OF', 'jump', 'eval')
+        SETNS = compile('not vm.reg.eflags.SF', 'jump', 'eval')
+        SETPE = compile('vm.reg.eflags.PF', 'jump', 'eval')
+        SETO = compile('vm.reg.eflags.OF', 'jump', 'eval')
+        SETL = compile('vm.reg.eflags.SF != vm.reg.eflags.OF', 'jump', 'eval')
+        SETCXZ = compile('not vm.reg.get(0, sz)', 'jump', 'eval')
+        SETNBE = compile('not vm.reg.eflags.CF and not vm.reg.eflags.ZF', 'jump', 'eval')
+        SETNZ = compile('not vm.reg.eflags.ZF', 'jump', 'eval')
+        SETE = compile('vm.reg.eflags.ZF', 'jump', 'eval')
+        SETS = compile('vm.reg.eflags.SF', 'jump', 'eval')
+        SETBE = compile('vm.reg.eflags.CF or vm.reg.eflags.ZF', 'jump', 'eval')
+        SETLE = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF', 'jump', 'eval')
+        SETB = compile('vm.reg.eflags.CF', 'jump', 'eval')
 
         self.opcodes = {
             0x0F92: P(self.rm8, SETB),
@@ -230,10 +229,10 @@ class SETcc(Instruction):
 
         type, loc, _ = RM
 
-        _bool = bytes([int(eval(cond))])
-        (vm.mem if type else vm.reg).set(loc, _bool)
+        _bool = int(eval(cond))
+        (vm.mem if type else vm.reg).set(loc, 1, _bool)
 
-        logger.debug('setcc %s := %d', hex(loc) if type else reg_names[loc][1], _bool[0])
+        logger.debug('setcc %s := %d', hex(loc) if type else reg_names[loc][1], _bool)
         # if debug: print(f'setcc {hex(loc) if type else reg_names[loc][1]} = {_bool[0]}')
 
         return True
@@ -318,10 +317,7 @@ class BT(Instruction):
         else:
             base = vm.reg.get(loc, sz)
 
-        base = to_int(base)
-
         offset = vm.mem.get_eip(vm.eip, 1)  # always 8 bits
-        offset = to_int(offset)
         vm.eip += 1
 
         logger.debug('bt %s, 0x%02x', hex(loc) if type else reg_names[loc][sz], offset)
@@ -329,7 +325,7 @@ class BT(Instruction):
         if type == 0:  # first arg is a register
             offset %= sz * 8
 
-        vm.reg.eflags_set(Reg32.CF, (base >> offset) & 1)
+        vm.reg.eflags.CF = (base >> offset) & 1
 
         return True
 

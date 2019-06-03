@@ -153,7 +153,7 @@ class Sreg(ctypes.Structure):
         self.__ptr[offset].hidden.base = (descriptor.base_3 << 23) | (descriptor.base_2 << 15) | descriptor.base_1
         self.__ptr[offset].hidden.limit = (descriptor.limit_2 << 15) | descriptor.limit_1
 
-        print(self.__ptr[offset])
+        #print(self.__ptr[offset])
 
     def get(self, offset: int) -> _one_sreg:
         assert 0b000 <= offset <= 0b101

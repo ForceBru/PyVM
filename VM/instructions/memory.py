@@ -679,14 +679,19 @@ class MOVS(Instruction):
     def movs(self, _8bit) -> True:
         sz = 1 if _8bit else self.operand_size
 
-        esi = to_int(self.reg.get(6, self.address_size))
-        edi = to_int(self.reg.get(7, self.address_size))
+        esi = self.reg.get(6, self.address_size)
+        edi = self.reg.get(7, self.address_size)
 
         esi_init = esi
-        esi_mem = self.mem.get_seg(SegmentRegs.DS, esi, sz)
-        self.mem.set_seg(SegmentRegs.ES, edi, esi_mem)
 
-        if not self.reg.eflags_get(Reg32.DF):
+        old_override = self.mem.segment_override
+        self.mem.segment_override = SegmentRegs.DS
+        esi_mem = self.mem.get(esi, sz)
+        self.mem.segment_override = SegmentRegs.ES
+        self.mem.set(edi, sz, esi_mem)
+        self.mem.segment_override = old_override
+
+        if not self.reg.eflags.DF:
             esi += sz
             edi += sz
         else:
@@ -696,10 +701,10 @@ class MOVS(Instruction):
         esi &= MAXVALS[self.address_size]
         edi &= MAXVALS[self.address_size]
 
-        self.reg.set(6, esi.to_bytes(self.address_size, byteorder))
-        self.reg.set(7, edi.to_bytes(self.address_size, byteorder))
+        self.reg.set(6, self.address_size, esi)
+        self.reg.set(7, self.address_size, edi)
 
-        logger.debug('movs%s [edi]=%s, [esi=%s]', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), esi_mem.hex(), hex(esi_init))
+        logger.debug('movs%s [edi]:=0x%x, [esi=0x%x]', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), esi_mem, esi_init)
         # if debug:
         # letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
         # print(f'movs{letter} [edi(0x{edi:09_x})]({edi_mem.hex()}), [esi(0x{esi:09_x})]')

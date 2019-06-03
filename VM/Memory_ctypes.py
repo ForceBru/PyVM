@@ -40,10 +40,8 @@ class Memory:
     @segment_override.setter
     def segment_override(self, segment_number: int) -> None:
         sreg = self.sreg.get(segment_number)
-        #print(f'Segment override: {segment_number}; {sreg}')
 
         self.__segment_base = sreg.hidden.base
-        #print(f'Segment base = {self.__segment_base}')
 
     def get(self, offset: int, size: int) -> int:
         if self.__segment_base + offset + size > self.__size or offset < 0:
@@ -75,6 +73,9 @@ class Memory:
 
         addr = self.__segment_base + offset
         self.mem[addr:addr + size] = val
+
+        #if size < 20:
+            #print(f'Memory.set_bytes({offset:08x}, val={val})')
 
     def set(self, offset: int, size: int, val: int) -> None:
         if self.__segment_base + offset + size >= self.__size or offset < 0:
