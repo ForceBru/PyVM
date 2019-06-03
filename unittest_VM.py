@@ -34,12 +34,20 @@ class TestAssemble(unittest.TestCase):
         self.assertEqual(compile_all(), 0, 'Failed to assemble binaries!')
 
 
+def Ret(x):
+    return '', x
+
+
+def Msg(msg):
+    return msg, 0
+
+
+def Both(msg, x):
+    return msg, x
+
+
 class TestInstructions(unittest.TestCase, metaclass=TestInserter):
     MEMSZ = 1024 * 10
-
-    Ret = lambda x: ('', x)
-    Msg = lambda msg: (msg, 0)
-    Both = lambda msg, x: (msg, x)
 
     CORRECT = {
         'c_float1': Ret(28),

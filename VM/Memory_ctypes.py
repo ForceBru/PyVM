@@ -12,7 +12,19 @@ class Memory:
 
         self.base = addressof(self.mem)
         self.mem_ptr = pointer(self.mem)
-        self.size = memsz
+        self.__size = memsz
+
+    @property
+    def size(self):
+        return self.__size
+
+    @size.setter
+    def size(self, memsz: int):
+        self.mem = (ubyte * memsz)()
+
+        self.base = addressof(self.mem)
+        self.mem_ptr = pointer(self.mem)
+        self.__size = memsz
 
     def get(self, offset: int, size: int) -> int:
         # add segments support here

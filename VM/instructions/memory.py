@@ -282,7 +282,7 @@ class PUSH(Instruction):
         data = (vm.mem if type else vm.reg).get(loc, sz)
         vm.stack_push(data)
 
-        logger.debug('push %s=%s', hex(loc) if type else reg_names[loc][sz], data.hex())
+        logger.debug('push %s=0x%x', hex(loc) if type else reg_names[loc][sz], data)
         # if debug: print(f'push {hex(loc) if type else reg_names[loc][sz]} -> {bytes(data)}')
         # if debug: print('push {2}{0}({1} -> {3})'.format(sz * 8, hex(loc) if type else reg_names[loc][sz], ('m' if type else '_r'), bytes(data)))
         return True

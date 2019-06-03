@@ -191,7 +191,7 @@ def execute_elf(self, fname: str, args=tuple()):
         )
 
         if self.mem.size < max_memsz * 2:
-            self.mem.size_set(max_memsz * 2)
+            self.mem.size = max_memsz * 2
             self.stack_init()
         
         for phdr in elf.phdrs:
@@ -200,9 +200,10 @@ def execute_elf(self, fname: str, args=tuple()):
                 
             logger.debug(f'LOAD {phdr.p_memsz:10,d} bytes at address 0x{phdr.p_vaddr:09_x}')
             elf.file.seek(phdr.p_offset)
-            
-            self.mem.set(phdr.p_vaddr, elf.file.read(phdr.p_filesz))            
-            self.mem.set(phdr.p_vaddr + phdr.p_filesz, bytearray(phdr.p_memsz - phdr.p_filesz))
+
+            data = elf.file.read(phdr.p_filesz)
+            self.mem.set_bytes(phdr.p_vaddr, len(data), data)
+            self.mem.set_bytes(phdr.p_vaddr + phdr.p_filesz, phdr.p_memsz - phdr.p_filesz, bytearray(phdr.p_memsz - phdr.p_filesz))
 
     self.eip = elf.hdr.e_entry
     self.code_segment_end = self.eip + max_memsz - 1
@@ -210,24 +211,24 @@ def execute_elf(self, fname: str, args=tuple()):
 
     # INITIALIZE STACK LAYOUT (http://asm.sourceforge.net/articles/startup.html)
     # push program name:
-    PROG_NAME = b'tes\0'
+    PROG_NAME = int.from_bytes(b'tes\0', 'big')
     ARG_COUNT = 0
     
     self.stack_push(PROG_NAME)
-    name_addr = to_int(self.reg.get(4, self.stack_address_size))  # esp
+    name_addr = self.reg.get(4, self.stack_address_size)  # esp
 
     # push command-line arguments:
-    self.stack_push((0).to_bytes(4, byteorder))  # NULL - end of stack
+    self.stack_push(0)  # NULL - end of stack
     # INIT AUX VECTOR
-    self.stack_push((0).to_bytes(4, byteorder))  # NULL - no vector
+    self.stack_push(0)  # NULL - no vector
     # END INIT AUX VECTOR
     
-    self.stack_push((0).to_bytes(4, byteorder))  # NULL - end of environment
-    # no envirenment here
-    self.stack_push((0).to_bytes(4, byteorder))  # NULL - end of arguments
+    self.stack_push(0)  # NULL - end of environment
+    # no environment here
+    self.stack_push(0)  # NULL - end of arguments
     # no arguments here
-    self.stack_push((name_addr).to_bytes(4, byteorder))  # pointer to program name
-    self.stack_push(ARG_COUNT.to_bytes(4, byteorder))
+    self.stack_push(name_addr)  # pointer to program name
+    self.stack_push(ARG_COUNT)
     
     logger.debug(f'EXEC at 0x{self.eip:09_x}')
     
