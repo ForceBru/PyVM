@@ -141,9 +141,7 @@ class MOV(Instruction):
 
         type, From, size = RM
 
-        _SRC = (vm.mem if type else vm.reg).get(From, size)
-
-        SRC = to_int(_SRC)
+        SRC = (vm.mem if type else vm.reg).get(From, size)
 
         index, TI, RPL = SRC >> 3, (SRC >> 2) & 1, SRC & 0b11
 
@@ -155,7 +153,8 @@ class MOV(Instruction):
             else:  # move from LDT
                 raise RuntimeError('LDT not implemented')
 
-            vm.reg.sreg[R[1]].from_bytes(SRC, descr)
+            vm.sreg.set(R[1], SRC, descr)
+            #vm.reg.sreg[R[1]].from_bytes(SRC, descr)
         else:
             raise RuntimeError('mov r/m, sreg is not supported yet')
 

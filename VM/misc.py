@@ -110,7 +110,7 @@ def process_ModRM(self, size1, size2=None):
             d32 = self.mem.get(self.eip, 4) 
             self.eip += 4
             
-            addr += to_int(d32, True)
+            addr += sign_extend(d32, 4)
         else:
             # add [base]
             addr += sign_extend(self.reg.get(base, 4), 4)

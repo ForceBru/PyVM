@@ -86,6 +86,81 @@ class _Reg32_base(ctypes.Structure):
     del a, b
 
 
+class _sreg_hidden(ctypes.LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ('base', udword),
+        ('limit', udword),
+        ('access', udword)
+    ]
+
+    def __str__(self):
+        return f'base=0x{self.base:08x}, limit=0x{self.limit:08x}, access={self.access:08x}'
+
+class _one_sreg(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('visible', udword),
+        ('hidden', _sreg_hidden)
+    ]
+
+    def __str__(self):
+        return f'Sreg(visible=0x{self.visible:08x}, {self.hidden})'
+
+class SegmentDescriptor(ctypes.LittleEndianStructure):
+    _fields_ = [
+        ('base_3', ubyte),
+        ('G', ubyte, 1),
+        ('DB', ubyte, 1),
+        ('L', ubyte, 1),
+        ('AVL', ubyte, 1),
+        ('limit_2', ubyte, 4),
+        ('P', ubyte, 1),
+        ('DPL', ubyte, 2),
+        ('S', ubyte, 1),
+        ('type', ubyte, 4),
+        ('base_2', ubyte),
+
+        ('base_1', uword),
+        ('limit_1', uword)
+    ]
+
+class Sreg(ctypes.Structure):
+    """
+    Segment registers.
+    """
+    _pack_ = 1
+    _fields_ = [
+        (name, _one_sreg)
+        for name in 'ES CS SS DS FS GS'.split()
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.__names = 'ES CS SS DS FS GS'.split()
+        self.__ptr = ctypes.cast(ctypes.pointer(self), ctypes.POINTER(_one_sreg))
+
+    def set(self, offset: int, segment_selector: int, descriptor_data: bytes) -> None:
+        index, TI, RPL = segment_selector >> 3, (segment_selector >> 2) & 1, segment_selector & 0b11
+        #print(f'offset={offset:03b}, (index={index:05b}, TI={TI:1b}, RPL={RPL:02b}), descriptor: {descriptor_data}')
+
+        descriptor = SegmentDescriptor.from_buffer_copy(descriptor_data)
+
+        # TODO: handle priviledge level
+
+        self.__ptr[offset].visible = segment_selector
+        self.__ptr[offset].hidden.base = (descriptor.base_3 << 23) | (descriptor.base_2 << 15) | descriptor.base_1
+        self.__ptr[offset].hidden.limit = (descriptor.limit_2 << 15) | descriptor.limit_1
+
+        print(self.__ptr[offset])
+
+    def get(self, offset: int) -> _one_sreg:
+        assert 0b000 <= offset <= 0b101
+
+        return self.__ptr[offset]
+
+
 class Reg32(_Reg32_base):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

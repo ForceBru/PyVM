@@ -2,7 +2,7 @@
 #from .Registers import Reg32, FReg32
 
 from .Memory_ctypes import Memory
-from .Registers_ctypes import Reg32
+from .Registers_ctypes import Reg32, Sreg
 from .Registers import FReg32
 from .util import CPU, byteorder, to_int
 
@@ -16,8 +16,9 @@ class CPU32(CPU):
         super().__init__()
 
         self.reg = Reg32()
+        self.sreg = Sreg()
         self.freg = FReg32()
-        self.mem = Memory(memsize, self.reg)  # stack grows downward, user memory - upward
+        self.mem = Memory(memsize, self.sreg)  # stack grows downward, user memory - upward
 
         self.eip = 0
 

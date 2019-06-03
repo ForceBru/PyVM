@@ -130,9 +130,9 @@ class JMP(Instruction):
 
             tmpEIP = (vm.mem if type else vm.reg).get(loc, vm.address_size) 
                       
-            vm.eip = to_int(tmpEIP) & MAXVALS[vm.address_size]
+            vm.eip = tmpEIP & MAXVALS[vm.address_size]
 
-            assert vm.eip in vm.mem.bounds
+            assert vm.eip < vm.mem.size
 
             logger.debug('jmp rm%d 0x%x', sz * 8, vm.eip)
             # if debug: print('jmp rm{}({})'.format(sz * 8, vm.eip))
@@ -395,15 +395,15 @@ class CALL(Instruction):
 
             data = (vm.mem if type else vm.reg).get(loc, size)
           
-            tmpEIP = to_int(data) & MAXVALS[sz]
+            tmpEIP = data & MAXVALS[sz]
           
             # TODO: check whether tmpEIP is OK
           
-            vm.stack_push(vm.eip.to_bytes(sz, byteorder))
+            vm.stack_push(vm.eip)
           
             vm.eip = tmpEIP
 
-            logger.debug('call %s=%s => 0x%x', hex(loc) if type else reg_names[loc][sz], data.hex(), vm.eip)
+            logger.debug('call %s=0x%x => 0x%x', hex(loc) if type else reg_names[loc][sz], data, vm.eip)
             # if debug: print(f'call {hex(loc) if type else reg_names[loc][sz]}={bytes(data)} => {hex(vm.eip)}')
 
             return True

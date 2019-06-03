@@ -106,6 +106,9 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         buf = self.mem.get(buf_addr, count)
 
+        if isinstance(buf, int):
+            buf = buf.to_bytes(count, 'little')
+
         logger.debug('sys_write({}, {}({}), {})'.format(fd, buf_addr, buf, count))
         try:
             fileno = self.descriptors[fd].fileno()
@@ -238,13 +241,11 @@ struct user_desc {
 
                 descriptor = base3, limit2, info, base2, base1, limit1
 
-                self.GDT[selector_index] = segment_descriptor_struct.pack(
-                    *descriptor
-                )
+                self.GDT[selector_index] = segment_descriptor_struct.pack(*descriptor)
 
                 break
 
-        self.mem.set(u_info_addr, selector_index.to_bytes(4, byteorder))  # set address of new selector
+        self.mem.set(u_info_addr, 4, selector_index)  # set address of new selector
         # return success (0) or error (-1)
         self.__return(0)
         
@@ -280,7 +281,8 @@ struct user_desc {
         logger.debug(f'sys_set_tid_address(tidptr={tidptr:04x} (tid={tid}))')
 
         # do nothing, return tid (thread ID)
-        self.reg.set(0, tid)
+        self.__return(tid)
+        #self.reg.set(0, 4, tid)
 
     def sys_exit_group(self, code=0xfc):
         return self.sys_exit()
@@ -481,7 +483,7 @@ struct user_desc {
                 # };
                 struct_winsize = struct.Struct('<HHHH')
 
-                self.mem.set(data_addr, struct_winsize.pack(256, 256, 0, 0))
+                self.mem.set_bytes(data_addr, struct_winsize.size, struct_winsize.pack(256, 256, 0, 0))
 
                 return self.__return(0)
 

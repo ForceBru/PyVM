@@ -279,11 +279,11 @@ class ADDSUB(Instruction):
 
         type, loc, _ = RM
 
-        b = to_int((vm.mem if type else vm.reg).get(loc, sz))
-        a = to_int(vm.reg.get(R[1], sz))
+        b = (vm.mem if type else vm.reg).get(loc, sz)
+        a = vm.reg.get(R[1], sz)
 
         if carry:
-            b += vm.reg.eflags_get(Reg32.CF)
+            b += vm.reg.eflags.CF
 
         c = a + (b if not sub else MAXVALS[sz] + 1 - b)
 
@@ -294,25 +294,22 @@ class ADDSUB(Instruction):
         if not sub:
             vm.reg.eflags.OF = (sign_a == sign_b) and (sign_a != sign_c)
             #vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.CF, c > MAXVALS[sz])
-            vm.reg.eflags_set(Reg32.AF, ((a & 255) + (b & 255)) > MAXVALS[1])
+            vm.reg.eflags.CF = c > MAXVALS[sz]
+            vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
-            vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.CF, b > a)
-            vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
+            vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.CF = b > a
+            vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags_set(Reg32.SF, sign_c)
+        vm.reg.eflags.SF = sign_c
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
-
-        _c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
+        vm.reg.eflags.ZF = c == 0
+        vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not cmp:
-            vm.reg.set(R[1], _c)
+            vm.reg.set(R[1], sz, c)
 
         logger.debug('%s %s=%d, %s=%d (%s := %d)',
                      ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),

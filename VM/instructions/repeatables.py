@@ -28,9 +28,10 @@ class STOS(Instruction):
 
         edi = self.reg.get(7, self.address_size)
 
-        #self.mem.set_seg(SegmentRegs.ES, edi, eax)
         # TODO: this should actually use segment registers!
+        self.mem.segment_override = SegmentRegs.ES
         self.mem.set(edi, sz, eax)
+        self.mem.segment_override = SegmentRegs.DS
 
         if not self.reg.eflags.DF:
             edi += sz

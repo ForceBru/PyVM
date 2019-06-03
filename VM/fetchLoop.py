@@ -48,7 +48,7 @@ def execute_opcode(self) -> None:
     self.ModRM = None
     # No valid implementation for `opcode` was found (`instruction()` was always `False`)
     # or no implementation was found at all. Try to interpret `opcode` as being two bytes long.
-    op, = self.mem.get_eip(self.eip, 1)
+    op = self.mem.get_eip(self.eip, 1)
     self.eip += 1
 
     opcode = (opcode << 8) + op
@@ -107,7 +107,7 @@ def run(self):
 
         # apply overrides
         size_override_active = False
-        repeat = False
+        repeat, segment_override = False, False
         for ov in overrides:
             if ov == 0x66:
                 if not size_override_active:
@@ -130,7 +130,13 @@ def run(self):
                     old_address_size, self.address_size
                 )
             elif ov in pref_segments:
-                self.mem.segment_override = pref_segments[ov]
+                segment_override = True
+                is_special = ov >> 6
+                if is_special:
+                    sreg_number = 4 + (ov & 1)  # FS or GS
+                else:
+                    sreg_number = (ov >> 3) & 0b11
+                self.mem.segment_override = sreg_number
                 logger.debug('Segment override: %s', self.mem.segment_override)
             elif ov in pref_lock:
                 ...  # do nothing; all operations are atomic anyway. Right?
@@ -146,7 +152,8 @@ def run(self):
 
         # undo any overrides
         # TODO: looks ugly
-        self.mem.segment_override = SegmentRegs.DS
+        if segment_override:
+            self.mem.segment_override = SegmentRegs.DS
         self.current_mode = self.default_mode
         self.operand_size = self.sizes[self.current_mode]
         self.address_size = self.sizes[self.current_mode]
