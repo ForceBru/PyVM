@@ -588,8 +588,8 @@ class LEAVE(Instruction):
         """
         ESP, EBP = 4, 5  # depends on 'self.address_size' and 'self.operand_size'
 
-        self.reg.set(ESP, self.reg.get(EBP, self.address_size))
-        self.reg.set(EBP, self.stack_pop(self.operand_size))
+        self.reg.set(ESP, self.address_size, self.reg.get(EBP, self.address_size))
+        self.reg.set(EBP, self.operand_size, self.stack_pop(self.operand_size))
 
         logger.debug('leave')
 

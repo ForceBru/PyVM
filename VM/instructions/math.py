@@ -1,7 +1,7 @@
 from ..debug import *
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
-from ..misc import parity, sign_extend, MSB
+from ..misc import parity, sign_extend, MSB, sign_extend
 
 from functools import partialmethod as P
 
@@ -115,9 +115,9 @@ class ADDSUB(Instruction):
         sign_c = (c >> (sz * 8 - 1)) & 1
 
         if not sub:
-            vm.reg.eflags_set(Reg32.OF, (sign_a == sign_b) and (sign_a != sign_c))
-            vm.reg.eflags_set(Reg32.CF, c > MAXVALS[sz])
-            vm.reg.eflags_set(Reg32.AF, ((a & 255) + (b & 255)) > MAXVALS[1])
+            vm.reg.eflags.OF = (sign_a == sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.CF = c > MAXVALS[sz]
+            vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
             vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
             vm.reg.eflags.CF = b > a
@@ -140,7 +140,7 @@ class ADDSUB(Instruction):
         #vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
 
         if not cmp:
-            vm.reg.set(0, c)
+            vm.reg.set(0, sz, c)
 
         logger.debug(
             '%s %s=%d, imm%d=%d (%s := %d)',
@@ -184,8 +184,7 @@ class ADDSUB(Instruction):
         b = vm.mem.get(vm.eip, imm_sz)
         vm.eip += imm_sz
 
-        print(f"CMP read rm={b}, size={imm_sz}")
-        b = sign_extend(b, sz)
+        b = sign_extend(b, imm_sz)
 
         if carry:
             b += vm.reg.eflags.CF
@@ -193,8 +192,6 @@ class ADDSUB(Instruction):
         type, loc, _ = RM
 
         a = (vm.mem if type else vm.reg).get(loc, sz)
-
-        print(f'CMP {a}, {b}')
 
         c = a + (b if not sub else MAXVALS[sz] + 1 - b)
 
@@ -557,31 +554,38 @@ class DIV(Instruction):
 
         type, loc, _ = RM
 
-        divisor = to_int((self.mem if type else self.reg).get(loc, sz), idiv)
+        #divisor = to_int((self.mem if type else self.reg).get(loc, sz), idiv)
+        divisor = (self.mem if type else self.reg).get(loc, sz)
+        if idiv:
+            divisor = sign_extend(divisor, sz)
 
         if divisor == 0:
             raise ZeroDivisionError
 
         if sz == 1:
-            dividend = to_int(self.reg.get(0, sz * 2), idiv)  # AX
+            #dividend = to_int(self.reg.get(0, sz * 2), idiv)  # AX
+            dividend = self.reg.get(0, sz * 2)  # AX
         else:
             high = self.reg.get(2, sz)  # DX/EDX
             low = self.reg.get(0, sz)  # AX/EAX
-            dividend = to_int(low + high, signed=idiv)
+            dividend = (high << (sz * 8)) + low
+        
+        if idiv:
+            dividend = sign_extend(dividend, sz * 2)
 
         quot, rem = divmod(dividend, divisor)
 
         if quot > MAXVALS[sz]:
             raise RuntimeError('Divide error')
 
-        quot = quot.to_bytes(sz, byteorder, signed=idiv)
-        rem = rem.to_bytes(sz, byteorder, signed=idiv)
+        #quot = quot.to_bytes(sz, byteorder, signed=idiv)
+        #rem = rem.to_bytes(sz, byteorder, signed=idiv)
 
-        self.reg.set(0, quot)  # AL/AX/EAX
+        self.reg.set(0, sz, quot)  # AL/AX/EAX
         if sz == 1:
-            self.reg.set(4, rem)  # AH
+            self.reg.set(4, sz, rem)  # AH
         else:
-            self.reg.set(2, rem)  # DX/EDX
+            self.reg.set(2, sz, rem)  # DX/EDX
 
         logger.debug('%sdiv %s=%d, %s=%d', 'i' if idiv else '', reg_names[0][sz], dividend, hex(loc) if type else reg_names[loc][sz], divisor)
         # if debug: print('{}div {}{}'.format('i' if idiv else '', 'm' if type else '_r', sz * 8))
@@ -616,8 +620,8 @@ class IMUL(Instruction):
 
         type, loc, _ = RM
 
-        src = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
-        dst = to_int(vm.reg.get(0, sz), True)  # AL/AX/EAX
+        src = sign_extend((vm.mem if type else vm.reg).get(loc, sz), sz)
+        dst = sign_extend(vm.reg.get(0, sz), sz)  # AL/AX/EAX
 
         tmp_xp = src * dst
 
@@ -625,15 +629,14 @@ class IMUL(Instruction):
         lo = tmp_xp & MAXVALS[_sz]
         hi = (tmp_xp >> (sz * 8)) & MAXVALS[_sz]
 
-        vm.reg.set(0, lo.to_bytes(_sz, byteorder))  # (E)AX
+        vm.reg.set(0, _sz, lo)  # (E)AX
 
         if sz != 1:
-            vm.reg.set(2, hi.to_bytes(_sz, byteorder))  # (E)DX
+            vm.reg.set(2, _sz, hi)  # (E)DX
 
-        set_flags = sign_extend((tmp_xp >> (sz * 8)).to_bytes(sz, byteorder, signed=True), sz * 2) != tmp_xp
+        set_flags = sign_extend(tmp_xp >> (sz * 8), sz) != tmp_xp
 
-        vm.reg.eflags_set(Reg32.OF, set_flags)
-        vm.reg.eflags_set(Reg32.CF, set_flags)
+        vm.reg.eflags.OF = vm.reg.eflags.CF = set_flags
 
         logger.debug(
             'imul %s=%d, %s=%d (%s := %d; %s := %d)',
@@ -652,18 +655,17 @@ class IMUL(Instruction):
 
         type, loc, _ = RM
 
-        src = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
-        dst = to_int(vm.reg.get(R[1], sz), True)
+        src = sign_extend((vm.mem if type else vm.reg).get(loc, sz), sz)
+        dst = sign_extend(vm.reg.get(R[1], sz), sz)
 
         tmp_xp = src * dst
         dest = tmp_xp & MAXVALS[sz]
 
-        vm.reg.set(R[1], dest.to_bytes(sz, byteorder))
+        vm.reg.set(R[1], sz, dest)
 
-        set_flags = sign_extend((dest >> (sz * 8)).to_bytes(sz, byteorder, signed=True), sz * 2) != tmp_xp
+        set_flags = sign_extend(dest >> (sz * 8), sz) != tmp_xp
 
-        vm.reg.eflags_set(Reg32.OF, set_flags)
-        vm.reg.eflags_set(Reg32.CF, set_flags)
+        vm.reg.eflags.OF = vm.reg.eflags.CF = set_flags
 
         logger.debug('imul %s=%d, %s=%d', reg_names[R[1]][sz], dst, hex(loc) if type else reg_names[loc][sz], src)
 
@@ -680,17 +682,19 @@ class IMUL(Instruction):
 
         type, loc, _ = RM
 
-        src1 = to_int(imm, True)
-        src2 = to_int((vm.mem if type else vm.reg).get(loc, sz), True)
+        src1 = sign_extend(imm, imm_sz)
+        src2 = sign_extend((vm.mem if type else vm.reg).get(loc, sz), sz)
 
-        tmp_xp = (src1 * src2).to_bytes(sz * 2, byteorder, signed=True)
+        tmp_xp = (src1 * src2) #.to_bytes(sz * 2, byteorder, signed=True) # TODO: this isn't necessary
 
-        set_flags = sign_extend(tmp_xp[:sz], sz * 2) != tmp_xp
+        #set_flags = sign_extend(tmp_xp[:sz], sz) != tmp_xp
+        set_flags = sign_extend(tmp_xp & MAXVALS[sz], sz) != tmp_xp
 
-        vm.reg.eflags_set(Reg32.OF, set_flags)
-        vm.reg.eflags_set(Reg32.CF, set_flags)
+        vm.reg.eflags.OF = set_flags
+        vm.reg.eflags.CF = set_flags
 
-        vm.reg.set(R[1], tmp_xp[:sz])
+        #vm.reg.set(R[1], sz, tmp_xp[:sz])
+        vm.reg.set(R[1], sz, tmp_xp & MAXVALS[sz])
 
         logger.debug('imul %s, %s=%d, imm%d=%d',
                      reg_names[R[1]][sz],

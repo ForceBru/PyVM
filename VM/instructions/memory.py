@@ -103,34 +103,34 @@ class MOV(Instruction):
         if reverse:
             data = (vm.mem if type else vm.reg).get(loc, sz)
             
-            vm.reg.set(R[1], data)
+            vm.reg.set(R[1], sz, data)
 
-            logger.debug('mov %s, %s=%s', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data.hex())
+            logger.debug('mov %s, %s=0x%x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
         else:
             data = vm.reg.get(R[1], R[2])
             
             (vm.mem if type else vm.reg).set(loc, R[2], data)
 
-            logger.debug('mov %s, %s=%x', hex(loc) if type else reg_names[loc][sz], reg_names[R[1]][sz], data)
+            logger.debug('mov %s, %s=0x%x', hex(loc) if type else reg_names[loc][sz], reg_names[R[1]][sz], data)
 
         return True
 
     def r_moffs(vm, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        loc = to_int(vm.mem.get_eip(vm.eip, vm.address_size))
+        loc = vm.mem.get_eip(vm.eip, vm.address_size)
         vm.eip += vm.address_size
 
         if reverse:
             data = vm.reg.get(0, sz)
-            vm.mem.set(loc, data)
+            vm.mem.set(loc, sz, data)
 
-            logger.debug('mov moffs %s, %s=%s', hex(loc), reg_names[0][sz], data.hex())
+            logger.debug('mov moffs %s, %s=0x%x', hex(loc), reg_names[0][sz], data)
         else:
             data = vm.mem.get(loc, sz)
-            vm.reg.set(0, data)
+            vm.reg.set(0, sz, data)
 
-            logger.debug('mov %s, moffs %s=%s', reg_names[0][sz], hex(loc), data.hex())
+            logger.debug('mov %s, moffs %s=0x%x', reg_names[0][sz], hex(loc), data)
 
         return True
 
@@ -213,13 +213,13 @@ class MOVSX(Instruction):
 
         SRC = (vm.mem if type else vm.reg).get(From, size)
 
-        SRC_ = sign_extend(SRC, R[2])
+        SRC_ = sign_extend(SRC, size)
 
         # print(f'Sign-extend {size} bytes to fit {R[2]} bytes ({SRC.hex()} -> {SRC_.hex()})')
 
-        vm.reg.set(R[1], SRC_)
+        vm.reg.set(R[1], R[2], SRC_)
 
-        logger.debug('movsx%s %s, %s=%s', 'd' if movsxd else '', reg_names[R[1]][R[2]], hex(From) if type else reg_names[From][size], SRC_.hex())
+        logger.debug('movsx%s %s, %s=0x%x', 'd' if movsxd else '', reg_names[R[1]][R[2]], hex(From) if type else reg_names[From][size], SRC_)
         # if debug: print(f'movsx{"d" if movsxd else ""} {reg_names[R[1]][R[2]]}, {hex(From) if type else reg_names[From][size]}')
 
         return True
@@ -293,12 +293,12 @@ class PUSH(Instruction):
         data = vm.mem.get_eip(vm.eip, sz)
         vm.eip += sz
 
-        if len(data) < vm.operand_size:
-            data = sign_extend(data, vm.operand_size)
+        if sz < vm.operand_size:
+            data = sign_extend(data, sz)
 
         vm.stack_push(data)
 
-        logger.debug('push %s', data.hex())
+        logger.debug('push 0x%x', data)
         # if debug: print(f'push {bytes(data)}')
 
         return True
@@ -554,10 +554,10 @@ class XCHG(Instruction):
         if loc != 0:  # not EAX
             eax_val = vm.reg.get(0, sz)
             other_val = vm.reg.get(loc, sz)
-            vm.reg.set(0, other_val)
-            vm.reg.set(loc, eax_val)
+            vm.reg.set(0, sz, other_val)
+            vm.reg.set(loc, sz, eax_val)
 
-            logger.debug('xchg eax=%s, %s=%s', eax_val.hex(), reg_names[loc][sz], other_val.hex())
+            logger.debug('xchg eax=0x%x, %s=0x%x', eax_val, reg_names[loc][sz], other_val)
         else:
             logger.debug('xchg eax, eax')
 
@@ -721,10 +721,10 @@ class CWD(Instruction):
     def cwd_cdq(self) -> True:
         sz = self.operand_size
 
-        tmp = sign_extend(self.reg.get(0, sz), sz * 2)  # AX / EAX
+        tmp = sign_extend(self.reg.get(0, sz), sz)  # AX / EAX
 
-        self.reg.set(2, tmp[sz:])  # DX/EDX
-        self.reg.set(0, tmp[:sz])  # AX/EAX
+        self.reg.set(2, sz, tmp >> (sz * 8))  # DX/EDX
+        self.reg.set(0, sz, tmp & MAXVALS[sz])  # AX/EAX
 
         logger.debug('cwd' if sz == 2 else 'cdq')
         # if debug: print('cwd' if sz == 2 else 'cdq')
@@ -736,14 +736,14 @@ class CWD(Instruction):
 class CLC(Instruction):
     def __init__(self):
         self.opcodes = {
-            0xF8: P(self.set_stuff, Reg32.CF, 0),
-            0xFC: P(self.set_stuff, Reg32.DF, 0),
-            0xF9: P(self.set_stuff, Reg32.CF, 1),
-            0xFD: P(self.set_stuff, Reg32.DF, 1)
+            0xF8: P(self.set_stuff, 'CF', 0),
+            0xFC: P(self.set_stuff, 'DF', 0),
+            0xF9: P(self.set_stuff, 'CF', 1),
+            0xFD: P(self.set_stuff, 'DF', 1),
             }
 
-    def set_stuff(self, flag, val) -> True:
-        self.reg.eflags_set(flag, val)
+    def set_stuff(self, flag: str, val: int) -> True:
+        setattr(self.reg.eflags, flag, val)
 
         logger.debug('clc %s := %d', flag, val)
 

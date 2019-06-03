@@ -395,9 +395,9 @@ class SHIFT(Instruction):
         if cnt == Shift.C_ONE:
             cnt = 1
         elif cnt == Shift.C_CL:
-            cnt = to_int(self.reg.get(1, 1))
+            cnt = self.reg.get(1, 1)
         elif cnt == Shift.C_imm8:
-            cnt = to_int(self.mem.get(self.eip, 1))
+            cnt = self.mem.get(self.eip, 1)
             self.eip += 1
         else:
             raise RuntimeError('Invalid count')
@@ -411,41 +411,43 @@ class SHIFT(Instruction):
 
         type, loc, _ = RM
 
-        dst = to_int((self.mem if type else self.reg).get(loc, sz), signed=(operation == Shift.SAR))
+        dst = (self.mem if type else self.reg).get(loc, sz)
+        if operation == Shift.SAR:
+            dst = sign_extend(dst, sz)
         tmp_dst = dst
 
         while tmp_cnt != 0:
             if operation == Shift.SHL:
                 # self.reg.eflags_set(Reg32.CF, (dst >> (sz * 8)) & 1)
-                self.reg.eflags_set(Reg32.CF, MSB(dst, sz))
+                self.reg.eflags.CF = MSB(dst, sz)
                 dst <<= 1
             else:
                 # self.reg.eflags_set(Reg32.CF, dst & 1)
-                self.reg.eflags_set(Reg32.CF, LSB(dst, 1))
+                self.reg.eflags.CF = LSB(dst, 1)
                 dst >>= 1
 
             tmp_cnt -= 1
 
         if cnt & countMASK == 1:
             if operation == Shift.SHL:
-                self.reg.eflags_set(Reg32.OF, MSB(dst, sz) ^ self.reg.eflags_get(Reg32.CF))
+                self.reg.eflags.OF = MSB(dst, sz) ^ self.reg.eflags.CF
             elif operation == Shift.SAR:
-                self.reg.eflags_set(Reg32.OF, 0)
+                self.reg.eflags.OF = 0
             else:
-                self.reg.eflags_set(Reg32.OF, MSB(tmp_dst, sz))
+                self.reg.eflags.OF = MSB(tmp_dst, sz)
 
         sign_dst = MSB(dst, sz)  # (dst >> (sz * 8 - 1)) & 1
-        self.reg.eflags_set(Reg32.SF, sign_dst)
+        self.reg.eflags.SF = sign_dst
 
         dst &= MAXVALS[sz]
 
-        self.reg.eflags_set(Reg32.ZF, dst == 0)
+        self.reg.eflags.ZF = dst == 0
 
         _dst = dst.to_bytes(sz, byteorder)
 
-        self.reg.eflags_set(Reg32.PF, parity(_dst[0], sz))
+        self.reg.eflags.PF = parity(_dst[0], sz) # TODO: parity
 
-        (self.mem if type else self.reg).set(loc, _dst)
+        (self.mem if type else self.reg).set(loc, sz, dst)
 
         if operation == Shift.SHL:
             name = 'shl'

@@ -26,20 +26,20 @@ class STOS(Instruction):
 
         eax = self.reg.get(0, sz)
 
-        edi = to_int(self.reg.get(7, self.address_size))
+        edi = self.reg.get(7, self.address_size)
 
         self.mem.set_seg(SegmentRegs.ES, edi, eax)
 
-        if not self.reg.eflags_get(Reg32.DF):
+        if not self.reg.eflags.DF:
             edi += sz
         else:
             edi -= sz
 
         edi &= MAXVALS[self.address_size]
 
-        self.reg.set(7, edi.to_bytes(self.address_size, byteorder))
+        self.reg.set(7, self.address_size, edi)
 
-        logger.debug('stos%s [0x%x], eax=%s', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), edi, eax.hex())
+        logger.debug('stos%s [0x%x], eax=0x%x', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), edi, eax)
         # if debug:
         # letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
         # print(f'stos{letter} [0x{edi:04x}], eax={eax}')
@@ -54,12 +54,12 @@ class REP(Instruction):
         }
 
     def m(self) -> True:
-        opcode, = self.mem.get(self.eip, 1)
+        opcode = self.mem.get(self.eip, 1)
         orig_eip = self.eip
 
         sz = self.address_size
 
-        ecx = to_int(self.reg.get(1, sz))
+        ecx = self.reg.get(1, sz)
 
         while ecx != 0:
             ecx -= 1
@@ -69,10 +69,10 @@ class REP(Instruction):
             self.execute_opcode()
 
             if ecx == 0:
-                self.reg.set(1, ecx.to_bytes(sz, byteorder))
+                self.reg.set(1, sz, ecx)
                 return True
 
             self.eip = orig_eip
 
-        self.reg.set(1, ecx.to_bytes(sz, byteorder))
+        self.reg.set(1, sz, ecx)
         return True

@@ -65,9 +65,9 @@ def process_ModRM(self, size1, size2=None):
             displacement = self.mem.get(self.eip, b)
             self.eip += b
             
-            addr += to_int(displacement, True)
+            addr += sign_extend(displacement, b)
     else:  # there's a SIB
-        SIB = self.mem.get(self.eip, 1)[0]
+        SIB = self.mem.get(self.eip, 1)
         self.eip += 1
 
         base  = SIB & 0b111; SIB >>= 3
@@ -82,10 +82,10 @@ def process_ModRM(self, size1, size2=None):
             displacement = self.mem.get(self.eip, b)
             self.eip += b
             
-            addr += to_int(displacement, True)
+            addr += sign_extend(displacement, b)
         
         if index != 0b100:
-            addr += to_int(self.reg.get(index, 4), True) << scale
+            addr += sign_extend(self.reg.get(index, 4), 4) << scale
         
         # Addressing modes:
         #
@@ -101,7 +101,7 @@ def process_ModRM(self, size1, size2=None):
             addr += to_int(d32, True)
         else:
             # add [base]
-            addr += to_int(self.reg.get(base, 4), True)
+            addr += sign_extend(self.reg.get(base, 4), 4)
                     
     RM, R = (1, addr, size1), (0, REG, size2)
 
@@ -112,22 +112,18 @@ def sign_extend_bytes(number: bytes, nbytes: int) -> bytes:
     return int.from_bytes(number, byteorder, signed=True).to_bytes(nbytes, byteorder, signed=True)
 
 
-def sign_extend(value: int, bytes: int) -> int:
+def sign_extend(num: int, nbytes: int) -> int:
     '''
     See: https://stackoverflow.com/a/32031543/4354477
-    :param value:
-    :param bytes:
+    :param num: The integer to sign-extend
+    :param bytes: The number of bytes _in that integer_.
     :return:
     '''
-
-    raise NotImplementedError("This does not work because it needs one more argument. Like 'extend from this size to this size'")
-    if bytes == 1:
-        return value  # TODO: right?
-    if bytes == 2:
-        sign_bit = 1 << (16 - 1)
-    elif bytes == 4:
-        sign_bit = 1 << (32 - 1)
-    return (value & (sign_bit - 1)) - (value & sign_bit)
+    if num < 0:
+        return num
+    
+    sign_bit = 1 << (nbytes * 8 - 1)
+    return (num & (sign_bit - 1)) - (num & sign_bit)
 
 
 def zero_extend_bytes(number: bytes, nbytes: int) -> bytes:
