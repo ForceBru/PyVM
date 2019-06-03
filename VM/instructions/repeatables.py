@@ -40,9 +40,6 @@ class STOS(Instruction):
         self.reg.set(7, self.address_size, edi)
 
         logger.debug('stos%s [0x%x], eax=0x%x', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), edi, eax)
-        # if debug:
-        # letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
-        # print(f'stos{letter} [0x{edi:04x}], eax={eax}')
 
         return True
 
@@ -50,7 +47,7 @@ class STOS(Instruction):
 class REP(Instruction):
     def __init__(self):
         self.opcodes = {
-            0xF3: P(self.m)
+            0xF3: self.m
         }
 
     def m(self) -> True:
@@ -69,8 +66,7 @@ class REP(Instruction):
             self.execute_opcode()
 
             if ecx == 0:
-                self.reg.set(1, sz, ecx)
-                return True
+                break
 
             self.eip = orig_eip
 
