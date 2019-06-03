@@ -158,10 +158,7 @@ class BITWISE(Instruction):
         c &= MAXVALS[sz]
 
         vm.reg.eflags.ZF = c == 0
-
-        _c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags.PF = parity(_c[0], sz)
+        vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not test:
             name = operation.__name__

@@ -15,10 +15,8 @@ def enable_logging(verbose=False):
 
 if __name__ == '__main__':
     enable_logging()
-    mem = 1024
+    mem = 0x0017801d
     vm = VM.VM(mem)  # memory will be allocated automatically
 
-    vm.execute_file('asm/bin/test_imul2.bin')
-
     # vm.execute_elf(f'C/bin/calculator.elf')  # doesn't work yet
-    # vm.execute_elf(f'C/bin/io.elf')
+    vm.execute_elf(f'C/bin/hello_world.elf')

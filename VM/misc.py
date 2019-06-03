@@ -29,11 +29,14 @@ def process_ModRM(self, size1, size2=None):
         size2 = size1
 
     ModRM = self.mem.get_eip(self.eip, 1)
+    # print(f'ModRM: {ModRM:02x} ({ModRM:08b})')
     self.eip += 1
     
     RM  = ModRM & 0b111; ModRM >>= 3
     REG = ModRM & 0b111; ModRM >>= 3
     MOD = ModRM
+
+    # print(f'ModRM: MOD={MOD:02b}, REG={REG:03b}, RM={RM:03b}')
     
     if MOD == 0b11:
         # (register, register)
@@ -44,10 +47,12 @@ def process_ModRM(self, size1, size2=None):
             # read d32 (32-bit displacement)
             addr = self.mem.get(self.eip, 4)
             self.eip += 4
-            addr = to_signed(addr, 4)
+            addr = sign_extend(addr, 4)
         else:
             # read register
-            addr = to_signed(self.reg.get(RM, 4), 4)
+            addr = sign_extend(self.reg.get(RM, 4), 4)
+
+            #print(f'ModRM: read address from register = {addr:08x}')
             
         # Read displacement
         # The number of bytes to read (b) depends on (MOD) in the following way:
@@ -69,20 +74,27 @@ def process_ModRM(self, size1, size2=None):
     else:  # there's a SIB
         SIB = self.mem.get(self.eip, 1)
         self.eip += 1
+        _SIB = SIB
 
         base  = SIB & 0b111; SIB >>= 3
         index = SIB & 0b111; SIB >>= 3
         scale = SIB
+
+        # print(f'SIB: {_SIB:02x}; S={scale:02b}, I={index:03b}, B={base:03b}')
         
         addr = 0
-        
+
         # add displacement (d8 or d32)
-        if (MOD == 0b01) or (MOD == 0b10):
-            b = 3 * MOD - 2 # see formula above
-            displacement = self.mem.get(self.eip, b)
-            self.eip += b
-            
-            addr += sign_extend(displacement, b)
+        if MOD == 0b01:
+            displacement = self.mem.get(self.eip, 1)
+            self.eip += 1
+
+            addr += sign_extend(displacement, 1)
+        elif MOD == 0b10:
+            displacement = self.mem.get(self.eip, 4)
+            self.eip += 4
+
+            addr += sign_extend(displacement, 4)
         
         if index != 0b100:
             addr += sign_extend(self.reg.get(index, 4), 4) << scale

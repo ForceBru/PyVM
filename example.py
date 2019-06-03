@@ -46,18 +46,11 @@ f:  ba 0e 00 00 00          ;mov    edx,0xe   ; length of the message
              """
 
     vm = VM.VM(5000)
-    #binary = parse_code(code)
-
-    #vm.execute_file(f'asm/bin/test_lea.bin')
-    #vm.execute_file(f'asm/bin/test_call_ret.bin')
-    #vm.execute_file(f'asm/bin/test_mul.bin')
-    #vm.execute_file(f'asm/bin/test_add_sub.bin')
-    vm.execute_file(f'asm/bin/test_stos.bin')
-    #vm.execute_file(f'asm/bin/test_test.bin')
+    binary = parse_code(code)
 
     # pr = cProfile.Profile()
     # pr.enable()
-    #vm.execute_bytes(binary)
+    vm.execute_bytes(binary)
     # pr.disable()
 
     # Stats(pr)

@@ -244,24 +244,24 @@ class SETcc(Instruction):
 ####################
 class CMOVCC(Instruction):
     def __init__(self):
-        CMOVNP = compile('not vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        CMOVG = compile('not vm.reg.eflags_get(Reg32.ZF) and vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        CMOVAE = compile('not vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
-        CMOVGE = compile('vm.reg.eflags_get(Reg32.SF) == vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        CMOVNO = compile('not vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        CMOVNS = compile('not vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
-        CMOVPE = compile('vm.reg.eflags_get(Reg32.PF)', 'jump', 'eval')
-        CMOVO = compile('vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        CMOVL = compile('vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)', 'jump', 'eval')
-        CMOVCXZ = compile('not to_int(vm.reg.get(0, sz), byteorder)', 'jump', 'eval')
-        CMOVNBE = compile('not vm.reg.eflags_get(Reg32.CF) and not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        CMOVNZ = compile('not vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        CMOVE = compile('vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        CMOVS = compile('vm.reg.eflags_get(Reg32.SF)', 'jump', 'eval')
-        CMOVBE = compile('vm.reg.eflags_get(Reg32.CF) or vm.reg.eflags_get(Reg32.ZF)', 'jump', 'eval')
-        CMOVLE = compile('vm.reg.eflags_get(Reg32.ZF) or vm.reg.eflags_get(Reg32.SF) != vm.reg.eflags_get(Reg32.OF)',
+        CMOVNP = compile('not vm.reg.eflags.PF', 'jump', 'eval')
+        CMOVG = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
+        CMOVAE = compile('not vm.reg.eflags.CF', 'jump', 'eval')
+        CMOVGE = compile('vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
+        CMOVNO = compile('not vm.reg.eflags.OF', 'jump', 'eval')
+        CMOVNS = compile('not vm.reg.eflags.SF', 'jump', 'eval')
+        CMOVPE = compile('vm.reg.eflags.PF', 'jump', 'eval')
+        CMOVO = compile('vm.reg.eflags.OF', 'jump', 'eval')
+        CMOVL = compile('vm.reg.eflags.SF != vm.reg.eflags.OF', 'jump', 'eval')
+        CMOVCXZ = compile('not vm.reg.get(0, sz)', 'jump', 'eval')
+        CMOVNBE = compile('not vm.reg.eflags.CF and not vm.reg.eflags.ZF', 'jump', 'eval')
+        CMOVNZ = compile('not vm.reg.eflags.ZF', 'jump', 'eval')
+        CMOVE = compile('vm.reg.eflags.ZF', 'jump', 'eval')
+        CMOVS = compile('vm.reg.eflags.SF', 'jump', 'eval')
+        CMOVBE = compile('vm.reg.eflags.CF or vm.reg.eflags.ZF', 'jump', 'eval')
+        CMOVLE = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF',
                         'jump', 'eval')
-        CMOVB = compile('vm.reg.eflags_get(Reg32.CF)', 'jump', 'eval')
+        CMOVB = compile('vm.reg.eflags.CF', 'jump', 'eval')
 
         self.opcodes = {
             0x0F42: P(self.r_rm, CMOVB),
@@ -287,9 +287,9 @@ class CMOVCC(Instruction):
 
         data = (vm.mem if type else vm.reg).get(loc, sz)
 
-        vm.reg.set(R[1], data)
+        vm.reg.set(R[1], sz, data)
 
-        logger.debug('cmov %s, %s=%s', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data.hex())
+        logger.debug('cmov %s, %s=0x%x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
         # if debug: print(f'cmov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
 
         return True

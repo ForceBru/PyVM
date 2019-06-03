@@ -96,7 +96,7 @@ class MOV(Instruction):
     def rm_r(vm, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz)
 
         type, loc, _ = RM
 
@@ -194,7 +194,7 @@ class MOVSX(Instruction):
 
         SRC_ = zero_extend(SRC, R[2])
 
-        vm.reg.set(R[1], sz, SRC_)
+        vm.reg.set(R[1], R[2], SRC_)
 
         logger.debug('movzx %s, %s=0x%x', reg_names[R[1]][4], hex(loc) if type else reg_names[loc][size], SRC_)
         # if debug: print(f'movzx {reg_names[R[1]][4]}, {hex(loc) if type else reg_names[loc][size]}(data={SRC_})')
@@ -271,7 +271,7 @@ class PUSH(Instruction):
         old_eip = vm.eip
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz)
 
         if R[1] != 6:
             vm.eip = old_eip
@@ -283,8 +283,7 @@ class PUSH(Instruction):
         vm.stack_push(data)
 
         logger.debug('push %s=0x%x', hex(loc) if type else reg_names[loc][sz], data)
-        # if debug: print(f'push {hex(loc) if type else reg_names[loc][sz]} -> {bytes(data)}')
-        # if debug: print('push {2}{0}({1} -> {3})'.format(sz * 8, hex(loc) if type else reg_names[loc][sz], ('m' if type else '_r'), bytes(data)))
+
         return True
 
     def imm(vm, _8bit=False) -> True:
@@ -561,7 +560,6 @@ class XCHG(Instruction):
         else:
             logger.debug('xchg eax, eax')
 
-        # if debug: print('xchg eax, r{}({})'.format(sz * 8, loc))
         return True
 
     def rm_r(vm, _8bit) -> True:
@@ -580,7 +578,6 @@ class XCHG(Instruction):
         else:
             logger.debug('xchg %s, %s', hex(loc) if type else reg_names[loc][sz], hex(loc) if type else reg_names[loc][sz])
 
-        # if debug: print('xchg r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], tmp))
         return True
 
 ####################

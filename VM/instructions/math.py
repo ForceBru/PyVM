@@ -388,7 +388,7 @@ class INCDEC(Instruction):
         sign_c = (c >> (sz * 8 - 1)) & 1
 
         if not dec:
-            Reg32.OF = (sign_a == sign_b) and (sign_a != sign_c)
+            vm.reg.eflags.OF = (sign_a == sign_b) and (sign_a != sign_c)
             vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
             vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
@@ -399,10 +399,7 @@ class INCDEC(Instruction):
         c &= MAXVALS[sz]
 
         vm.reg.eflags.ZF = c == 0
-
-        _c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags.PF = parity(_c[0], sz)
+        vm.reg.eflags.PF = parity(c & 0xFF)
 
         (vm.mem if type else vm.reg).set(loc, sz, c)
 
@@ -440,8 +437,7 @@ class INCDEC(Instruction):
 
         vm.reg.set(loc, sz, c)
 
-        logger.debug('%s %s=%d', 'dec' if dec else 'inc', reg_names[loc][sz], a)
-        # if debug: print('{3} {0}{1}({2})'.format('r', sz * 8, loc, 'dec' if dec else 'inc'))
+        logger.debug('%s %s := %d', 'dec' if dec else 'inc', reg_names[loc][sz], a)
 
         return True
 

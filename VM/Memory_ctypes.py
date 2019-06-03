@@ -12,6 +12,7 @@ class Memory:
 
         self.base = addressof(self.mem)
         self.mem_ptr = pointer(self.mem)
+        self.program_break = 0
         self.__size = memsz
 
     @property
@@ -27,6 +28,9 @@ class Memory:
         self.__size = memsz
 
     def get(self, offset: int, size: int) -> int:
+        if offset + size > self.__size or offset < 0:
+            raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+
         # add segments support here
         if size == 4 or size == 2:
             return self.types[size].from_address(self.base + offset).value
@@ -35,6 +39,9 @@ class Memory:
         return bytes(self.mem[offset:offset + size])
 
     def get_eip(self, offset: int, size: int) -> int:
+        if offset + size > self.__size:
+            raise MemoryError(f"Memory.get_eip: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+
         if size == 4 or size == 2:
             return self.types[size].from_address(self.base + offset).value
         elif size == 1:
@@ -45,9 +52,15 @@ class Memory:
         memmove(self.base + offset, addr, size)
 
     def set_bytes(self, offset: int, size: int, val: bytes) -> None:
+        if offset + size > self.__size:
+            raise MemoryError(f"Memory.set_bytes: not enough memory (tried to write {size} bytes to address: 0x{offset:08x}, memory available: {self.size} bytes)")
+
         self.mem[offset:offset + size] = val
 
     def set(self, offset: int, size: int, val: int) -> None:
+        if offset + size > self.__size:
+            raise MemoryError(f"Memory.set: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+
         if size == 4:
             # faster than byte unpacking with shifts
             self.mem[offset:offset + 4] = (val & 0xFFFFFFFF).to_bytes(4, 'little')
