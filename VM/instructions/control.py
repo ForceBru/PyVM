@@ -1,5 +1,4 @@
-from ..debug import *
-from ..Registers import Reg32
+from ..debug import reg_names
 from ..util import Instruction, to_int, to_signed, byteorder
 from ..misc import sign_extend
 
@@ -495,7 +494,7 @@ class RET(Instruction):
 
     def near(vm) -> True:
         sz = vm.operand_size
-        eip_old = vm.eip - 1
+        #eip_old = vm.eip - 1
         vm.eip = to_signed(vm.stack_pop(sz), sz)
 
         assert vm.eip < vm.mem.size

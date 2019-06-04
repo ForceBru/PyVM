@@ -1,10 +1,10 @@
-from ..debug import *
+from ..debug import reg_names
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder, SegmentRegs
 from ..misc import sign_extend, zero_extend, parity
 
 from functools import partialmethod as P
-from unittest.mock import MagicMock
+#from unittest.mock import MagicMock
 
 import logging
 logger = logging.getLogger(__name__)
@@ -189,6 +189,7 @@ class MOVSX(Instruction):
 
         type, loc, size = RM
 
+        #print(f'memory.MOVSX.r_rm_movzx reg(loc={R[1]}), {"mem" if type else "reg"}(loc=0x{loc:08x}, size={size})')
         SRC = (vm.mem if type else vm.reg).get(loc, size)
 
         SRC_ = zero_extend(SRC, R[2])
@@ -201,7 +202,7 @@ class MOVSX(Instruction):
         return True
 
     def r_rm(vm, _8bit, movsxd) -> True:
-        sz = 1 if _8bit else vm.operand_size
+        #sz = 1 if _8bit else vm.operand_size
 
         if not movsxd:
             RM, R = vm.process_ModRM(1 if _8bit else 2, vm.operand_size)  # r/m8 or r/m16
@@ -591,7 +592,7 @@ class CMPXCHG(Instruction):
 
     def rm_r(vm, _8bit) -> True:
         sz = 1 if _8bit else vm.operand_size
-        old_eip = vm.eip
+        #old_eip = vm.eip
 
         RM, R = vm.process_ModRM(sz)
 

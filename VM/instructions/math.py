@@ -1,7 +1,6 @@
-from ..debug import *
-from ..Registers import Reg32
-from ..util import Instruction, to_int, byteorder
-from ..misc import parity, sign_extend, MSB, sign_extend
+from ..debug import reg_names
+from ..util import Instruction
+from ..misc import parity, sign_extend
 
 from functools import partialmethod as P
 

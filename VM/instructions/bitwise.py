@@ -1,4 +1,4 @@
-from ..debug import debug, reg_names
+from ..debug import reg_names
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
 from ..misc import parity, sign_extend, Shift, MSB, LSB

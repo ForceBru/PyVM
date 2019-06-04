@@ -1,7 +1,4 @@
-from ..debug import *
-from ..Registers import Reg32
-from ..util import Instruction, to_int, byteorder,SegmentRegs
-from ..misc import sign_extend, zero_extend
+from ..util import Instruction, SegmentRegs
 
 from functools import partialmethod as P
 
