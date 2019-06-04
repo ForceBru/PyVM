@@ -271,6 +271,7 @@ class CMOVCC(Instruction):
             0x0F48: P(self.r_rm, CMOVS),
             0x0F4C: P(self.r_rm, CMOVL),
             0x0F4E: P(self.r_rm, CMOVLE),
+            0x0F4F: P(self.r_rm, CMOVG),
         }
 
     def r_rm(vm, cond) -> True:
@@ -299,10 +300,29 @@ class CMOVCC(Instruction):
 class BT(Instruction):
     def __init__(self):
         self.opcodes = {
-            0x0FBA: self.rm_imm
+            0x0FBA: self.rm_imm,
+            0x0FA3: self.rm_r
         }
 
-    def rm_imm(vm) -> True:
+    def rm_r(vm) -> True:
+        sz = vm.operand_size
+
+        RM, R = vm.process_ModRM(sz)
+        type, loc, _ = RM
+
+        base = (vm.mem if type else vm.reg).get(loc, sz)
+        offset = vm.reg.get(R[1], sz)
+
+        logger.debug('bt %s, 0x%02x', hex(loc) if type else reg_names[loc][sz], offset)
+
+        if type == 0:  # first arg is a register
+            offset %= sz * 8
+
+        vm.reg.eflags.CF = (base >> offset) & 1
+
+        return True
+
+    def rm_imm(vm) -> bool:
         sz = vm.operand_size
 
         RM, R = vm.process_ModRM(sz)

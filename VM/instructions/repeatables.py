@@ -58,6 +58,17 @@ class REP(Instruction):
 
         ecx = self.reg.get(1, sz)
 
+        if ecx == 0:
+            # do not execute, just skip
+            if opcode in (0xa4, 0xa5, 0xaa, 0xab):  # movsd, movsw/movsd, stosb, stosw/stosd
+                self.eip += 1
+            else:
+                raise ValueError(f'REP will not run: unknown opcode: {opcode:02x}')
+
+            return True
+
+        logger.debug('rep ecx=%d, opcode=0x%02x', ecx, opcode)
+
         while ecx != 0:
             ecx -= 1
 

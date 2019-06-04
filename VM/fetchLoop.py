@@ -144,10 +144,10 @@ def run(self):
                 # Handle REP prefix
                 repeat = ov         
 
-        self.ModRM = None
+        #self.ModRM = None
         if repeat:
             self.opcode = repeat
-            self.eip -= 1 # repeat the previous opcode
+            self.eip -= 1  # repeat the previous opcode
         self.execute_opcode()
 
         # undo any overrides
@@ -217,30 +217,34 @@ def execute_elf(self, fname: str, args=tuple()):
     self.mem.program_break = self.code_segment_end
 
     # INITIALIZE STACK LAYOUT (http://asm.sourceforge.net/articles/startup.html)
-    # push program name:
-    PROG_NAME = int.from_bytes(b'tes\0', 'big')
-    ARG_COUNT = 0
-    
+    PROG_NAME = int.from_bytes(b'tes\0', 'little')
+    ARG_COUNT = 0  # of size `self.operand_size`
+    ENV_COUNT = 0  # no environment
+    AUX_LENGTH = 0
+
+    #print(f'ESP = {self.reg.esp:08x}')
+
+    # Push program name:
     self.stack_push(PROG_NAME)
-    name_addr = self.reg.get(4, self.stack_address_size)  # esp
+    name_addr = self.reg.esp
 
-    # push command-line arguments:
-    self.stack_push(0)  # NULL - end of stack
-    # INIT AUX VECTOR
-    self.stack_push(0)  # NULL - no vector
-    # END INIT AUX VECTOR
-    
-    self.stack_push(0)  # NULL - end of environment
-    # no environment here
-    self.stack_push(0)  # NULL - end of arguments
-    # no arguments here
-    self.stack_push(name_addr)  # pointer to program name
+    # auxiliary vector (just NULL)
+    self.stack_push(0)
+
+    # environment (array of pointers + NULL)
+    self.stack_push(0)
+
+    # argv
+    self.stack_push(0)  # end of argv
+    self.stack_push(name_addr)
+
+    #print(f'execute_elf: Put name at addr=0x{name_addr:08x}')
+
+    # argc
     self.stack_push(ARG_COUNT)
-    
-    logger.debug(f'EXEC at 0x{self.eip:09_x}')
-    #logger.debug(f'Stack start at 0x{self.reg.esp:08x}')
-    #logger.debug(f'Stack end at 0x{self.reg.ebp:08x}')
 
-    #raise
-    
+    logger.debug(f'EXEC at 0x{self.eip:09_x}')
+    # logger.debug(f'Stack start at 0x{self.reg.esp:08x}')
+    # logger.debug(f'Stack end at 0x{self.reg.ebp:08x}')
+
     return self.run()

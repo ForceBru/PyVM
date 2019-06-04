@@ -19,9 +19,8 @@ if __name__ == '__main__':
     mem = 0x0017801d
     vm = VM.VM(mem)  # memory will be allocated automatically
 
-
     #vm.execute_elf(f'C/bin/recursion.elf')
     #vm.execute_elf(f'C/bin/hello_world.elf')
     #vm.execute_elf(f'C/bin/io.elf')
-    vm.execute_elf(f'C/bin/calculator.elf')
+    vm.execute_elf(f'C/bin/args.elf')
     #f.close()

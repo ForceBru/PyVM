@@ -468,16 +468,16 @@ class SHIFTD(Instruction):
         RM, R = vm.process_ModRM(sz)
         type, loc, _ = RM
 
-        dst = to_int((vm.mem if type else vm.reg).get(loc, sz))
-        src = to_int(vm.reg.get(R[1], sz))
+        dst = (vm.mem if type else vm.reg).get(loc, sz)
+        src = vm.reg.get(R[1], sz)
 
         dst_init = dst
 
         if cnt == Shift.C_imm8:
-            cnt = to_int(vm.mem.get(vm.eip, 1))
+            cnt = vm.mem.get(vm.eip, 1)
             vm.eip += 1
         else:
-            cnt = to_int(vm.reg.get(1, 1))
+            cnt = vm.reg.get(1, 1)
 
         cnt %= 32
 
@@ -492,27 +492,26 @@ class SHIFTD(Instruction):
 
         _src = src >> (sz * 8 - cnt)
         if operation == Shift.SHL:
-            vm.reg.eflags_set(Reg32.CF, (dst >> (sz * 8 - cnt)) & 1)
+            vm.reg.eflags.CF = (dst >> (sz * 8 - cnt)) & 1
             dst <<= cnt
             dst |= _src
         else:
-            vm.reg.eflags_set(Reg32.CF, (dst >> (cnt - 1)) & 1)
+            vm.reg.eflags.CF = (dst >> (cnt - 1)) & 1
             dst >>= cnt
             dst |= _src << cnt
 
         # set flags
         sign_dst = (dst >> (sz * 8 - 1)) & 1
-        vm.reg.eflags_set(Reg32.SF, sign_dst)
+        vm.reg.eflags.SF = sign_dst
         dst &= MAXVALS[sz]
-        vm.reg.eflags_set(Reg32.ZF, dst == 0)
-        _dst = dst.to_bytes(sz, byteorder)
-        vm.reg.eflags_set(Reg32.PF, parity(_dst[0], sz))
+        vm.reg.eflags.ZF = dst == 0
+        vm.reg.eflags.PF = parity(dst & 0xFF)
 
         # set OF flag
         if cnt == 1:
-            vm.reg.eflags_set(Reg32.OF, _sign_dst != sign_dst)
+            vm.reg.eflags.OF = _sign_dst != sign_dst
 
-        (vm.mem if type else vm.reg).set(loc, _dst)
+        (vm.mem if type else vm.reg).set(loc, sz, dst)
 
         logger.debug(
             'sh%sd %s=0x%x, %s=0x%x, 0x%x (%s := 0x%x)',

@@ -262,8 +262,7 @@ class PUSH(Instruction):
 
         vm.stack_push(data)
 
-        logger.debug('push %s=%x', reg_names[loc][sz], data)
-        # if debug: print(f'push {reg_names[loc][sz]} -> {bytes(data)}')
+        logger.debug('push %s=0x%x', reg_names[loc][sz], data)
 
         return True
 
@@ -677,7 +676,7 @@ class MOVS(Instruction):
             0xA5: P(self.movs, _8bit=False)
             }
 
-    def movs(self, _8bit) -> True:
+    def movs(self, _8bit: bool) -> True:
         sz = 1 if _8bit else self.operand_size
 
         esi = self.reg.get(6, self.address_size)
@@ -688,8 +687,10 @@ class MOVS(Instruction):
         old_override = self.mem.segment_override
         self.mem.segment_override = SegmentRegs.DS
         esi_mem = self.mem.get(esi, sz)
+
         self.mem.segment_override = SegmentRegs.ES
         self.mem.set(edi, sz, esi_mem)
+
         self.mem.segment_override = old_override
 
         if not self.reg.eflags.DF:
