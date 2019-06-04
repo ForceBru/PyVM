@@ -22,5 +22,5 @@ if __name__ == '__main__':
     #vm.execute_elf(f'C/bin/recursion.elf')
     #vm.execute_elf(f'C/bin/hello_world.elf')
     #vm.execute_elf(f'C/bin/io.elf')
-    vm.execute_elf(f'C/bin/args.elf')
+    vm.execute_elf('C/bin/args.elf', ('--hey', 'test', 'argument'))
     #f.close()

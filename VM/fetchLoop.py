@@ -186,7 +186,7 @@ def execute_file(self, fname: str, offset=0):
     return self.run()
     
     
-def execute_elf(self, fname: str, args=tuple()):
+def execute_elf(self, fname: str, args=()):
     with ELF32(fname) as elf:
         if elf.hdr.e_type != enums.e_type.ET_EXEC:
             raise ValueError(f'ELF file {elf.fname!r} is not executable (type: {elf.hdr.e_type})')
@@ -217,16 +217,23 @@ def execute_elf(self, fname: str, args=tuple()):
     self.mem.program_break = self.code_segment_end
 
     # INITIALIZE STACK LAYOUT (http://asm.sourceforge.net/articles/startup.html)
-    PROG_NAME = int.from_bytes(b'tes\0', 'little')
-    ARG_COUNT = 0  # of size `self.operand_size`
+    PROG_NAME = fname.encode() + b'\0'
+    ARG_COUNT = len(args)  # of size `self.operand_size`
     ENV_COUNT = 0  # no environment
     AUX_LENGTH = 0
 
-    #print(f'ESP = {self.reg.esp:08x}')
-
     # Push program name:
-    self.stack_push(PROG_NAME)
-    name_addr = self.reg.esp
+    l = len(PROG_NAME)
+    self.mem.set_bytes(self.reg.esp - l, l, PROG_NAME)
+    self.reg.esp -= l
+
+    arg_addresses = [self.reg.esp]
+    for arg in args:
+        arg = arg.encode() + b'\0'
+        l = len(arg)
+        self.mem.set_bytes(self.reg.esp - l, l, arg)
+        self.reg.esp -= l
+        arg_addresses.append(self.reg.esp)
 
     # auxiliary vector (just NULL)
     self.stack_push(0)
@@ -236,9 +243,9 @@ def execute_elf(self, fname: str, args=tuple()):
 
     # argv
     self.stack_push(0)  # end of argv
-    self.stack_push(name_addr)
 
-    #print(f'execute_elf: Put name at addr=0x{name_addr:08x}')
+    for addr in arg_addresses[::-1]:
+        self.stack_push(addr)
 
     # argc
     self.stack_push(ARG_COUNT)
