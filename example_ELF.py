@@ -14,7 +14,6 @@ def enable_logging(verbose=False, file=None):
 
 
 if __name__ == '__main__':
-    #f = open('io.elf_new_log.txt', 'w')
     #enable_logging()
     mem = 0x0017801d
     vm = VM.VM(mem)  # memory will be allocated automatically
@@ -22,5 +21,5 @@ if __name__ == '__main__':
     #vm.execute_elf(f'C/bin/recursion.elf')
     #vm.execute_elf(f'C/bin/hello_world.elf')
     #vm.execute_elf(f'C/bin/io.elf')
-    vm.execute_elf('C/bin/args.elf', ('--hey', 'test', 'argument'))
-    #f.close()
+    #vm.execute_elf('C/bin/args.elf', ('--hey', 'test', 'argument'))
+    vm.execute_elf('C/bin/reverse_polish.elf')
