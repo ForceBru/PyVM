@@ -18,12 +18,12 @@ BIN_FILES=$(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%.elf,$(SRC_FILES))
 CFLAGS=-target i386-unknown-linux-elf -mno-avx -mno-sse -ffreestanding -fomit-frame-pointer
 CFLAGS += -fno-builtin -nostdlib -nodefaultlibs -nostdinc
 CFLAGS += -ffunction-sections -fdata-sections -fno-unroll-loops -fno-asynchronous-unwind-tables
-CFLAGS += -Wall -pedantic -Werror
+CFLAGS += -Wall -Wextra -pedantic -Werror
 LDFLAGS=-fuse-ld=lld
 
 all: $(BIN_FILES)
 
-bin/%.elf: src/%.c musl musl/root/lib/libgcc.a
+$(BIN_DIR)/%.elf: $(SRC_DIR)/%.c musl musl/root/lib/libgcc.a
 	@echo "\tCompiling: " $< "->" $@
 	$(CC) -std=c11 $(CFLAGS) $(LDFLAGS) -Wl,-Ttext -Wl,0 -static musl/root/lib/crt1.o $< \
 	--sysroot ./musl/root -isystem ./musl/root/include -L musl/root/lib -lc -lgcc -o $@

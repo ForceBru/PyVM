@@ -19,22 +19,9 @@ if __name__ == '__main__':
     mem = 0x0017801d
     vm = VM.VM(mem)  # memory will be allocated automatically
 
-    import time
-    s = time.process_time()
-    vm.execute_elf(f'C/bin/quicksort.elf')
-    vm.execute_elf(f'C/bin/insertionsort.elf')
-    vm.execute_elf(f'C/bin/bubblesort.elf')
-    e = time.process_time()
-    print(f'Sorts: NEW done in {e-s:.3f}')
-    
-    s = time.process_time()
-    vm.execute_elf(f'C/bin/memcpy_test.elf')
-    e = time.process_time()
-    print(f'Memcpy: NEW done in {e-s:.3f}')
-    
-    print(f'Speedups compared to OLD: (1.6321214808246507, 1.6896864472661313)')
+
     #vm.execute_elf(f'C/bin/recursion.elf')
     #vm.execute_elf(f'C/bin/hello_world.elf')
     #vm.execute_elf(f'C/bin/io.elf')
-    #vm.execute_elf(f'C/bin/calculator.elf')
+    vm.execute_elf(f'C/bin/calculator.elf')
     #f.close()
