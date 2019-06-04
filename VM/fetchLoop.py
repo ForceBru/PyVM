@@ -238,8 +238,8 @@ def execute_elf(self, fname: str, args=tuple()):
     self.stack_push(ARG_COUNT)
     
     logger.debug(f'EXEC at 0x{self.eip:09_x}')
-    logger.debug(f'Stack start at 0x{self.reg.esp:08x}')
-    logger.debug(f'Stack end at 0x{self.reg.ebp:08x}')
+    #logger.debug(f'Stack start at 0x{self.reg.esp:08x}')
+    #logger.debug(f'Stack end at 0x{self.reg.ebp:08x}')
 
     #raise
     

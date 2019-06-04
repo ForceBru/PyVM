@@ -93,7 +93,6 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         except (AttributeError, UnsupportedOperation):
             data = (self.descriptors[fd].read(count) + '\n').encode('ascii')
 
-        print(f'read data: {data}')
         logger.debug('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
         l = len(data)
         self.mem.set_bytes(data_addr, l, data)

@@ -176,7 +176,8 @@ class ADDSUB(Instruction):
         b = vm.mem.get(vm.eip, imm_sz)
         vm.eip += imm_sz
 
-        b = sign_extend(b, imm_sz)
+        b = sign_extend(b, imm_sz) & MAXVALS[sz]  # convert to an unsigned number
+        #print(f'SIZE: {sz}, b={_b}, b & {MAXVALS[sz]} = {_b & MAXVALS[sz]} => b={b}')
 
         if carry:
             b += vm.reg.eflags.CF
@@ -200,6 +201,11 @@ class ADDSUB(Instruction):
             vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
             vm.reg.eflags.CF = b > a
             vm.reg.eflags.AF = (b & 255) > (a & 255)
+            
+            if b < 0:
+                ...
+            #print(f'SHIT: {a} - {b}')
+                #raise
 
         vm.reg.eflags.SF = sign_c
         #vm.reg.eflags_set(Reg32.SF, sign_c)

@@ -99,7 +99,7 @@ class JMP(Instruction):
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        d = to_signed(vm.mem.get(vm.eip, sz), sz)
+        d = vm.mem.get(vm.eip, sz)
         d = sign_extend(d, sz)
         vm.eip += sz
 
