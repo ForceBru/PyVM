@@ -216,18 +216,11 @@ def execute_elf(self, fname: str, args=()):
     self.code_segment_end = self.eip + max_memsz - 1
     self.mem.program_break = self.code_segment_end
 
-    # INITIALIZE STACK LAYOUT (http://asm.sourceforge.net/articles/startup.html)
-    PROG_NAME = fname.encode() + b'\0'
-    ARG_COUNT = len(args)  # of size `self.operand_size`
-    ENV_COUNT = 0  # no environment
-    AUX_LENGTH = 0
+    # INITIALIZE STACK LAYOUT (http://asm.sourceforge.net/articles/startup.html and https://lwn.net/Articles/631631/)
+    environment = ["USER=ForceBru"]
+    args = [fname] + list(args)
 
-    # Push program name:
-    l = len(PROG_NAME)
-    self.mem.set_bytes(self.reg.esp - l, l, PROG_NAME)
-    self.reg.esp -= l
-
-    arg_addresses = [self.reg.esp]
+    arg_addresses, env_addresses = [], []
     for arg in args:
         arg = arg.encode() + b'\0'
         l = len(arg)
@@ -235,20 +228,28 @@ def execute_elf(self, fname: str, args=()):
         self.reg.esp -= l
         arg_addresses.append(self.reg.esp)
 
+    for env in environment:
+        env = env.encode() + b'\0'
+        l = len(env)
+        self.mem.set_bytes(self.reg.esp - l, l, env)
+        self.reg.esp -= l
+        env_addresses.append(self.reg.esp)
+
     # auxiliary vector (just NULL)
     self.stack_push(0)
 
     # environment (array of pointers + NULL)
     self.stack_push(0)
+    for addr in env_addresses[::-1]:
+        self.stack_push(addr)
 
     # argv
     self.stack_push(0)  # end of argv
-
     for addr in arg_addresses[::-1]:
         self.stack_push(addr)
 
     # argc
-    self.stack_push(ARG_COUNT)
+    self.stack_push(len(args))
 
     logger.debug(f'EXEC at 0x{self.eip:09_x}')
     # logger.debug(f'Stack start at 0x{self.reg.esp:08x}')
