@@ -272,15 +272,15 @@ class NEGNOT(Instruction):
         sz = 1 if _8bit else vm.operand_size
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz)
-
         if operation == 0:  # NEG
-            if R[1] != 3:
+            RM, R = vm.process_ModRM(sz, reg_check=3)
+            if RM is None:
                 vm.eip = old_eip
                 return False  # this is not NEG
             operation = NEGNOT.operation_neg
         elif operation == 1:  # NOT
-            if R[1] != 2:
+            RM, R = vm.process_ModRM(sz, reg_check=2)
+            if RM is None:
                 vm.eip = old_eip
                 return False  # this is not NOT
             operation = NEGNOT.operation_not
@@ -309,7 +309,6 @@ class NEGNOT(Instruction):
         logger.debug('%s %s=%d (%s := %d)', operation.__name__, hex(loc) if type else reg_names[loc][sz], a,
                      hex(loc) if type else reg_names[loc][sz], b
                      )
-        # if debug: print('{0} {3}{1}({2})'.format(operation.__name__, sz * 8, loc, ('m' if type else '_r')))
 
         return True
 
@@ -357,17 +356,21 @@ class SHIFT(Instruction):
         sz = 1 if _8bit else self.operand_size
         old_eip = self.eip
 
-        RM, R = self.process_ModRM(self.operand_size, self.operand_size)
-
-        if (operation == Shift.SHL) and (R[1] != 4):
-            self.eip = old_eip
-            return False
-        elif (operation == Shift.SHR) and (R[1] != 5):
-            self.eip = old_eip
-            return False
-        elif (operation == Shift.SAR) and (R[1] != 7):
-            self.eip = old_eip
-            return False
+        if operation == Shift.SHL:
+            RM, R = self.process_ModRM(self.operand_size, self.operand_size, reg_check=4)
+            if RM is None:
+                self.eip = old_eip
+                return False
+        elif operation == Shift.SHR:
+            RM, R = self.process_ModRM(self.operand_size, self.operand_size, reg_check=5)
+            if RM is None:
+                self.eip = old_eip
+                return False
+        elif operation == Shift.SAR:
+            RM, R = self.process_ModRM(self.operand_size, self.operand_size, reg_check=7)
+            if RM is None:
+                self.eip = old_eip
+                return False
 
         _cnt = cnt
 

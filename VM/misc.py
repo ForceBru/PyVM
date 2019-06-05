@@ -12,7 +12,7 @@ class Shift(enum.Enum):
     SAR = 6
     
 
-def process_ModRM(self, size1, size2=None):
+def process_ModRM(self, size1, size2=None, *, reg_check=None):
     '''
     Assumes that 'self.eip' points to ModRM.
 
@@ -35,6 +35,10 @@ def process_ModRM(self, size1, size2=None):
     RM  = ModRM & 0b111; ModRM >>= 3
     REG = ModRM & 0b111; ModRM >>= 3
     MOD = ModRM
+    
+    if reg_check is not None:
+        if REG != reg_check:
+            return None, None
 
     # print(f'ModRM: MOD={MOD:02b}, REG={REG:03b}, RM={RM:03b}')
     

@@ -150,25 +150,33 @@ class ADDSUB(Instruction):
         assert sz >= imm_sz
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
-
         if not sub:
-            if (not carry) and (R[1] != 0):
-                vm.eip = old_eip
-                return False  # this is not ADD
-            elif carry and (R[1] != 2):
-                vm.eip = old_eip
-                return False  # this is not ADC
+            if not carry:
+                RM, R = vm.process_ModRM(sz, reg_check=0)
+                if RM is None:
+                    vm.eip = old_eip
+                    return False  # this is not ADD
+            else:
+                RM, R = vm.process_ModRM(sz, reg_check=2)
+                if RM is None:
+                    vm.eip = old_eip
+                    return False  # this is not ADC
         elif sub:
             if not carry:
-                if not cmp and (R[1] != 5):
-                    vm.eip = old_eip
-                    return False  # this is not SUB
-                elif cmp and (R[1] != 7):
-                    vm.eip = old_eip
-                    return False  # this is not CMP
+                if not cmp:
+                    RM, R = vm.process_ModRM(sz, reg_check=5)
+                    if RM is None:
+                        vm.eip = old_eip
+                        return False  # this is not SUB
+                else:
+                    RM, R = vm.process_ModRM(sz, reg_check=7)
+                    if RM is None:
+                        vm.eip = old_eip
+                        return False  # this is not CMP
             else:
-                if R[1] != 3:
+                RM, R = vm.process_ModRM(sz, reg_check=3)
+                
+                if RM is None:
                     vm.eip = old_eip
                     return False  # this is not SBB
 
@@ -464,9 +472,9 @@ class MUL(Instruction):
 
         old_eip = self.eip
 
-        RM, R = self.process_ModRM(sz, sz)
+        RM, R = self.process_ModRM(sz, reg_check=4)
 
-        if R[1] != 4:
+        if RM is None:
             self.eip = old_eip
             return False  # This is not MUL
 
@@ -535,6 +543,8 @@ class DIV(Instruction):
         elif idiv and (R[1] != 7):
             self.eip = old_eip
             return False  # This is not IDIV
+            
+        print(f'idiv: {idiv}, R={R}')
 
         type, loc, _ = RM
 
@@ -571,7 +581,8 @@ class DIV(Instruction):
         else:
             self.reg.set(2, sz, rem)  # DX/EDX
 
-        logger.debug('%sdiv %s=%d, %s=%d', 'i' if idiv else '', reg_names[0][sz], dividend, hex(loc) if type else reg_names[loc][sz], divisor)
+        print(f'{"i" if idiv else ""}div (opcode=0x{self.opcode:02x}) sz={sz}, quot={quot}, rem={rem}')
+        print('%sdiv %s=%d, %s=%d', 'i' if idiv else '', reg_names[0][sz], dividend, hex(loc) if type else reg_names[loc][sz], divisor)
         # if debug: print('{}div {}{}'.format('i' if idiv else '', 'm' if type else '_r', sz * 8))
 
         return True
@@ -596,9 +607,9 @@ class IMUL(Instruction):
 
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz, reg_check=5)
 
-        if R[1] != 5:
+        if RM is None:
             vm.eip = old_eip
             return False  # This is not IMUL
 
