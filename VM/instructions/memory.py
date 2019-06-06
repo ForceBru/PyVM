@@ -76,9 +76,9 @@ class MOV(Instruction):
         sz = 1 if _8bit else vm.operand_size
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz, reg_check=0)
+        RM, R = vm.process_ModRM(sz, sz)
 
-        if RM is None:
+        if R[1] != 0:
             vm.eip = old_eip
             return False  # this is not MOV
 
@@ -189,6 +189,7 @@ class MOVSX(Instruction):
 
         type, loc, size = RM
 
+        #print(f'memory.MOVSX.r_rm_movzx reg(loc={R[1]}), {"mem" if type else "reg"}(loc=0x{loc:08x}, size={size})')
         SRC = (vm.mem if type else vm.reg).get(loc, size)
 
         SRC_ = zero_extend(SRC, R[2])
@@ -196,6 +197,7 @@ class MOVSX(Instruction):
         vm.reg.set(R[1], R[2], SRC_)
 
         logger.debug('movzx %s, %s=0x%x', reg_names[R[1]][4], hex(loc) if type else reg_names[loc][size], SRC_)
+        # if debug: print(f'movzx {reg_names[R[1]][4]}, {hex(loc) if type else reg_names[loc][size]}(data={SRC_})')
 
         return True
 
@@ -218,6 +220,7 @@ class MOVSX(Instruction):
         vm.reg.set(R[1], R[2], SRC_)
 
         logger.debug('movsx%s %s, %s=0x%x', 'd' if movsxd else '', reg_names[R[1]][R[2]], hex(From) if type else reg_names[From][size], SRC_)
+        # if debug: print(f'movsx{"d" if movsxd else ""} {reg_names[R[1]][R[2]]}, {hex(From) if type else reg_names[From][size]}')
 
         return True
     
@@ -267,9 +270,9 @@ class PUSH(Instruction):
         old_eip = vm.eip
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, reg_check=6)
+        RM, R = vm.process_ModRM(sz)
 
-        if RM is None:
+        if R[1] != 6:
             vm.eip = old_eip
             return False  # this is not PUSH rm
 
@@ -454,6 +457,7 @@ class POP(Instruction):
         vm.reg.set(loc, sz, data)
 
         logger.debug('pop %s := %x', reg_names[loc][sz], data)
+        # if debug: print(f'pop {reg_names[loc][sz]} <- {bytes(data)}')
 
         return True
 
@@ -461,9 +465,9 @@ class POP(Instruction):
         sz = vm.operand_size
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz, reg_check=0)
+        RM, R = vm.process_ModRM(sz, sz)
 
-        if RM is None:
+        if R[1] != 0:
             vm.eip = old_eip
             return False  # this is not POP rm
 
@@ -474,6 +478,8 @@ class POP(Instruction):
         (vm.mem if type else vm.reg).set(loc, data)
 
         logger.debug('pop %s := %s', hex(loc) if type else reg_names[loc][sz], data.hex())
+        # if debug: print(f'pop {hex(loc) if type else reg_names[loc][sz]} <- {bytes(data)}')
+        # if debug: print('pop {2}{0}({1} <- {3})'.format(sz * 8, hex(loc) if type else reg_names[loc][sz], ('m' if type else '_r'), bytes(data)))
 
         return True
 
@@ -485,6 +491,7 @@ class POP(Instruction):
         setattr(vm.reg, reg, to_int(data, False))
 
         logger.debug('pop %s := %s', reg, data.hex())
+        # if debug: print('pop {}'.format(reg))
 
         return True
 
@@ -520,6 +527,7 @@ class LEA(Instruction):
         self.reg.set(R[1], self.operand_size, data)
 
         logger.debug('lea %s, %s == %08x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
+        # if debug: print(f'lea {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
 
         return True
 
@@ -699,7 +707,9 @@ class MOVS(Instruction):
         self.reg.set(7, self.address_size, edi)
 
         logger.debug('movs%s [edi]:=0x%x, [esi=0x%x]', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), esi_mem, esi_init)
-
+        # if debug:
+        # letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
+        # print(f'movs{letter} [edi(0x{edi:09_x})]({edi_mem.hex()}), [esi(0x{esi:09_x})]')
         return True
 
 ####################

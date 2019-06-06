@@ -324,15 +324,12 @@ class BT(Instruction):
 
     def rm_imm(vm) -> bool:
         sz = vm.operand_size
-        old_eip = vm.eip
-        
-        RM, R = vm.process_ModRM(sz, reg_check=4)
-        
-        if RM is None:
-            self.eip = old_eip
-            return False
-            
+
+        RM, R = vm.process_ModRM(sz)
         type, loc, _ = RM
+
+        if R[1] != 4:  # this is not bt
+            return False
 
         if type == 1:
             base = vm.mem.get(loc, 1)  # read ONE BYTE
@@ -422,6 +419,7 @@ class CALL(Instruction):
             vm.eip = tmpEIP
 
             logger.debug('call %s=0x%x => 0x%x', hex(loc) if type else reg_names[loc][sz], data, vm.eip)
+            # if debug: print(f'call {hex(loc) if type else reg_names[loc][sz]}={bytes(data)} => {hex(vm.eip)}')
 
             return True
         elif R[1] == 3:  # this is call m
@@ -489,6 +487,7 @@ class CALL(Instruction):
         vm.eip = tmpEIP
 
         logger.debug('call 0x%x => 0x%x', dest, vm.eip)
+        # if debug: print(f'call {hex(dest)} => {hex(vm.eip)}')
 
         return True
 
@@ -527,6 +526,7 @@ class RET(Instruction):
         '''
 
         logger.debug('ret 0x%x', vm.eip)
+        # if debug: print("ret (eip=0x{:02x})".format(vm.eip))
 
         return True
 
@@ -542,6 +542,7 @@ class RET(Instruction):
         assert vm.eip in vm.mem.bounds
 
         logger.debug('ret 0x%x', vm.eip)
+        # if debug: print("ret (eip=0x{:02x})".format(vm.eip))
 
         return True
 
