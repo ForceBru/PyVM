@@ -290,6 +290,7 @@ class NEGNOT(Instruction):
         type, loc, _ = RM
 
         a = (vm.mem if type else vm.reg).get(loc, sz)
+
         if operation == NEGNOT.operation_neg:
             vm.reg.eflags.CF = a != 0
 
@@ -304,12 +305,11 @@ class NEGNOT(Instruction):
         if operation == NEGNOT.operation_neg:
             vm.reg.eflags.PF = parity(b & 0xFF)
 
-        vm.reg.set(loc, sz, b)
+        (vm.mem if type else vm.reg).set(loc, sz, b)
 
         logger.debug('%s %s=%d (%s := %d)', operation.__name__, hex(loc) if type else reg_names[loc][sz], a,
                      hex(loc) if type else reg_names[loc][sz], b
                      )
-        # if debug: print('{0} {3}{1}({2})'.format(operation.__name__, sz * 8, loc, ('m' if type else '_r')))
 
         return True
 

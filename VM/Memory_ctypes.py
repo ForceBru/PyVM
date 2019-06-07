@@ -59,10 +59,13 @@ class Memory:
         )
 
     def get_bytes(self, offset: int, size: int) -> bytes:
+        if self.__segment_base + offset + size > self.__size or offset < 0:
+            raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+
         return bytes(self.mem[self.__segment_base + offset:self.__segment_base + offset + size])
 
     def get_eip(self, offset: int, size: int) -> int:
-        if offset + size > self.__size:
+        if offset + size > self.__size or offset < 0:
             raise MemoryError(f"Memory.get_eip: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
 
         if size == 4 or size == 2:
@@ -71,11 +74,11 @@ class Memory:
             return self.mem[offset]
         return bytes(self.mem[offset:offset + size])
 
-    def set_addr(self, offset: int, size: int, addr: int) -> None:
-        memmove(self.base + offset, addr, size)
+    #def set_addr(self, offset: int, size: int, addr: int) -> None:
+    #    memmove(self.base + offset, addr, size)
 
     def set_bytes(self, offset: int, size: int, val: bytes) -> None:
-        if self.__segment_base + offset + size > self.__size:
+        if self.__segment_base + offset + size > self.__size or offset < 0:
             raise MemoryError(f"Memory.set_bytes: not enough memory (tried to write {size} bytes to address: 0x{offset:08x}, memory available: {self.size} bytes)")
 
         addr = self.__segment_base + offset

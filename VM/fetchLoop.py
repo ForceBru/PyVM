@@ -41,14 +41,14 @@ def execute_opcode(self) -> None:
     try:
         impls = self.instr[self.opcode]
     except KeyError:
-        raise MissingOpcodeError(f'Opcode {self.opcode:x} is not recognized yet (at 0x{self.eip - _off - 1:08x})')
+        raise MissingOpcodeError(f'Opcode {self.opcode:x} is not recognized yet (at 0x{self.eip - off - 1:08x})')
     else:
         for impl in impls:
             if impl():
                 return  # opcode executed
         # could not find suitable implementation
         
-    raise NotImplementedError(f'No suitable implementation found for opcode {self.opcode:x} (@0x{self.eip - _off - 1:02x})')
+    raise NotImplementedError(f'No suitable implementation found for opcode {self.opcode:x} (@0x{self.eip - off - 1:02x})')
         
         
 def execute_opcode_old(self) -> None:
@@ -77,7 +77,7 @@ def execute_opcode_old(self) -> None:
         self.opcode = op
         _off += 1
 
-    logger.debug(self.fmt.format(self.eip - _off, opcode))
+    logger.debug(self.fmt, self.eip - _off, self.opcode)
 
     # try to execute `opcode`
     try:

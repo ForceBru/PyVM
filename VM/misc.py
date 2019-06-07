@@ -78,13 +78,6 @@ def process_ModRM(self, size1: int, size2=None):
 
             return (1, addr, size1), (0, REG, size2)
 
-        if MOD == 0b01:
-            addr += sign_extend(self.mem.get_eip(self.eip, 1), 1)
-            self.eip += 1
-        else:  # MOD == 0b10
-            addr += sign_extend(self.mem.get_eip(self.eip, 4), 4)
-            self.eip += 4
-
     # (base != 0b101) or we dropped from the `if` clause above
 
     addr += sign_extend(self.reg.get(base, 4), 4)

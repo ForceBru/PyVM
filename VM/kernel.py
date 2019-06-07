@@ -161,7 +161,9 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         
         logger.debug(f'sys_set_thread_area(u_info=0x%x)', u_info_addr)
 
-        u_info = struct_user_desc.unpack(self.mem.get(u_info_addr, struct_user_desc.size))
+        u_info = struct_user_desc.unpack(
+            self.mem.get_bytes(u_info_addr, struct_user_desc.size)
+        )
 
         logger.debug(
             """
@@ -291,7 +293,9 @@ struct user_desc {
 
         size = 0
         for x in range(iovcnt):
-            iov_base, iov_len = struct_iovec.unpack(self.mem.get(iov_addr, struct_iovec.size))
+            iov_base, iov_len = struct_iovec.unpack(
+                self.mem.get_bytes(iov_addr, struct_iovec.size)
+            )
 
             logger.debug('struct iovec {\n\tvoid *iov_base=0x%x;\n\tsize_t iov_len=%d;\n}', iov_base, iov_len)
 
@@ -299,10 +303,7 @@ struct user_desc {
                 iov_addr += struct_iovec.size
                 continue
 
-            buf = self.mem.get(iov_base, iov_len)
-
-            if isinstance(buf, int):
-                buf = buf.to_bytes(iov_len, 'little')
+            buf = self.mem.get_bytes(iov_base, iov_len)
 
             logger.debug('iov_%d=0x%x; iov_len=%d, buf=%s', x, iov_base, iov_len, buf)
 
