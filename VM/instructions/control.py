@@ -15,8 +15,14 @@ SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the 
 class NOP(Instruction):
     def __init__(self):
         self.opcodes = {
+            0x90: self.nop,
             0x0F1F: self.rm
         }
+
+    def nop(vm) -> True:
+        logger.debug('nop')
+
+        return True
 
     def rm(vm) -> True:
         vm.process_ModRM(vm.operand_size)

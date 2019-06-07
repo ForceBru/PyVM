@@ -46,6 +46,7 @@ class CPU32(CPU):
         self.reg.set(esp, self.stack_address_size, new_esp)
 
     def stack_pop(self, size: int) -> int:
+        # TODO: check if stack is empty?
         old_esp = self.reg.get(esp, self.stack_address_size)
 
         data = self.mem.get(old_esp, size)
