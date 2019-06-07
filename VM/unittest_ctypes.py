@@ -5,6 +5,7 @@ import ctypes
 from Memory_ctypes import Memory
 from Registers_ctypes import Reg32
 
+
 class TestMemory(unittest.TestCase):
     MEM_SIZE = 512
     MAX_RANDOM_REPEAT = 10_000
@@ -60,7 +61,7 @@ class TestMemory(unittest.TestCase):
     def test_set_8(self):
         for offset in range(self.mem.size):
             correct, = os.urandom(1)
-            self.mem.set_val(offset, 1, correct)
+            self.mem.set(offset, 1, correct)
             ret = self.mem.get(offset, 1)
 
             self.assertEqual(ret, correct)
@@ -68,14 +69,14 @@ class TestMemory(unittest.TestCase):
     def do_test_set(self, size: int):
         for offset in range(self.mem.size - size):
             correct = int.from_bytes(os.urandom(size), 'little')
-            self.mem.set_val(offset, size, correct)
+            self.mem.set(offset, size, correct)
             ret = self.mem.get(offset, size)
 
             self.assertEqual(ret, correct)
 
         for offset in range(1, self.mem.size - size):
             correct = int.from_bytes(os.urandom(size), 'little')
-            self.mem.set_val(offset, size, correct)
+            self.mem.set(offset, size, correct)
             ret = self.mem.get(offset, size)
 
             self.assertEqual(ret, correct)
@@ -83,14 +84,14 @@ class TestMemory(unittest.TestCase):
         if size == 4:
             for offset in range(2, self.mem.size - size):
                 correct = int.from_bytes(os.urandom(size), 'little')
-                self.mem.set_val(offset, size, correct)
+                self.mem.set(offset, size, correct)
                 ret = self.mem.get(offset, size)
 
                 self.assertEqual(ret, correct)
 
             for offset in range(3, self.mem.size - size):
                 correct = int.from_bytes(os.urandom(size), 'little')
-                self.mem.set_val(offset, size, correct)
+                self.mem.set(offset, size, correct)
                 ret = self.mem.get(offset, size)
 
                 self.assertEqual(ret, correct)
@@ -132,8 +133,14 @@ class TestRegisters(unittest.TestCase):
             correct = self.random_data[offset]
             stored = getattr(self.reg, name)
 
-            with self.subTest(register=(name, offset), correct=correct, stored=stored):
+            with self.subTest(register=(name, offset), correct=correct, stored=stored, signed=False):
                 ret = self.reg.get(offset, 4)
+
+                self.assertEqual(ret, correct)
+
+            correct = int.from_bytes(correct.to_bytes(4, 'little'), 'little', signed=True)
+            with self.subTest(register=(name, offset), correct=correct, stored=stored, signed=True):
+                ret = self.reg.get(offset, 4, True)
 
                 self.assertEqual(ret, correct)
 
@@ -147,6 +154,12 @@ class TestRegisters(unittest.TestCase):
 
                 self.assertEqual(ret, correct)
 
+            correct = int.from_bytes(correct.to_bytes(2, 'little'), 'little', signed=True)
+            with self.subTest(register=(name, offset), correct=correct, stored=stored, signed=True):
+                ret = self.reg.get(offset, 2, True)
+
+                self.assertEqual(ret, correct)
+
     def test_get_lo(self):
         for name, offset in self.NAMES_LO.items():
             correct = self.random_data[offset] & 0xFF
@@ -157,6 +170,12 @@ class TestRegisters(unittest.TestCase):
 
                 self.assertEqual(ret, correct)
 
+            correct = int.from_bytes(correct.to_bytes(1, 'little'), 'little', signed=True)
+            with self.subTest(register=(name, offset), correct=correct, stored=stored, signed=True):
+                ret = self.reg.get(offset, 1, True)
+
+                self.assertEqual(ret, correct)
+
     def test_get_hi(self):
         for name, offset in self.NAMES_HI.items():
             correct = (self.random_data[offset % 4] >> 8) & 0xFF
@@ -164,6 +183,12 @@ class TestRegisters(unittest.TestCase):
 
             with self.subTest(register=(name, offset), correct=correct, stored=stored):
                 ret = self.reg.get(offset, 1)
+
+                self.assertEqual(ret, correct)
+
+            correct = int.from_bytes(correct.to_bytes(1, 'little'), 'little', signed=True)
+            with self.subTest(register=(name, offset), correct=correct, stored=stored, signed=True):
+                ret = self.reg.get(offset, 1, True)
 
                 self.assertEqual(ret, correct)
 

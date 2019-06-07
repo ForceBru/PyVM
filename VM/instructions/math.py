@@ -172,10 +172,10 @@ class ADDSUB(Instruction):
                     vm.eip = old_eip
                     return False  # this is not SBB
 
-        b = vm.mem.get(vm.eip, imm_sz)
+        b = vm.mem.get(vm.eip, imm_sz, True)
         vm.eip += imm_sz
 
-        b = sign_extend(b, imm_sz) & MAXVALS[sz]  # convert to an unsigned number
+        b &= MAXVALS[sz]  # convert to an unsigned number; ATTENTION!
 
         if carry:
             b += vm.reg.eflags.CF
@@ -531,9 +531,7 @@ class DIV(Instruction):
 
         type, loc, _ = RM
 
-        divisor = (self.mem if type else self.reg).get(loc, sz)
-        if idiv:
-            divisor = sign_extend(divisor, sz)
+        divisor = (self.mem if type else self.reg).get(loc, sz, idiv)
 
         if divisor == 0:
             raise ZeroDivisionError
@@ -592,8 +590,8 @@ class IMUL(Instruction):
 
         type, loc, _ = RM
 
-        src = sign_extend((vm.mem if type else vm.reg).get(loc, sz), sz)
-        dst = sign_extend(vm.reg.get(0, sz), sz)  # AL/AX/EAX
+        src = (vm.mem if type else vm.reg).get(loc, sz, True)
+        dst = vm.reg.get(0, sz, True)  # AL/AX/EAX
 
         tmp_xp = src * dst
 
@@ -627,8 +625,8 @@ class IMUL(Instruction):
 
         type, loc, _ = RM
 
-        src = sign_extend((vm.mem if type else vm.reg).get(loc, sz), sz)
-        dst = sign_extend(vm.reg.get(R[1], sz), sz)
+        src = (vm.mem if type else vm.reg).get(loc, sz, True)
+        dst = vm.reg.get(R[1], sz, True)
 
         tmp_xp = src * dst
         dest = tmp_xp & MAXVALS[sz]
@@ -649,17 +647,16 @@ class IMUL(Instruction):
 
         RM, R = vm.process_ModRM(sz)
 
-        imm = vm.mem.get_eip(vm.eip, imm_sz)
+        src1 = vm.mem.get_eip(vm.eip, imm_sz, True)
         vm.eip += imm_sz
 
         type, loc, _ = RM
 
-        src1 = sign_extend(imm, imm_sz)
-        src2 = sign_extend((vm.mem if type else vm.reg).get(loc, sz), sz)
+        src2 = (vm.mem if type else vm.reg).get(loc, sz, True)
 
-        tmp_xp = (src1 * src2) #.to_bytes(sz * 2, byteorder, signed=True) # TODO: this isn't necessary
+        tmp_xp = (src1 * src2)
 
-        #set_flags = sign_extend(tmp_xp[:sz], sz) != tmp_xp
+        # set_flags = sign_extend(tmp_xp[:sz], sz) != tmp_xp
         set_flags = sign_extend(tmp_xp & MAXVALS[sz], sz) != tmp_xp
 
         vm.reg.eflags.OF = set_flags

@@ -4,7 +4,6 @@ from ..util import Instruction, to_int, byteorder, SegmentRegs
 from ..misc import sign_extend, zero_extend, parity
 
 from functools import partialmethod as P
-#from unittest.mock import MagicMock
 
 import logging
 logger = logging.getLogger(__name__)
@@ -211,16 +210,13 @@ class MOVSX(Instruction):
 
         type, From, size = RM
 
-        SRC = (vm.mem if type else vm.reg).get(From, size)
-
-        SRC_ = sign_extend(SRC, size)
+        SRC = (vm.mem if type else vm.reg).get(From, size, True)
 
         # print(f'Sign-extend {size} bytes to fit {R[2]} bytes ({SRC.hex()} -> {SRC_.hex()})')
 
-        vm.reg.set(R[1], R[2], SRC_)
+        vm.reg.set(R[1], R[2], SRC)
 
-        logger.debug('movsx%s %s, %s=0x%x', 'd' if movsxd else '', reg_names[R[1]][R[2]], hex(From) if type else reg_names[From][size], SRC_)
-        # if debug: print(f'movsx{"d" if movsxd else ""} {reg_names[R[1]][R[2]]}, {hex(From) if type else reg_names[From][size]}')
+        logger.debug('movsx%s %s, %s=0x%x', 'd' if movsxd else '', reg_names[R[1]][R[2]], hex(From) if type else reg_names[From][size], SRC)
 
         return True
     
@@ -288,11 +284,8 @@ class PUSH(Instruction):
     def imm(vm, _8bit=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        data = vm.mem.get_eip(vm.eip, sz)
+        data = vm.mem.get_eip(vm.eip, sz, sz < vm.operand_size)
         vm.eip += sz
-
-        if sz < vm.operand_size:
-            data = sign_extend(data, sz)
 
         vm.stack_push(data)
 
@@ -724,7 +717,7 @@ class CWD(Instruction):
     def cwd_cdq(self) -> True:
         sz = self.operand_size
 
-        tmp = sign_extend(self.reg.get(0, sz), sz)  # AX / EAX
+        tmp = self.reg.get(0, sz, True)  # AX / EAX
 
         self.reg.set(2, sz, tmp >> (sz * 8))  # DX/EDX
         self.reg.set(0, sz, tmp & MAXVALS[sz])  # AX/EAX

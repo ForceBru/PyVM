@@ -41,26 +41,26 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
 
     if RM != 0b100:
         if MOD == 0b01:
-            addr = sign_extend(self.reg.get(RM, 4), 4)
-            addr += sign_extend(self.mem.get_eip(self.eip, 1), 1)
+            addr = self.reg.get(RM, 4, True)
+            addr += self.mem.get_eip(self.eip, 1, True)
             self.eip += 1
 
             return (1, addr, size1), (0, REG, size2)
         if MOD == 0b10:
-            addr = sign_extend(self.reg.get(RM, 4), 4)
-            addr += sign_extend(self.mem.get_eip(self.eip, 4), 4)
+            addr = self.reg.get(RM, 4, True)
+            addr += self.mem.get_eip(self.eip, 4, True)
             self.eip += 4
 
             return (1, addr, size1), (0, REG, size2)
 
         # MOD == 0b00
         if RM != 0b101:
-            addr = sign_extend(self.reg.get(RM, 4), 4)
+            addr = self.reg.get(RM, 4, True)
 
             return (1, addr, size1), (0, REG, size2)
 
         # RM == 0b101
-        addr = sign_extend(self.mem.get_eip(self.eip, 4), 4)
+        addr = self.mem.get_eip(self.eip, 4, True)
         self.eip += 4
 
         return (1, addr, size1), (0, REG, size2)
@@ -76,25 +76,25 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
     if MOD == 0b00:
         addr = 0
     elif MOD == 0b01:
-        addr = sign_extend(self.mem.get_eip(self.eip, 1), 1)
+        addr = self.mem.get_eip(self.eip, 1, True)
         self.eip += 1
     else:  # MOD == 0b10
-        addr = sign_extend(self.mem.get_eip(self.eip, 4), 4)
+        addr = self.mem.get_eip(self.eip, 4, True)
         self.eip += 4
 
     if index != 0b100:
-        addr += sign_extend(self.reg.get(index, 4), 4) << scale
+        addr += self.reg.get(index, 4, True) << scale
 
     if base == 0b101:
         if MOD == 0:
-            addr += sign_extend(self.mem.get_eip(self.eip, 4), 4)
+            addr += self.mem.get_eip(self.eip, 4, True)
             self.eip += 4
 
             return (1, addr, size1), (0, REG, size2)
 
     # (base != 0b101) or we dropped from the `if` clause above
 
-    addr += sign_extend(self.reg.get(base, 4), 4)
+    addr += self.reg.get(base, 4, True)
 
     return (1, addr, size1), (0, REG, size2)
 

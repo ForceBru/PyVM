@@ -1,7 +1,6 @@
 from ..debug import reg_names
-from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder
-from ..misc import parity, sign_extend, Shift, MSB, LSB
+from ..misc import parity, Shift, MSB, LSB
 
 from functools import partialmethod as P
 import operator
@@ -138,9 +137,8 @@ class BITWISE(Instruction):
             vm.eip = old_eip
             return False  # this is not XOR
 
-        b = vm.mem.get(vm.eip, imm_sz)
+        b = vm.mem.get(vm.eip, imm_sz, True)
         vm.eip += imm_sz
-        b = sign_extend(b, imm_sz)
 
         type, loc, _ = RM
 
@@ -390,9 +388,7 @@ class SHIFT(Instruction):
 
         type, loc, _ = RM
 
-        dst = (self.mem if type else self.reg).get(loc, sz)
-        if operation == Shift.SAR:
-            dst = sign_extend(dst, sz)
+        dst = (self.mem if type else self.reg).get(loc, sz, operation == Shift.SAR)
         tmp_dst = dst
 
         while tmp_cnt != 0:

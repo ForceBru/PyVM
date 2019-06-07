@@ -3,7 +3,6 @@ from functools import partialmethod as P
 from unittest.mock import MagicMock
 
 from ..debug import reg_names
-from ..misc import sign_extend
 from ..util import Instruction, to_int, to_signed, byteorder
 
 logger = logging.getLogger(__name__)
@@ -104,8 +103,7 @@ class JMP(Instruction):
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        d = vm.mem.get(vm.eip, sz)
-        d = sign_extend(d, sz)
+        d = vm.mem.get(vm.eip, sz, True)
         vm.eip += sz
 
         if not eval(jump):

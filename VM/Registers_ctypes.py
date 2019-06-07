@@ -153,8 +153,6 @@ class Sreg(ctypes.Structure):
         self.__ptr[offset].hidden.base = (descriptor.base_3 << 23) | (descriptor.base_2 << 15) | descriptor.base_1
         self.__ptr[offset].hidden.limit = (descriptor.limit_2 << 15) | descriptor.limit_1
 
-        #print(self.__ptr[offset])
-
     def get(self, offset: int) -> _one_sreg:
         assert 0b000 <= offset <= 0b101
 
@@ -171,13 +169,25 @@ class Reg32(_Reg32_base):
         self.__ptr16 = ctypes.cast(ptr, ctypes.POINTER(uword))
         self.__ptr32 = ctypes.cast(ptr, ctypes.POINTER(udword))
 
-    def get(self, offset: int, size: int) -> int:
+    def get(self, offset: int, size: int, signed=False) -> int:
         if size == 4:
-            return self.__ptr32[offset]
+            if not signed:
+                return self.__ptr32[offset]
+
+            ret = self.__ptr32[offset]
+            return ret if ret < 2147483648 else ret - 4294967296
         elif size == 2:
-            return self.__ptr16[2 * offset]
+            if not signed:
+                return self.__ptr16[2 * offset]
+
+            ret = self.__ptr16[2 * offset]
+            return ret if ret < 32768 else ret - 65536
         elif size == 1:
-            return self.__ptr8[4 * (offset % 4) + offset // 4]
+            if not signed:
+                return self.__ptr8[4 * (offset % 4) + offset // 4]
+
+            ret = self.__ptr8[4 * (offset % 4) + offset // 4]
+            return ret if ret < 128 else ret - 256
 
         raise ValueError(f'Reg32.get(offset={offset}, size={size}): unexpected size: {size}')
 

@@ -17,8 +17,10 @@ class Memory:
         self.__segment_base = 0
 
         self.size = memsz
-        self.segment_override = self.__segment_override_number
         self.program_break = 0
+
+        if segment_registers is not None:
+            self.segment_override = self.__segment_override_number
 
     @property
     def size(self):
@@ -44,15 +46,31 @@ class Memory:
 
         self.__segment_base = sreg.hidden.base
 
-    def get(self, offset: int, size: int) -> int:
+    def get(self, offset: int, size: int, signed=False) -> int:
         if self.__segment_base + offset + size > self.__size or offset < 0:
             raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
 
-        # add segments support here
-        if size == 4 or size == 2:
-            return self.types[size].from_address(self.base + self.__segment_base + offset).value
+        if size == 4:
+            ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
+
+            if not signed:
+                return ret
+
+            return ret if ret < 2147483648 else ret - 4294967296
+        elif size == 2:
+            ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
+
+            if not signed:
+                return ret
+
+            return ret if ret < 32768 else ret - 65536
         elif size == 1:
-            return self.mem[self.__segment_base + offset]
+            ret = self.mem[self.__segment_base + offset]
+
+            if not signed:
+                return ret
+
+            return ret if ret < 128 else ret - 256
 
         raise ValueError(
             f'Memory.get(offset={offset:08x}, size={size}): invalid size, please use Memory.get_bytes instead'
@@ -64,14 +82,32 @@ class Memory:
 
         return bytes(self.mem[self.__segment_base + offset:self.__segment_base + offset + size])
 
-    def get_eip(self, offset: int, size: int) -> int:
+    def get_eip(self, offset: int, size: int, signed=False) -> int:
         if offset + size > self.__size or offset < 0:
             raise MemoryError(f"Memory.get_eip: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
 
-        if size == 4 or size == 2:
-            return self.types[size].from_address(self.base + offset).value
+        if size == 4:
+            ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
+
+            if not signed:
+                return ret
+
+            return ret if ret < 2147483648 else ret - 4294967296
+        elif size == 2:
+            ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
+
+            if not signed:
+                return ret
+
+            return ret if ret < 32768 else ret - 65536
         elif size == 1:
-            return self.mem[offset]
+            ret = self.mem[self.__segment_base + offset]
+
+            if not signed:
+                return ret
+
+            return ret if ret < 128 else ret - 256
+
         return bytes(self.mem[offset:offset + size])
 
     #def set_addr(self, offset: int, size: int, addr: int) -> None:
@@ -85,7 +121,7 @@ class Memory:
         self.mem[addr:addr + size] = val
 
     def set(self, offset: int, size: int, val: int) -> None:
-        if self.__segment_base + offset + size >= self.__size or offset < 0:
+        if self.__segment_base + offset + size > self.__size or offset < 0:
             raise MemoryError(f"Memory.set: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
 
         addr = self.__segment_base + offset
