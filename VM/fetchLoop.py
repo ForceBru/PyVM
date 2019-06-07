@@ -8,11 +8,7 @@ logger = logging.getLogger(__name__)
 
 def execute_opcode(self) -> None:
     self.eip += 1
-    
-    if self.opcode == 0x90:
-        logger.debug(self.fmt, self.eip - 1, self.opcode)
-        return
-        
+
     off = 1
     if self.opcode == 0x0F:
         op = self.mem.get_eip(self.eip, 1)
