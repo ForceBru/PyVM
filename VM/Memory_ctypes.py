@@ -18,6 +18,7 @@ class Memory:
 
         self.size = memsz
         self.segment_override = self.__segment_override_number
+        self.program_break = 0
 
     @property
     def size(self):
@@ -52,6 +53,12 @@ class Memory:
             return self.types[size].from_address(self.base + self.__segment_base + offset).value
         elif size == 1:
             return self.mem[self.__segment_base + offset]
+
+        raise ValueError(
+            f'Memory.get(offset={offset:08x}, size={size}): invalid size, please use Memory.get_bytes instead'
+        )
+
+    def get_bytes(self, offset: int, size: int) -> bytes:
         return bytes(self.mem[self.__segment_base + offset:self.__segment_base + offset + size])
 
     def get_eip(self, offset: int, size: int) -> int:
@@ -73,9 +80,6 @@ class Memory:
 
         addr = self.__segment_base + offset
         self.mem[addr:addr + size] = val
-
-        #if size < 20:
-            #print(f'Memory.set_bytes({offset:08x}, val={val})')
 
     def set(self, offset: int, size: int, val: int) -> None:
         if self.__segment_base + offset + size >= self.__size or offset < 0:

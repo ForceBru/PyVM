@@ -3,6 +3,8 @@ from .Registers import FReg32
 from .Registers_ctypes import Reg32, Sreg
 from .util import CPU
 
+from . import instructions  # this line MUST be here for the instructions to be loaded correctly
+
 eax, ecx, edx, ebx, esp, ebp, esi, edi = range(8)
 
 
@@ -37,19 +39,17 @@ class CPU32(CPU):
         old_esp = self.reg.get(esp, self.stack_address_size)
         new_esp = old_esp - self.operand_size
 
-        #print(f'Pushing {value:08x} to stack @ 0x{new_esp:08x}')
-
         if new_esp < self.mem.program_break:
             raise RuntimeError(f"The stack cannot grow larger than {self.mem.program_break}")
 
         self.mem.set(new_esp, self.operand_size, value)
-        self.reg.set(esp, self.stack_address_size, new_esp) #.to_bytes(self.stack_address_size, byteorder))
+        self.reg.set(esp, self.stack_address_size, new_esp)
 
     def stack_pop(self, size: int) -> int:
         old_esp = self.reg.get(esp, self.stack_address_size)
 
         data = self.mem.get(old_esp, size)
-        new_esp = old_esp + size #.to_bytes(self.stack_address_size, byteorder)
+        new_esp = old_esp + size
         self.reg.set(esp, self.stack_address_size, new_esp)
 
         return data

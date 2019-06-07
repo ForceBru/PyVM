@@ -84,12 +84,12 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         fd, buf_addr, count = self.__args('uuu')
 
-        buf = self.mem.get(buf_addr, count)
+        buf = self.mem.get_bytes(buf_addr, count)
 
         if isinstance(buf, int):
             buf = buf.to_bytes(count, 'little')
 
-        logger.debug('sys_write({}, {}({}), {})'.format(fd, buf_addr, buf, count))
+        logger.debug('sys_write(%d, 0x%08x(%s), %d)', fd, buf_addr, buf, count)
         try:
             fileno = self.descriptors[fd].fileno()
             ret = os.write(fileno, buf)
