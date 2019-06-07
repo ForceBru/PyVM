@@ -176,7 +176,6 @@ class ADDSUB(Instruction):
         vm.eip += imm_sz
 
         b = sign_extend(b, imm_sz) & MAXVALS[sz]  # convert to an unsigned number
-        #print(f'SIZE: {sz}, b={_b}, b & {MAXVALS[sz]} = {_b & MAXVALS[sz]} => b={b}')
 
         if carry:
             b += vm.reg.eflags.CF
@@ -200,11 +199,6 @@ class ADDSUB(Instruction):
             vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
             vm.reg.eflags.CF = b > a
             vm.reg.eflags.AF = (b & 255) > (a & 255)
-            
-            if b < 0:
-                ...
-            #print(f'SHIT: {a} - {b}')
-                #raise
 
         vm.reg.eflags.SF = sign_c
         #vm.reg.eflags_set(Reg32.SF, sign_c)
@@ -406,7 +400,6 @@ class INCDEC(Instruction):
         (vm.mem if type else vm.reg).set(loc, sz, c)
 
         logger.debug('%s %s=%d', 'dec' if dec else 'inc', hex(loc) if type else reg_names[loc][sz], a)
-        # if debug: print('{3} {0}{1}({2})'.format('m' if type else '_r', sz * 8, loc, 'dec' if dec else 'inc'))
 
         return True
 
@@ -538,7 +531,6 @@ class DIV(Instruction):
 
         type, loc, _ = RM
 
-        #divisor = to_int((self.mem if type else self.reg).get(loc, sz), idiv)
         divisor = (self.mem if type else self.reg).get(loc, sz)
         if idiv:
             divisor = sign_extend(divisor, sz)
@@ -547,7 +539,6 @@ class DIV(Instruction):
             raise ZeroDivisionError
 
         if sz == 1:
-            #dividend = to_int(self.reg.get(0, sz * 2), idiv)  # AX
             dividend = self.reg.get(0, sz * 2)  # AX
         else:
             high = self.reg.get(2, sz)  # DX/EDX
@@ -557,13 +548,11 @@ class DIV(Instruction):
         if idiv:
             dividend = sign_extend(dividend, sz * 2)
 
-        quot, rem = divmod(dividend, divisor)
+        quot, rem = dividend // divisor, dividend % divisor
+        # quot, rem = divmod(dividend, divisor)
 
         if quot > MAXVALS[sz]:
             raise RuntimeError('Divide error')
-
-        #quot = quot.to_bytes(sz, byteorder, signed=idiv)
-        #rem = rem.to_bytes(sz, byteorder, signed=idiv)
 
         self.reg.set(0, sz, quot)  # AL/AX/EAX
         if sz == 1:
@@ -572,7 +561,6 @@ class DIV(Instruction):
             self.reg.set(2, sz, rem)  # DX/EDX
 
         logger.debug('%sdiv %s=%d, %s=%d', 'i' if idiv else '', reg_names[0][sz], dividend, hex(loc) if type else reg_names[loc][sz], divisor)
-        # if debug: print('{}div {}{}'.format('i' if idiv else '', 'm' if type else '_r', sz * 8))
 
         return True
 
@@ -685,5 +673,4 @@ class IMUL(Instruction):
                      hex(loc) if type else reg_names[loc][sz],
                      src2, sz * 8, src1)
 
-        # if debug: print('imul r{1}, {0}{1}, imm{1}'.format('m' if type else '_r', sz * 8))
         return True

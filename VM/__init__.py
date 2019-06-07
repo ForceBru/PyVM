@@ -28,14 +28,12 @@ class VM(CPU32, SyscallsMixin):
         self.running = True
 
     def interrupt(self, code: int):
-        valid_codes = [0x80]
-
-        if code == valid_codes[0]:  # syscall
-            syscall = self.reg.get(0, 4)  # EAX
+        if code == 0x80:  # syscall
+            syscall = self.reg.eax
 
             try:
                 self.valid_syscalls[syscall]()
             except KeyError:
-                raise RuntimeError('System call 0x{:02x} is not supported yet'.format(syscall))
+                raise RuntimeError(f'System call 0x{syscall:02x} is not supported yet')
         else:
-            raise RuntimeError('Interrupt 0x{:02x} is not supported yet'.format(code))
+            raise RuntimeError(f'Interrupt 0x{code:02x} is not supported yet')

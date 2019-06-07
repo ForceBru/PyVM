@@ -56,11 +56,10 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         return [self.reg.get(reg, 4) for reg, type in zip(registers, types)]
 
-
     def sys_exit(self, code=0x01):
         code, = self.__args('s')
 
-        self.descriptors[2].write('[!] Process exited with code {}\n'.format(code))
+        self.descriptors[2].write(f'[!] Process exited with code {code}\n')
         self.RETCODE = code
         self.running = False
 
@@ -72,7 +71,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         except (AttributeError, UnsupportedOperation):
             data = (self.descriptors[fd].read(count) + '\n').encode('ascii')
 
-        logger.debug('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
+        logger.debug('sys_read(%d, 0x%08x(%s), %d)', fd, data_addr, data, count)
         l = len(data)
         self.mem.set_bytes(data_addr, l, data)
 
@@ -85,9 +84,6 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         fd, buf_addr, count = self.__args('uuu')
 
         buf = self.mem.get_bytes(buf_addr, count)
-
-        if isinstance(buf, int):
-            buf = buf.to_bytes(count, 'little')
 
         logger.debug('sys_write(%d, 0x%08x(%s), %d)', fd, buf_addr, buf, count)
         try:
@@ -159,7 +155,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         u_info_addr, = self.__args('u')
         
-        logger.debug(f'sys_set_thread_area(u_info=0x%x)', u_info_addr)
+        logger.debug(f'sys_set_thread_area(u_info=0x%08x)', u_info_addr)
 
         u_info = struct_user_desc.unpack(
             self.mem.get_bytes(u_info_addr, struct_user_desc.size)
@@ -239,9 +235,7 @@ struct user_desc {
        process.
         """
 
-        func = self.reg.get(3, 4)  # EBX
-        ptr_addr = self.reg.get(1, 4)  # ECX
-        bytecount = self.reg.get(2, 4)  # EDX
+        func, ptr_addr, bytecount = self.__args('uuu')
 
         logger.debug(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
         # do nothing, return error
@@ -297,7 +291,7 @@ struct user_desc {
                 self.mem.get_bytes(iov_addr, struct_iovec.size)
             )
 
-            logger.debug('struct iovec {\n\tvoid *iov_base=0x%x;\n\tsize_t iov_len=%d;\n}', iov_base, iov_len)
+            logger.debug('struct iovec {\n\tvoid *iov_base=0x%08x;\n\tsize_t iov_len=%d;\n}', iov_base, iov_len)
 
             if not iov_len:
                 iov_addr += struct_iovec.size
@@ -305,7 +299,7 @@ struct user_desc {
 
             buf = self.mem.get_bytes(iov_base, iov_len)
 
-            logger.debug('iov_%d=0x%x; iov_len=%d, buf=%s', x, iov_base, iov_len, buf)
+            logger.debug('iov_%d=0x%08x; iov_len=%d, buf=%s', x, iov_base, iov_len, buf)
 
             try:
                 ret = os.write(self.descriptors[fd].fileno(), buf)
@@ -329,7 +323,7 @@ struct user_desc {
 
         fd, offset_high, offset_low, result_addr, whence = self.__args('uuuuu')
 
-        logger.debug('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%04X, whence=%d)',
+        logger.debug('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%08x, whence=%d)',
                      fd, offset_high, offset_low, result_addr, whence
                      )
 
