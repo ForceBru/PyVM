@@ -1,9 +1,9 @@
-from .debug import debug
-from .util import to_int, byteorder, segment_descriptor_struct
+import logging
 import os
 import struct
 
-import logging
+from .util import segment_descriptor_struct
+
 logger = logging.getLogger(__name__)
 
 struct_iovec = struct.Struct('<II')
@@ -55,28 +55,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         registers = [3, 1, 2, 6, 7]  # ebx, ecx, edx, esi, edi
 
         return [self.reg.get(reg, 4) for reg, type in zip(registers, types)]
-        
-    def sys_py_dbg(self, code=0x00):
-        raw = self.reg.get(3, 4)
-        data = to_int(raw)  # EBX
-        _type = to_int(self.reg.get(1, 4))  # ECX
 
-        if _type == 0:  # treat as pointer to char
-            addr = data
-            buffer = bytearray()
-            byte, = self.mem.get(addr, 1)
-            while byte != 0:
-                buffer.append(byte)
-                addr += 1
-                byte, = self.mem.get(addr, 1)
-
-            print(f'[PY_DBG_STRING] {buffer.decode()}')
-        elif _type == 1:  # treat as unsigned integer
-            print(f'[PY_DBG_UINT] {data}')
-        elif _type == 2:  # treat as signed integer
-            print(f'[PY_DBG_INT] {to_int(raw, True)}')
-        else:
-            print(f'[PY_DBG_UNRECOGNIZED] {raw}')
 
     def sys_exit(self, code=0x01):
         code, = self.__args('s')
@@ -258,11 +237,11 @@ struct user_desc {
        process.
         """
 
-        func = to_int(self.reg.get(3, 4))  # EBX
-        ptr_addr = to_int(self.reg.get(1, 4))  # ECX
-        bytecount = to_int(self.reg.get(2, 4))  # EDX
+        func = self.reg.get(3, 4)  # EBX
+        ptr_addr = self.reg.get(1, 4)  # ECX
+        bytecount = self.reg.get(2, 4)  # EDX
 
-        if debug: print(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
+        logger.debug(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
         # do nothing, return error
         self.__return(-1)
         
@@ -283,7 +262,6 @@ struct user_desc {
 
         # do nothing, return tid (thread ID)
         self.__return(tid)
-        #self.reg.set(0, 4, tid)
 
     def sys_exit_group(self, code=0xfc):
         return self.sys_exit()
@@ -361,7 +339,7 @@ struct user_desc {
         except OSError:
             return self.__return(-1)
         else:
-            self.mem.set(result_addr, ret.to_bytes(4, byteorder))
+            self.mem.set(result_addr, 4, ret)
 
         # return success
         self.__return(0)
@@ -467,7 +445,7 @@ struct user_desc {
         request_direction = directions(_IOC_DIR(request))
         request_size = _IOC_SIZE(request)
 
-        if debug: print(f'ioctl(fd={fd},request={request:09_x} (type={request_type}, number={request_number}, direction={request_direction}, size={request_size}))')
+        logger.debug(f'ioctl(fd={fd},request={request:09_x} (type={request_type}, number={request_number}, direction={request_direction}, size={request_size}))')
 
         if request_type == b'T':
             if request_number == 19 and request_direction == directions._IOC_NONE:

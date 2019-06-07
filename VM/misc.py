@@ -1,5 +1,4 @@
 import enum
-from .util import to_int, byteorder, to_signed
 
 @enum.unique
 class Shift(enum.Enum):
@@ -10,9 +9,90 @@ class Shift(enum.Enum):
     SHL = 4
     SHR = 5
     SAR = 6
+
+
+def process_ModRM(self, size1: int, size2=None):
+    size2 = size2 or size1
+
+    ModRM = self.mem.get_eip(self.eip, 1)
+    self.eip += 1
+
+    MOD = (ModRM & 0b11000000) >> 6
+    REG = (ModRM & 0b00111000) >> 3
+    RM  = (ModRM & 0b00000111)
+
+
+    if MOD == 0b11:
+        return (0, RM, size1), (0, REG, size2)
+
+    if RM != 0b100:
+        if MOD == 0b01:
+            addr = sign_extend(self.reg.get(RM, 4), 4)
+            addr += sign_extend(self.mem.get_eip(self.eip, 1), 1)
+            self.eip += 1
+
+            return (1, addr, size1), (0, REG, size2)
+        if MOD == 0b10:
+            addr = sign_extend(self.reg.get(RM, 4), 4)
+            addr += sign_extend(self.mem.get_eip(self.eip, 4), 4)
+            self.eip += 4
+
+            return (1, addr, size1), (0, REG, size2)
+
+        # MOD == 0b00
+        if RM != 0b101:
+            addr = sign_extend(self.reg.get(RM, 4), 4)
+
+            return (1, addr, size1), (0, REG, size2)
+
+        # RM == 0b101
+        addr = sign_extend(self.mem.get_eip(self.eip, 4), 4)
+        self.eip += 4
+
+        return (1, addr, size1), (0, REG, size2)
+
+    # RM == 0b100
+    SIB = self.mem.get_eip(self.eip, 1)
+    self.eip += 1
+
+    scale = (SIB & 0b11000000) >> 6
+    index = (SIB & 0b00111000) >> 3
+    base  = (SIB & 0b00000111)
+
+    if MOD == 0b00:
+        addr = 0
+    elif MOD == 0b01:
+        addr = sign_extend(self.mem.get_eip(self.eip, 1), 1)
+        self.eip += 1
+    else:  # MOD == 0b10
+        addr = sign_extend(self.mem.get_eip(self.eip, 4), 4)
+        self.eip += 4
+
+    if index != 0b100:
+        addr += sign_extend(self.reg.get(index, 4), 4) << scale
+
+    if base == 0b101:
+        if MOD == 0:
+            addr += sign_extend(self.mem.get_eip(self.eip, 4), 4)
+            self.eip += 4
+
+            return (1, addr, size1), (0, REG, size2)
+
+        if MOD == 0b01:
+            addr += sign_extend(self.mem.get_eip(self.eip, 1), 1)
+            self.eip += 1
+        else:  # MOD == 0b10
+            addr += sign_extend(self.mem.get_eip(self.eip, 4), 4)
+            self.eip += 4
+
+    # (base != 0b101) or we dropped from the `if` clause above
+
+    addr += sign_extend(self.reg.get(base, 4), 4)
+
+    return (1, addr, size1), (0, REG, size2)
     
 
-def process_ModRM(self, size1, size2=None):
+def process_ModRM_old(self, size1, size2=None):
     '''
     Assumes that 'self.eip' points to ModRM.
 
@@ -120,10 +200,6 @@ def process_ModRM(self, size1, size2=None):
     return RM, R
 
 
-def sign_extend_bytes(number: bytes, nbytes: int) -> bytes:
-    return int.from_bytes(number, byteorder, signed=True).to_bytes(nbytes, byteorder, signed=True)
-
-
 def sign_extend(num: int, nbytes: int) -> int:
     # TODO: this is basically converting an unsigned number to signed. Maybe rename the function?
     '''
@@ -137,10 +213,6 @@ def sign_extend(num: int, nbytes: int) -> int:
     
     sign_bit = 1 << (nbytes * 8 - 1)
     return (num & (sign_bit - 1)) - (num & sign_bit)
-
-
-def zero_extend_bytes(number: bytes, nbytes: int) -> bytes:
-    return int.from_bytes(number, byteorder, signed=False).to_bytes(nbytes, byteorder, signed=False)
 
 
 def zero_extend(number: int, nbytes: int) -> int:

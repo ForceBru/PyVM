@@ -2,11 +2,9 @@
 #from .Registers import Reg32, FReg32
 
 from .Memory_ctypes import Memory
-from .Registers_ctypes import Reg32, Sreg
 from .Registers import FReg32
-from .util import CPU, byteorder, to_int
-
-from . import instructions  # this line MUST be here for the instructions to be loaded correctly
+from .Registers_ctypes import Reg32, Sreg
+from .util import CPU
 
 eax, ecx, edx, ebx, esp, ebp, esi, edi = range(8)
 
@@ -58,8 +56,3 @@ class CPU32(CPU):
         self.reg.set(esp, self.stack_address_size, new_esp)
 
         return data
-
-    def stack_get(self, size: int) -> bytes:
-        addr = to_int(self.reg.get(esp, self.stack_address_size))
-
-        return self.mem.get(addr, size)

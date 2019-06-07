@@ -14,12 +14,19 @@ def enable_logging(verbose=False, file=None):
 
 
 if __name__ == '__main__':
-    #enable_logging()
+    # enable_logging()
     mem = 0x0017801d
-    vm = VM.VM(mem)  # memory will be allocated automatically
+    import timeit
+    from io import StringIO
 
-    #vm.execute_elf(f'C/bin/recursion.elf')
-    #vm.execute_elf(f'C/bin/hello_world.elf')
-    #vm.execute_elf(f'C/bin/io.elf')
-    #vm.execute_elf('C/bin/args.elf', ('--hey', 'test', 'argument'))
-    vm.execute_elf('C/bin/reverse_polish.elf')
+    print("Testing...")
+    t = timeit.repeat(
+        "vm.execute_elf('C/bin/bubblesort.elf');vm.execute_elf('C/bin/quicksort.elf');vm.execute_elf('C/bin/insertionsort.elf');vm.execute_elf('C/bin/memcpy_test.elf')",
+        "void=StringIO();vm=VM(0x0017801d, void, void, void)",
+        globals={'VM': VM.VM, 'StringIO': StringIO}, number=10, repeat=10)
+
+    avg = lambda x: sum(x) / len(x)
+    print(f"LATEST: {min(t):.4f}, {avg(t):.4f}, {max(t):.4f}")
+    # OLD: 26.6493, 28.4966, 29.9140
+    # NEW (rolled back): 28.6566, 29.1709, 29.9998
+    # LATEST: 23.2240, 25.5855, 27.2388

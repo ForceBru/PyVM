@@ -1,12 +1,9 @@
 import sys
-import collections
 
 from .CPU import CPU32
-from .util import to_int, byteorder
-from .debug import debug
 from .Registers import Reg32
-from .misc import Shift
 from .kernel import SyscallsMixin
+from .misc import Shift
 
 
 class VM(CPU32, SyscallsMixin):
@@ -17,7 +14,6 @@ class VM(CPU32, SyscallsMixin):
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
         super().__init__(int(memsize))
 
-        #self.fmt = '\t[0x{:0' + str(len(str(self.mem.size))//16) + 'x}]: 0x{:02x}'
         self.fmt = f'\t[0x%08x]\t%x'
 
         self.descriptors = [stdin, stdout, stderr]

@@ -1,11 +1,11 @@
-from ..debug import reg_names
-from ..util import Instruction, to_int, to_signed, byteorder
-from ..misc import sign_extend
-
+import logging
 from functools import partialmethod as P
 from unittest.mock import MagicMock
 
-import logging
+from ..debug import reg_names
+from ..misc import sign_extend
+from ..util import Instruction, to_int, to_signed, byteorder
+
 logger = logging.getLogger(__name__)
 
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-byte number
@@ -542,7 +542,6 @@ class RET(Instruction):
         assert vm.eip in vm.mem.bounds
 
         logger.debug('ret 0x%x', vm.eip)
-        # if debug: print("ret (eip=0x{:02x})".format(vm.eip))
 
         return True
 
@@ -557,15 +556,15 @@ class ENTER(Instruction):
         }
 
     def enter(vm):
-        AllocSize = to_int(vm.mem.get_eip(vm.eip, 2))
+        AllocSize = vm.mem.get_eip(vm.eip, 2)
         vm.eip += 2
 
-        NestingLevel = to_int(vm.mem.get_eip(vm.eip, 1)) % 32
+        NestingLevel = vm.mem.get_eip(vm.eip, 1) % 32
         vm.eip += 1
 
         ebp = vm.reg.get(5, vm.operand_size)
         vm.stack_push(ebp)
-        FrameTemp = to_int(vm.reg.get(4, vm.operand_size))  # ESP
+        FrameTemp = vm.reg.get(4, vm.operand_size)  # ESP
 
         if NestingLevel == 0:
             ...
@@ -625,7 +624,7 @@ class CPUID(Instruction):
         """
         eax, ebx, ecx, edx = 0, 3, 1, 2
         max_input_value = 0x01
-        EAX_val = to_int(self.reg.get(eax, 4))
+        EAX_val = self.reg.get(eax, 4)
 
         if EAX_val == 0x00:
             self.reg.set(eax, max_input_value.to_bytes(4, byteorder))

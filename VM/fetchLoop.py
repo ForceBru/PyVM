@@ -1,9 +1,8 @@
-from .debug import debug
-from .util import byteorder, to_int, SegmentRegs, MissingOpcodeError
+import logging
 
 from .ELF import ELF32, enums
+from .util import SegmentRegs, MissingOpcodeError
 
-import logging
 logger = logging.getLogger(__name__)
 
 def execute_opcode(self) -> None:
