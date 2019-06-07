@@ -6,8 +6,53 @@ from .ELF import ELF32, enums
 import logging
 logger = logging.getLogger(__name__)
 
-
 def execute_opcode(self) -> None:
+    self.eip += 1
+    
+    if self.opcode == 0x90:
+        logger.debug(self.fmt, self.eip - 1, self.opcode)
+        return
+        
+    off = 1
+    if self.opcode == 0x0F:
+        op = self.mem.get_eip(self.eip, 1)
+        self.eip += 1
+        
+        self.opcode = (self.opcode << 8) | op
+        off += 1
+        
+    logger.debug(self.fmt, self.eip - off, self.opcode)
+    
+    try:
+        impls = self.instr[self.opcode]
+    except KeyError:
+        ...  # could not find opcode
+    else:
+        for impl in impls:
+            if impl():
+                return  # opcode executed
+        # could not find suitable implementation
+     
+    # read one more byte   
+    op = self.mem.get_eip(self.eip, 1)
+    self.eip += 1
+    
+    self.opcode = (self.opcode << 8) | op
+    
+    try:
+        impls = self.instr[self.opcode]
+    except KeyError:
+        raise MissingOpcodeError(f'Opcode {self.opcode:x} is not recognized yet (at 0x{self.eip - _off - 1:08x})')
+    else:
+        for impl in impls:
+            if impl():
+                return  # opcode executed
+        # could not find suitable implementation
+        
+    raise NotImplementedError(f'No suitable implementation found for opcode {self.opcode:x} (@0x{self.eip - _off - 1:02x})')
+        
+        
+def execute_opcode_old(self) -> None:
     """
     Attempts to execute the current opcode `op`. The calls to `_<mnemonic name>` check whether the opcode corresponds to
     a mnemonic. This basically checks whether the opcode is supported and executes it if so.
