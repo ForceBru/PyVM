@@ -39,7 +39,7 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
     if MOD == 0b11:
         return (0, RM, size1), (0, REG, size2)
 
-    if RM != 0b100:
+    if RM != 0b100:  # No SIB byte
         if MOD == 0b01:
             addr = self.reg.get(RM, 4, True)
             addr += self.mem.get_eip(self.eip, 1, True)
@@ -65,7 +65,7 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
 
         return (1, addr, size1), (0, REG, size2)
 
-    # RM == 0b100
+    # RM == 0b100 => SIB byte
     SIB = self.mem.get_eip(self.eip, 1)
     self.eip += 1
 
@@ -82,7 +82,7 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
         addr = self.mem.get_eip(self.eip, 4, True)
         self.eip += 4
 
-    if index != 0b100:
+    if index != 0b100:  # if index == 0b100, there's no index
         addr += self.reg.get(index, 4, True) << scale
 
     if base == 0b101:
@@ -107,8 +107,7 @@ def sign_extend(num: int, nbytes: int) -> int:
     :param nbytes: The number of bytes _in that integer_.
     :return:
     '''
-    if num < 0:
-        return num
+    assert num >= 0
     
     sign_bit = 1 << (nbytes * 8 - 1)
     return (num & (sign_bit - 1)) - (num & sign_bit)

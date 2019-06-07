@@ -47,6 +47,7 @@ class Memory:
         self.__segment_base = sreg.hidden.base
 
     def get(self, offset: int, size: int, signed=False) -> int:
+        # print(f'Memory.get: segment_base={self.__segment_base:08x}')
         if self.__segment_base + offset + size > self.__size or offset < 0:
             raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
 

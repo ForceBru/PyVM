@@ -654,19 +654,20 @@ class IMUL(Instruction):
 
         src2 = (vm.mem if type else vm.reg).get(loc, sz, True)
 
-        tmp_xp = (src1 * src2)
+        tmp_xp = src1 * src2
 
         # set_flags = sign_extend(tmp_xp[:sz], sz) != tmp_xp
-        set_flags = sign_extend(tmp_xp & MAXVALS[sz], sz) != tmp_xp
+        DEST = tmp_xp & MAXVALS[sz]
+        set_flags = sign_extend(DEST, sz) != tmp_xp
 
-        vm.reg.eflags.OF = set_flags
-        vm.reg.eflags.CF = set_flags
+        vm.reg.eflags.OF = vm.reg.eflags.CF = set_flags
 
         #vm.reg.set(R[1], sz, tmp_xp[:sz])
-        vm.reg.set(R[1], sz, tmp_xp & MAXVALS[sz])
+        vm.reg.set(R[1], sz, DEST)
 
-        logger.debug('imul %s, %s=%d, imm%d=%d',
+        logger.debug('imul %s := %d, %s=%d, imm%d=%d',
                      reg_names[R[1]][sz],
+                     DEST,
                      hex(loc) if type else reg_names[loc][sz],
                      src2, sz * 8, src1)
 

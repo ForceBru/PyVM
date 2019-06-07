@@ -188,7 +188,7 @@ def execute_elf(self, fname: str, args=()):
             if phdr.p_type not in (enums.p_type.PT_LOAD, enums.p_type.PT_GNU_EH_FRAME):
                 continue
                 
-            logger.debug(f'LOAD {phdr.p_memsz:10,d} bytes at address 0x{phdr.p_vaddr:09_x}')
+            logger.info(f'LOAD {phdr.p_memsz:10,d} bytes at address 0x{phdr.p_vaddr:09_x}')
             elf.file.seek(phdr.p_offset)
 
             data = elf.file.read(phdr.p_filesz)
@@ -234,7 +234,7 @@ def execute_elf(self, fname: str, args=()):
     # argc
     self.stack_push(len(args))
 
-    logger.debug(f'EXEC at 0x{self.eip:09_x}')
+    logger.info(f'EXEC at 0x{self.eip:09_x}')
     # logger.debug(f'Stack start at 0x{self.reg.esp:08x}')
     # logger.debug(f'Stack end at 0x{self.reg.ebp:08x}')
 

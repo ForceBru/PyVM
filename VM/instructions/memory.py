@@ -744,3 +744,55 @@ class CLC(Instruction):
         logger.debug('clc %s := %d', flag, val)
 
         return True
+
+
+####################
+# BSF / BSR
+####################
+class BitScan(Instruction):
+    """
+    Searches the source operand (second operand) for the least significant set bit (1 bit).
+    If a least significant 1 bit is found, its bit index is stored in the destination operand (first operand).
+    The bit index is an unsigned offset from bit 0 of the source operand.
+    If the content of the source operand is 0, the content of the destination operand is undefined.
+    """
+
+    def __init__(self):
+        self.opcodes = {
+            0x0FBC: self.bsf
+        }
+
+    def bsf(vm) -> True:
+        sz = vm.operand_size
+
+        RM, R = vm.process_ModRM(sz)
+
+        type, loc, _ = RM
+
+        SRC = (vm.mem if type else vm.reg).get(loc, sz)
+        SRC_orig = SRC
+
+        if SRC == 0:
+            vm.reg.eflags.ZF = 1
+
+            logger.debug(
+                'bsf %s, %s=%032b',
+                hex(loc) if type else reg_names[loc][sz], reg_names[loc][sz], SRC_orig
+            )
+            return True
+
+        vm.reg.eflags.ZF = 0
+
+        temp = 0
+        while SRC & 1 == 0:
+            temp += 1
+            SRC >>= 1
+
+        vm.reg.set(R[1], sz, temp)
+
+        logger.debug(
+            'bsf %s, %s=%032b',
+            hex(loc) if type else reg_names[loc][sz], reg_names[loc][sz], SRC_orig
+        )
+
+        return True

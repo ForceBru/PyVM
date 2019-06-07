@@ -71,7 +71,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         except (AttributeError, UnsupportedOperation):
             data = (self.descriptors[fd].read(count) + '\n').encode('ascii')
 
-        logger.debug('sys_read(%d, 0x%08x(%s), %d)', fd, data_addr, data, count)
+        logger.info('sys_read(%d, 0x%08x(%s), %d)', fd, data_addr, data, count)
         l = len(data)
         self.mem.set_bytes(data_addr, l, data)
 
@@ -85,7 +85,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         buf = self.mem.get_bytes(buf_addr, count)
 
-        logger.debug('sys_write(%d, 0x%08x(%s), %d)', fd, buf_addr, buf, count)
+        logger.info('sys_write(%d, 0x%08x(%s), %d)', fd, buf_addr, buf, count)
         try:
             fileno = self.descriptors[fd].fileno()
             ret = os.write(fileno, buf)
@@ -109,7 +109,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         min_brk = self.code_segment_end
 
         if brk < min_brk:
-            logger.debug(
+            logger.info(
                 'SYS_BRK: invalid break: 0x%08x < 0x%08x; return 0x%08x',
                 brk, min_brk, self.mem.program_break
             )
@@ -119,7 +119,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         oldbrk = self.mem.program_break
 
         if oldbrk == newbrk:
-            logger.debug(
+            logger.info(
                 'SYS_BRK: not changing break: 0x%08x == 0x%08x',
                 oldbrk, newbrk
             )
@@ -128,7 +128,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         self.mem.program_break = brk
 
-        logger.debug(
+        logger.info(
             'SYS_BRK: changing break: 0x%08x -> 0x%08x (%d bytes)',
             oldbrk, self.mem.program_break, self.mem.program_break - oldbrk
         )
@@ -155,13 +155,13 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         u_info_addr, = self.__args('u')
         
-        logger.debug(f'sys_set_thread_area(u_info=0x%08x)', u_info_addr)
+        logger.info(f'sys_set_thread_area(u_info=0x%08x)', u_info_addr)
 
         u_info = struct_user_desc.unpack(
             self.mem.get_bytes(u_info_addr, struct_user_desc.size)
         )
 
-        logger.debug(
+        logger.info(
             """
 struct user_desc {
     unsigned int  entry_number      = %d;
@@ -237,7 +237,7 @@ struct user_desc {
 
         func, ptr_addr, bytecount = self.__args('uuu')
 
-        logger.debug(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
+        logger.info(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
         # do nothing, return error
         self.__return(-1)
         
@@ -254,7 +254,7 @@ struct user_desc {
 
         tid = self.mem.get(tidptr, 4)
 
-        logger.debug(f'sys_set_tid_address(tidptr={tidptr:04x} (tid={tid}))')
+        logger.info('sys_set_tid_address(tidptr=0x%08x (tid=%d))', tidptr, tid)
 
         # do nothing, return tid (thread ID)
         self.__return(tid)
@@ -283,7 +283,7 @@ struct user_desc {
         """
         fd, iov_addr, iovcnt = self.__args('sus')
 
-        logger.debug('sys_writev(fd=%d, iov=0x%x, iovcnt=%d)', fd, iov_addr, iovcnt)
+        logger.info('sys_writev(fd=%d, iov=0x%x, iovcnt=%d)', fd, iov_addr, iovcnt)
 
         size = 0
         for x in range(iovcnt):
@@ -323,7 +323,7 @@ struct user_desc {
 
         fd, offset_high, offset_low, result_addr, whence = self.__args('uuuuu')
 
-        logger.debug('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%08x, whence=%d)',
+        logger.info('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%08x, whence=%d)',
                      fd, offset_high, offset_low, result_addr, whence
                      )
 
@@ -440,7 +440,7 @@ struct user_desc {
         request_direction = directions(_IOC_DIR(request))
         request_size = _IOC_SIZE(request)
 
-        logger.debug(f'ioctl(fd={fd},request={request:09_x} (type={request_type}, number={request_number}, direction={request_direction}, size={request_size}))')
+        logger.info(f'ioctl(fd={fd},request={request:09_x} (type={request_type}, number={request_number}, direction={request_direction}, size={request_size}))')
 
         if request_type == b'T':
             if request_number == 19 and request_direction == directions._IOC_NONE:
