@@ -1,6 +1,3 @@
-#from .Memory import Memory
-#from .Registers import Reg32, FReg32
-
 from .Memory_ctypes import Memory
 from .Registers import FReg32
 from .Registers_ctypes import Reg32, Sreg
