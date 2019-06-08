@@ -162,10 +162,11 @@ The individual instructions are implemented as classes in `VM/instructions/<cate
 
 Before running this you may consider setting `debug = False` in `VM/debug.py`, if it's not already set.
 
-	import VM
+```python
+import VM
 
-	code = """
-	B8 04 00 00 00
+code = """
+    B8 04 00 00 00
     BB 01 00 00 00
     B9 29 00 00 00
     BA 0E 00 00 00
@@ -176,25 +177,26 @@ Before running this you may consider setting `debug = False` in `VM/debug.py`, i
     BB 00 00 00 00
     CD 80
     48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A
-    """
+"""
 
-    # convert the hexadecimal representation above to bytes
-    binary = bytearray.fromhex(code.strip('\n').replace('\n', ' '))
+# convert the hexadecimal representation above to bytes
+binary = bytearray.fromhex(code.strip('\n').replace('\n', ' '))
 
-    # initialize the VM with 128 bytes of memory
-    vm = VM.VM(128)
+# initialize the VM with 128 bytes of memory
+vm = VM.VM(128)
 
-    vm.execute_bytes(binary)
+vm.execute_bytes(binary)
 
-    # output:
-    # Hello, world!
-    # [!] Process exited with code 0
+# output:
+# Hello, world!
+# [!] Process exited with code 0
+```
 
 ## TODO
 
-* Add segment registers
+* Add segment registers (almost done)
 * Implement more instructions
-* Add basic memory protection
+* Add basic memory protection (already possible)
 
 ## How to deal with errors
 
@@ -202,14 +204,16 @@ If you decide to open an issue, please include a minimal, complete and verifiabl
 
 * Not enough memory supplied -> increase the amount of memory given to the VM
 
-      Traceback (most recent call last):
-        File "...", line 53, in <module>
-          vm.execute_bytes(binary)
-        File ".../VM/fetchLoop.py", line ..., in execute_bytes
-          self.mem.set(offset, data)
-        File ".../VM/Memory.py", line ..., in set
-          assert offset + size in self.bounds
-      AssertionError
+```python
+Traceback (most recent call last):
+    File "...", line 53, in <module>
+        vm.execute_bytes(binary)
+    File ".../VM/fetchLoop.py", line ..., in execute_bytes
+        self.mem.set(offset, data)
+    File ".../VM/Memory.py", line ..., in set
+        assert offset + size in self.bounds
+    AssertionError
+```
 
 * Unknown opcode -> please open an issue entitled `Unknown opcode: [opcode in hex]`
 
