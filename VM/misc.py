@@ -1,5 +1,6 @@
 import enum
 
+
 @enum.unique
 class Shift(enum.Enum):
     C_ONE  = 1
@@ -101,12 +102,12 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
 
 def sign_extend(num: int, nbytes: int) -> int:
     # TODO: this is basically converting an unsigned number to signed. Maybe rename the function?
-    '''
+    """
     See: https://stackoverflow.com/a/32031543/4354477
     :param num: The integer to sign-extend
     :param nbytes: The number of bytes _in that integer_.
     :return:
-    '''
+    """
     if num < 0:
         return num
     
@@ -115,12 +116,12 @@ def sign_extend(num: int, nbytes: int) -> int:
 
 
 def parity(num: int) -> int:
-    '''
+    """
     Calculate the parity of the least significant byte of a number.
     See: https://graphics.stanford.edu/~seander/bithacks.html#ParityWith64Bits
     :param num: The byte to calculate the parity of.
     :return:
-    '''
+    """
 
     return ((((num & 0xFF) * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1
 

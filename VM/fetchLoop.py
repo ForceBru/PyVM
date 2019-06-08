@@ -90,7 +90,6 @@ def run(self):
 
         # apply overrides
         size_override_active = False
-        repeat, segment_override = False, False
         for ov in overrides:
             if ov == 0x66:
                 if not size_override_active:
@@ -113,7 +112,6 @@ def run(self):
                     old_address_size, self.address_size
                 )
             elif ov in pref_segments:
-                segment_override = True
                 is_special = ov >> 6
                 if is_special:
                     sreg_number = 4 + (ov & 1)  # FS or GS
@@ -121,28 +119,26 @@ def run(self):
                     sreg_number = (ov >> 3) & 0b11
                 self.mem.segment_override = sreg_number
                 logger.debug('Segment override: %s', self.mem.segment_override)
-            elif ov in pref_lock:
-                ...  # do nothing; all operations are atomic anyway. Right?
-            elif ov in rep:
-                # Handle REP prefix
-                repeat = ov         
+            elif ov == 0xf0:  # LOCK prefix
+                logger.debug('LOCK prefix')  # do nothing; all operations are atomic anyway. Right?
+            elif ov == 0xf3:  # REP prefix
+                self.opcode = ov
+                self.eip -= 1  # repeat the previous opcode
 
-        #self.ModRM = None
-        if repeat:
-            self.opcode = repeat
-            self.eip -= 1  # repeat the previous opcode
         self.execute_opcode()
 
-        # undo any overrides
-        # TODO: looks ugly
-        if segment_override:
-            self.mem.segment_override = SegmentRegs.DS
-        self.current_mode = self.default_mode
-        self.operand_size = self.sizes[self.current_mode]
-        self.address_size = self.sizes[self.current_mode]
+        # undo all overrides
+        for ov in overrides:
+            if ov == 0x66:
+                self.current_mode = self.default_mode
+                self.operand_size = self.sizes[self.current_mode]
+            elif ov == 0x67:
+                self.current_mode = self.default_mode
+                self.address_size = self.sizes[self.current_mode]
+            elif ov in pref_segments:
+                self.mem.segment_override = SegmentRegs.DS
 
-    ebx = self.reg.get(3, 4)
-    return ebx
+    return self.reg.ebx
 
 
 def execute_bytes(self, data: bytes, offset=0):
@@ -199,7 +195,10 @@ def execute_elf(self, fname: str, args=()):
     self.code_segment_end = self.eip + max_memsz - 1
     self.mem.program_break = self.code_segment_end
 
-    # INITIALIZE STACK LAYOUT (http://asm.sourceforge.net/articles/startup.html and https://lwn.net/Articles/631631/)
+    # INITIALIZE STACK LAYOUT:
+    #   http://asm.sourceforge.net/articles/startup.html
+    #   https://lwn.net/Articles/631631/
+
     environment = ["USER=ForceBru"]
     args = [fname] + list(args)
 
