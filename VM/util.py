@@ -15,6 +15,7 @@ segment_descriptor_struct = struct.Struct('<4B2H')  # see vol. 3A 3.4.5
 def to_int(data: bytes, signed=False):
     return int.from_bytes(data, byteorder, signed=signed)
 
+
 def to_signed(num: int, bytes: int) -> int:
     if bytes == 1:
         if num > 127:

@@ -44,15 +44,16 @@ JBE  = compile('vm.reg.eflags.CF or vm.reg.eflags.ZF', 'be', 'eval')
 JNBE = compile('not vm.reg.eflags.CF and not vm.reg.eflags.ZF', 'nbe', 'eval')
 JS   = compile('vm.reg.eflags.SF', 's', 'eval')
 JNS  = compile('not vm.reg.eflags.SF', 'ns', 'eval')
-JP  = compile('vm.reg.eflags.PF', 'p', 'eval')
+JP   = compile('vm.reg.eflags.PF', 'p', 'eval')
 JNP  = compile('not vm.reg.eflags.PF', 'np', 'eval')
 JL   = compile('vm.reg.eflags.SF != vm.reg.eflags.OF', 'l', 'eval')
 JNL  = compile('vm.reg.eflags.SF == vm.reg.eflags.OF', 'nl', 'eval')
-JLE  = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF', 'ng', 'eval')
-JNLE   = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'g', 'eval')
+JLE  = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF', 'le', 'eval')
+JNLE = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'nle', 'eval')
 
 JUMPS = [JO, JNO, JB, JNB, JZ, JNZ, JBE, JNBE, JS, JNS, JP, JNP, JL, JNL, JLE, JNLE]
 
+_JMP = compile('True', 'mp', 'eval')
 JCXZ = compile('not vm.reg.get(0, sz)', 'cxz', 'eval')
 
 
@@ -66,8 +67,8 @@ class JMP(Instruction):
 
     def __init__(self):
         self.opcodes = {
-            0xEB: P(self.rel, _8bit=True),
-            0xE9: P(self.rel, _8bit=False),
+            0xEB: P(self.rel, _8bit=True, jump=_JMP),
+            0xE9: P(self.rel, _8bit=False, jump=_JMP),
 
             0xFF: self.rm_m,
             0xEA: P(self.ptr, _8bit=False),
@@ -85,7 +86,7 @@ class JMP(Instruction):
             }
         }
 
-    def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
+    def rel(vm, _8bit, jump) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         d = vm.mem.get(vm.eip, sz, True)
@@ -192,7 +193,7 @@ class SETcc(Instruction):
 
         type, loc, _ = RM
 
-        byte = int(eval(cond))
+        byte = eval(cond)
         (vm.mem if type else vm.reg).set(loc, 1, byte)
 
         logger.debug('set%s %s := %d', cond.co_filename, hex(loc) if type else reg_names[loc][1], byte)
@@ -284,7 +285,6 @@ class BT(Instruction):
         return True
 
 
-
 ####################
 # INT
 ####################
@@ -306,7 +306,6 @@ class INT(Instruction):
 
     def imm(vm) -> True:
         imm = vm.mem.get_eip(vm.eip, 1)  # always 8 bits
-        #imm = to_int(imm)
         vm.eip += 1
 
         vm.interrupt(imm)
@@ -315,10 +314,10 @@ class INT(Instruction):
 
         return True
 
+
 ####################
 # CALL
 ####################
-CALL_DEPTH = 0
 class CALL(Instruction):
     """
     Call a procedure.
@@ -353,8 +352,7 @@ class CALL(Instruction):
           
             vm.eip = tmpEIP
 
-            logger.debug('call %s=0x%x => 0x%x', hex(loc) if type else reg_names[loc][sz], data, vm.eip)
-            # if debug: print(f'call {hex(loc) if type else reg_names[loc][sz]}={bytes(data)} => {hex(vm.eip)}')
+            logger.debug('call %s=0x%08x => 0x%08x', hex(loc) if type else reg_names[loc][sz], data, vm.eip)
 
             return True
         elif R[1] == 3:  # this is call m
@@ -366,63 +364,15 @@ class CALL(Instruction):
 
     def rel(vm) -> True:
         sz = vm.operand_size
-        dest = vm.mem.get(vm.eip, sz)
+        dest = vm.mem.get(vm.eip, sz, True)
         vm.eip += sz
-        dest = to_signed(dest, sz)
+
         tmpEIP = vm.eip + dest
-
-        '''
-        test = {
-            0x000008BD: 'printf_core',
-            0x0000050C: 'printf',
-            0x00000760: 'vprintf',
-            0x0000225e: 'pop_arg',
-            0x000023E8: '__fwritex [MUST WRITE]',
-            0x00006C08: '__memcpy_fwd',
-            0x00002618: '__towrite',
-            0x00000530: 'scanf',
-            0x00002974: 'vscanf',
-            0x00002A38: '__isoc99_vfscanf',
-            0x00004A70: '__shlim',
-            0x00004BA0: '__shgetc',
-            0x00004C90: '__uflow',
-            0x00004CD4: '__toread',
-            0x000004E0: '__vsyscall',
-            0x000004F6: 'fcn.000004f6',
-            0x000005D0: '__syscall_ret',
-            0x00004D40: '__intscan',
-            0x000005B8: '___errno_location',
-            0x0000049F: 'exit',
-            0x0000047C: 'dummy_1',
-            0x0000047D: 'libc_exit_fini',
-            0x00002668: '__stdio_exit',
-            0x000026A8: '__stdio_exit.close_file',
-            0x000006B4: '__stdio_write',
-            0x000026FC: '__ofl_lock',
-            0x00006E34: '__lock'
-        }
-
-        global CALL_DEPTH
-        if tmpEIP in test:
-            print('  ' * CALL_DEPTH + f'Calling {test[tmpEIP]} (0x{tmpEIP:08X}) @ 0x{vm.eip:08X}')
-            if '__fwritex' in test[tmpEIP]:
-                import struct
-                s, l, f = struct.unpack('<3I', vm.stack_get(4 + 4 + 4))
-                stri = vm.mem.get(s, l).decode()
-                print(f'Args: (char *s={stri!r}, size_t l={l}, FILE *f=0x{f:08X})')
-        else:
-            print('  ' * CALL_DEPTH + f'Calling 0x{tmpEIP:08X}')
-
-        CALL_DEPTH += 1
-        '''
-
-        assert tmpEIP < vm.mem.size
 
         vm.stack_push(vm.eip)
         vm.eip = tmpEIP
 
-        logger.debug('call 0x%x => 0x%x', dest, vm.eip)
-        # if debug: print(f'call {hex(dest)} => {hex(vm.eip)}')
+        logger.debug('call 0x%08x => 0x%08x', dest, vm.eip)
 
         return True
 
@@ -449,19 +399,9 @@ class RET(Instruction):
 
     def near(vm) -> True:
         sz = vm.operand_size
-        #eip_old = vm.eip - 1
         vm.eip = to_signed(vm.stack_pop(sz), sz)
 
-        assert vm.eip < vm.mem.size
-        '''
-        global CALL_DEPTH
-        eax = to_int(vm.reg.get(0, 4), True)
-        print('  ' * CALL_DEPTH + f'Return {eax} to 0x{vm.eip:08X} from 0x{eip_old:08X}')
-        CALL_DEPTH -= 1
-        '''
-
-        logger.debug('ret 0x%x', vm.eip)
-        # if debug: print("ret (eip=0x{:02x})".format(vm.eip))
+        logger.debug('ret 0x%08x', vm.eip)
 
         return True
 
