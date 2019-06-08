@@ -2,7 +2,9 @@ __all__ = 'dword', 'word', 'byte', 'udword', 'uword', 'ubyte'
 
 import ctypes
 
-# __ctype_le__ means 'LittleEndian'. Looks like a dirty hack, found here: https://mail.python.org/pipermail/python-list/2015-June/692849.html
+# __ctype_le__ means 'LittleEndian'. Looks like a dirty hack.
+# Found here: https://mail.python.org/pipermail/python-list/2015-June/692849.html
+uqword = ctypes.c_uint64.__ctype_le__
 udword = ctypes.c_uint32.__ctype_le__
 uword  = ctypes.c_uint16.__ctype_le__
 ubyte  = ctypes.c_uint8.__ctype_le__
