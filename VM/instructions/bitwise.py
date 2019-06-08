@@ -1,5 +1,5 @@
 from ..debug import reg_names
-from ..util import Instruction, to_int, byteorder
+from ..util import Instruction
 from ..misc import parity, Shift, MSB, LSB
 
 from functools import partialmethod as P
@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
+
 
 ####################
 # AND / OR / XOR / TEST
@@ -112,7 +113,6 @@ class BITWISE(Instruction):
             name = 'test'
 
         logger.debug('%s %s=%d, imm%d=%d', name, reg_names[0][sz], a, sz * 8, b)
-        # if debug: print('{} {}, imm{}({})'.format(name, [0, 'al', 'ax', 0, 'eax'][sz], sz * 8, b))
 
         return True
 
@@ -161,7 +161,6 @@ class BITWISE(Instruction):
             name = 'test'
 
         logger.debug('%s %s=%d, imm%d=%d', name, hex(loc) if type else reg_names[loc][sz], a, sz * 8, b)
-        # if debug: print('{0} {5}{1}({2}),imm{3}({4})'.format(name, sz * 8, loc, imm_sz * 8, b, ('m' if type else 'r')))
 
         return True
 
@@ -172,8 +171,6 @@ class BITWISE(Instruction):
         type, loc, _ = RM
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
-        #vm.reg.eflags_set(Reg32.OF, 0)
-        #vm.reg.eflags_set(Reg32.CF, 0)
 
         a = (vm.mem if type else vm.reg).get(loc, sz)
         b = vm.reg.get(R[1], sz)
@@ -181,7 +178,6 @@ class BITWISE(Instruction):
         c = operation(a, b)
 
         vm.reg.eflags.SF = (c >> (sz * 8 - 1)) & 1
-        #vm.reg.eflags_set(Reg32.SF, (c >> (sz * 8 - 1)) & 1)
 
         c &= MAXVALS[sz]
 
@@ -225,7 +221,6 @@ class BITWISE(Instruction):
             name = 'test'
 
         logger.debug('%s %s=%d, %s=%d', name, reg_names[R[1]][sz], a, hex(loc) if type else reg_names[loc][sz], b)
-        # if debug: print('{0} r{1}({2}),{4}{1}({3})'.format(name, sz * 8, R[1], loc, ('m' if type else '_r')))
 
         return True
 
@@ -311,6 +306,7 @@ class NEGNOT(Instruction):
 
         return True
 
+
 ####################
 # SAL / SAR / SHL / SHR
 ####################
@@ -351,20 +347,20 @@ class SHIFT(Instruction):
                 ]
             }
 
-    def shift(self, operation, cnt, _8bit) -> True:
-        sz = 1 if _8bit else self.operand_size
-        old_eip = self.eip
+    def shift(vm, operation, cnt, _8bit) -> True:
+        sz = 1 if _8bit else vm.operand_size
+        old_eip = vm.eip
 
-        RM, R = self.process_ModRM(self.operand_size, self.operand_size)
+        RM, R = vm.process_ModRM(vm.operand_size, vm.operand_size)
 
         if (operation == Shift.SHL) and (R[1] != 4):
-            self.eip = old_eip
+            vm.eip = old_eip
             return False
         elif (operation == Shift.SHR) and (R[1] != 5):
-            self.eip = old_eip
+            vm.eip = old_eip
             return False
         elif (operation == Shift.SAR) and (R[1] != 7):
-            self.eip = old_eip
+            vm.eip = old_eip
             return False
 
         _cnt = cnt
@@ -372,10 +368,10 @@ class SHIFT(Instruction):
         if cnt == Shift.C_ONE:
             cnt = 1
         elif cnt == Shift.C_CL:
-            cnt = self.reg.get(1, 1)
+            cnt = vm.reg.get(1, 1)
         elif cnt == Shift.C_imm8:
-            cnt = self.mem.get(self.eip, 1)
-            self.eip += 1
+            cnt = vm.mem.get(vm.eip, 1)
+            vm.eip += 1
         else:
             raise RuntimeError('Invalid count')
 
@@ -388,38 +384,38 @@ class SHIFT(Instruction):
 
         type, loc, _ = RM
 
-        dst = (self.mem if type else self.reg).get(loc, sz, operation == Shift.SAR)
+        dst = (vm.mem if type else vm.reg).get(loc, sz, operation == Shift.SAR)
         tmp_dst = dst
 
         while tmp_cnt != 0:
             if operation == Shift.SHL:
-                # self.reg.eflags_set(Reg32.CF, (dst >> (sz * 8)) & 1)
-                self.reg.eflags.CF = MSB(dst, sz)
+                # vm.reg.eflags_set(Reg32.CF, (dst >> (sz * 8)) & 1)
+                vm.reg.eflags.CF = MSB(dst, sz)
                 dst <<= 1
             else:
-                # self.reg.eflags_set(Reg32.CF, dst & 1)
-                self.reg.eflags.CF = LSB(dst, 1)
+                # vm.reg.eflags_set(Reg32.CF, dst & 1)
+                vm.reg.eflags.CF = LSB(dst)
                 dst >>= 1
 
             tmp_cnt -= 1
 
         if cnt & countMASK == 1:
             if operation == Shift.SHL:
-                self.reg.eflags.OF = MSB(dst, sz) ^ self.reg.eflags.CF
+                vm.reg.eflags.OF = MSB(dst, sz) ^ vm.reg.eflags.CF
             elif operation == Shift.SAR:
-                self.reg.eflags.OF = 0
+                vm.reg.eflags.OF = 0
             else:
-                self.reg.eflags.OF = MSB(tmp_dst, sz)
+                vm.reg.eflags.OF = MSB(tmp_dst, sz)
 
-        sign_dst = MSB(dst, sz)  # (dst >> (sz * 8 - 1)) & 1
-        self.reg.eflags.SF = sign_dst
+        sign_dst = MSB(dst, sz)
+        vm.reg.eflags.SF = sign_dst
 
         dst &= MAXVALS[sz]
 
-        self.reg.eflags.ZF = dst == 0
-        self.reg.eflags.PF = parity(dst & 0xFF)
+        vm.reg.eflags.ZF = dst == 0
+        vm.reg.eflags.PF = parity(dst & 0xFF)
 
-        (self.mem if type else self.reg).set(loc, sz, dst)
+        (vm.mem if type else vm.reg).set(loc, sz, dst)
 
         if operation == Shift.SHL:
             name = 'shl'

@@ -18,26 +18,26 @@ class STOS(Instruction):
             0xAB: P(self.m, _8bit=False)
         }
 
-    def m(self, _8bit: bool) -> True:
-        sz = 1 if _8bit else self.operand_size
+    def m(vm, _8bit: bool) -> True:
+        sz = 1 if _8bit else vm.operand_size
 
-        eax = self.reg.get(0, sz)
+        eax = vm.reg.get(0, sz)
 
-        edi = self.reg.get(7, self.address_size)
+        edi = vm.reg.get(7, vm.address_size)
 
         # TODO: this should actually use segment registers!
-        self.mem.segment_override = SegmentRegs.ES
-        self.mem.set(edi, sz, eax)
-        self.mem.segment_override = SegmentRegs.DS
+        vm.mem.segment_override = SegmentRegs.ES
+        vm.mem.set(edi, sz, eax)
+        vm.mem.segment_override = SegmentRegs.DS
 
-        if not self.reg.eflags.DF:
+        if not vm.reg.eflags.DF:
             edi += sz
         else:
             edi -= sz
 
-        edi &= MAXVALS[self.address_size]
+        edi &= MAXVALS[vm.address_size]
 
-        self.reg.set(7, self.address_size, edi)
+        vm.reg.set(7, vm.address_size, edi)
 
         logger.debug('stos%s [0x%x], eax=0x%x', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), edi, eax)
 
@@ -50,18 +50,18 @@ class REP(Instruction):
             0xF3: self.m
         }
 
-    def m(self) -> True:
-        opcode = self.mem.get(self.eip, 1)
-        orig_eip = self.eip
+    def m(vm) -> True:
+        opcode = vm.mem.get(vm.eip, 1)
+        orig_eip = vm.eip
 
-        sz = self.address_size
+        sz = vm.address_size
 
-        ecx = self.reg.get(1, sz)
+        ecx = vm.reg.get(1, sz)
 
         if ecx == 0:
             # do not execute, just skip
             if opcode in (0xa4, 0xa5, 0xaa, 0xab):  # movsd, movsw/movsd, stosb, stosw/stosd
-                self.eip += 1
+                vm.eip += 1
             else:
                 raise ValueError(f'REP will not run: unknown opcode: {opcode:02x}')
 
@@ -73,13 +73,13 @@ class REP(Instruction):
             ecx -= 1
 
             # repeatedly read the next opcode and execute it
-            self.opcode = opcode
-            self.execute_opcode()
+            vm.opcode = opcode
+            vm.execute_opcode()
 
             if ecx == 0:
                 break
 
-            self.eip = orig_eip
+            vm.eip = orig_eip
 
-        self.reg.set(1, sz, ecx)
+        vm.reg.set(1, sz, ecx)
         return True

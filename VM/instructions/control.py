@@ -457,7 +457,6 @@ class ENTER(Instruction):
         return True
 
 
-
 ####################
 # LEAVE
 ####################
@@ -467,7 +466,7 @@ class LEAVE(Instruction):
             0xC9: self.leave
             }
 
-    def leave(self) -> True:
+    def leave(vm) -> True:
         """
         High-level procedure exit.
 
@@ -477,12 +476,13 @@ class LEAVE(Instruction):
         """
         ESP, EBP = 4, 5  # depends on 'self.address_size' and 'self.operand_size'
 
-        self.reg.set(ESP, self.address_size, self.reg.get(EBP, self.address_size))
-        self.reg.set(EBP, self.operand_size, self.stack_pop(self.operand_size))
+        vm.reg.set(ESP, vm.address_size, vm.reg.get(EBP, vm.address_size))
+        vm.reg.set(EBP, vm.operand_size, vm.stack_pop(vm.operand_size))
 
         logger.debug('leave')
 
         return True
+
 
 ####################
 # CPUID
@@ -493,19 +493,19 @@ class CPUID(Instruction):
             0x0FA2: self.cpuid
         }
 
-    def cpuid(self) -> True:
+    def cpuid(vm) -> True:
         """
         See: https://en.wikipedia.org/wiki/CPUID
         """
         eax, ebx, ecx, edx = 0, 3, 1, 2
         max_input_value = 0x01
-        EAX_val = self.reg.get(eax, 4)
+        EAX_val = vm.reg.get(eax, 4)
 
         if EAX_val == 0x00:
-            self.reg.set(eax, max_input_value.to_bytes(4, byteorder))
-            self.reg.set(ebx, b'Genu')
-            self.reg.set(edx, b'ineI')
-            self.reg.set(ecx, b'ntel')
+            vm.reg.set(eax, max_input_value)
+            vm.reg.set(ebx, b'Genu')
+            vm.reg.set(edx, b'ineI')
+            vm.reg.set(ecx, b'ntel')
         elif EAX_val == 0x01:
             # Processor Model, Family, Stepping in EAX (https://en.wikichip.org/wiki/intel/cpuid)
             # Family 3, core 80486DX
@@ -522,14 +522,15 @@ class CPUID(Instruction):
             ECX_val = 0  # no extra technologies available
             EDX_val = 0b0000_0000_0000_0000_1000_0000_0000_0001  # CMOV (bit 5), fpu (bit 0)
 
-            self.reg.set(eax, EAX_val.to_bytes(4, byteorder))
-            self.reg.set(ebx, EBX_val.to_bytes(4, byteorder))
-            self.reg.set(ecx, ECX_val.to_bytes(4, byteorder))
-            self.reg.set(edx, EDX_val.to_bytes(4, byteorder))
+            vm.reg.set(eax, EAX_val.to_bytes(4, byteorder))
+            vm.reg.set(ebx, EBX_val.to_bytes(4, byteorder))
+            vm.reg.set(ecx, ECX_val.to_bytes(4, byteorder))
+            vm.reg.set(edx, EDX_val.to_bytes(4, byteorder))
         else:
             raise RuntimeError(f'Unsupported EAX value for CPUID: 0x{EAX_val:08X}')
 
         return True
+
 
 ####################
 # HLT
@@ -540,5 +541,5 @@ class HLT(Instruction):
             0xF4: self.hlt
         }
 
-    def hlt(self):
-        raise RuntimeError(f'HALT @ 0x{self.eip:08X}')
+    def hlt(vm):
+        raise RuntimeError(f'HALT @ 0x{vm.eip:08X}')

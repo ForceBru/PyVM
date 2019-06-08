@@ -427,27 +427,27 @@ class MUL(Instruction):
             0xF7: P(self.mul, _8bit=False)
             }
 
-    def mul(self, _8bit) -> bool:
+    def mul(vm, _8bit) -> bool:
         """
         Unsigned multiply.
         AX      <-  AL * r/m8
         DX:AX   <-  AX * r/m16
         EDX:EAX <- EAX * r/m32
         """
-        sz = 1 if _8bit else self.operand_size
+        sz = 1 if _8bit else vm.operand_size
 
-        old_eip = self.eip
+        old_eip = vm.eip
 
-        RM, R = self.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz, sz)
 
         if R[1] != 4:
-            self.eip = old_eip
+            vm.eip = old_eip
             return False  # This is not MUL
 
         type, loc, _ = RM
 
-        a = (self.mem if type else self.reg).get(loc, sz)
-        b = self.reg.get(0, sz)  # AL/AX/EAX
+        a = (vm.mem if type else vm.reg).get(loc, sz)
+        b = vm.reg.get(0, sz)  # AL/AX/EAX
 
         res = a * b
 
@@ -456,14 +456,12 @@ class MUL(Instruction):
         hi = (res >> (sz * 8)) & MAXVALS[_sz]
 
         upper_half_not_zero = hi != 0
-        self.reg.eflags.OF = self.reg.eflags.CF = upper_half_not_zero
-        #self.reg.eflags_set(Reg32.OF, upper_half_not_zero)
-        #self.reg.eflags_set(Reg32.CF, upper_half_not_zero)
+        vm.reg.eflags.OF = vm.reg.eflags.CF = upper_half_not_zero
 
-        self.reg.set(0, _sz, lo)  # (E)AX
+        vm.reg.set(0, _sz, lo)  # (E)AX
 
         if sz != 1:
-            self.reg.set(2, _sz, hi)  # (E)DX
+            vm.reg.set(2, _sz, hi)  # (E)DX
 
         logger.debug(
             'mul %s=%d, %s=%d (edx := 0x%x; eax := 0x%x)',

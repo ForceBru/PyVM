@@ -1,7 +1,7 @@
 from ..debug import reg_names
 from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder, SegmentRegs
-from ..misc import sign_extend, zero_extend, parity
+from ..misc import sign_extend, parity
 
 from functools import partialmethod as P
 
@@ -158,8 +158,6 @@ class MOV(Instruction):
         return True
 
 
-
-
 ####################
 # MOVSX / MOVSXD / MOVZX
 ####################
@@ -187,18 +185,15 @@ class MOVSX(Instruction):
         type, loc, size = RM
 
         #print(f'memory.MOVSX.r_rm_movzx reg(loc={R[1]}), {"mem" if type else "reg"}(loc=0x{loc:08x}, size={size})')
-        SRC = (vm.mem if type else vm.reg).get(loc, size)
+        SRC = (vm.mem if type else vm.reg).get(loc, size)  # auto zero extension
 
-        SRC_ = zero_extend(SRC, R[2])
+        vm.reg.set(R[1], R[2], SRC)
 
-        vm.reg.set(R[1], R[2], SRC_)
-
-        logger.debug('movzx %s, %s=0x%x', reg_names[R[1]][4], hex(loc) if type else reg_names[loc][size], SRC_)
-        # if debug: print(f'movzx {reg_names[R[1]][4]}, {hex(loc) if type else reg_names[loc][size]}(data={SRC_})')
+        logger.debug('movzx %s, %s=0x%x', reg_names[R[1]][4], hex(loc) if type else reg_names[loc][size], SRC)
 
         return True
 
-    def r_rm(vm, _8bit, movsxd) -> True:
+    def r_rm(vm, _8bit, movsxd: bool) -> True:
         if not movsxd:
             RM, R = vm.process_ModRM(1 if _8bit else 2, vm.operand_size)  # r/m8 or r/m16
         else:
@@ -215,7 +210,6 @@ class MOVSX(Instruction):
         logger.debug('movsx%s %s, %s=0x%x', 'd' if movsxd else '', reg_names[R[1]][R[2]], hex(From) if type else reg_names[From][size], SRC)
 
         return True
-    
     
 
 ####################
@@ -412,6 +406,7 @@ class POPF(Instruction):
 
         return True
 
+
 ####################
 # POP
 ####################
@@ -465,8 +460,6 @@ class POP(Instruction):
         (vm.mem if type else vm.reg).set(loc, data)
 
         logger.debug('pop %s := %s', hex(loc) if type else reg_names[loc][sz], data.hex())
-        # if debug: print(f'pop {hex(loc) if type else reg_names[loc][sz]} <- {bytes(data)}')
-        # if debug: print('pop {2}{0}({1} <- {3})'.format(sz * 8, hex(loc) if type else reg_names[loc][sz], ('m' if type else '_r'), bytes(data)))
 
         return True
 
@@ -478,7 +471,6 @@ class POP(Instruction):
         setattr(vm.reg, reg, to_int(data, False))
 
         logger.debug('pop %s := %s', reg, data.hex())
-        # if debug: print('pop {}'.format(reg))
 
         return True
 
@@ -492,31 +484,31 @@ class LEA(Instruction):
             0x8D: self.r_rm
             }
 
-    def r_rm(self) -> True:
-        RM, R = self.process_ModRM(self.address_size, self.operand_size)  # should be address_size
+    def r_rm(vm) -> True:
+        RM, R = vm.process_ModRM(vm.address_size, vm.operand_size)  # should be address_size
 
         type, loc, sz = RM
 
-        if (self.operand_size == 2) and (self.address_size == 2):
+        if (vm.operand_size == 2) and (vm.address_size == 2):
             tmp = loc
-        elif (self.operand_size == 2) and (self.address_size == 4):
+        elif (vm.operand_size == 2) and (vm.address_size == 4):
             tmp = loc & 0xffff
-        elif (self.operand_size == 4) and (self.address_size == 2):
+        elif (vm.operand_size == 4) and (vm.address_size == 2):
             tmp = loc & 0xffff
-        elif (self.operand_size == 4) and (self.address_size == 4):
+        elif (vm.operand_size == 4) and (vm.address_size == 4):
             tmp = loc
         else:
             raise RuntimeError("Invalid operand size / address size")
 
-        tmp &= MAXVALS[self.address_size]
+        tmp &= MAXVALS[vm.address_size]
 
-        data = tmp #.to_bytes(self.operand_size, byteorder)
-        self.reg.set(R[1], self.operand_size, data)
+        data = tmp
+        vm.reg.set(R[1], vm.operand_size, data)
 
         logger.debug('lea %s, %s == %08x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
-        # if debug: print(f'lea {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
 
         return True
+
 
 ####################
 # XCHG
@@ -566,6 +558,7 @@ class XCHG(Instruction):
 
         return True
 
+
 ####################
 # CMPXCHG
 ####################
@@ -578,7 +571,6 @@ class CMPXCHG(Instruction):
 
     def rm_r(vm, _8bit) -> True:
         sz = 1 if _8bit else vm.operand_size
-        #old_eip = vm.eip
 
         RM, R = vm.process_ModRM(sz)
 
@@ -620,6 +612,7 @@ class CMPXCHG(Instruction):
 
         return True
 
+
 ####################
 # CBW / CWDE
 ####################
@@ -629,11 +622,10 @@ class CBW(Instruction):
             0x98: self.cbwcwde
             }
 
-    def cbwcwde(self) -> True:
-        self.reg.set(0, sign_extend(self.reg.get(0, self.operand_size // 2), self.operand_size))
+    def cbwcwde(vm) -> True:
+        vm.reg.set(0, sign_extend(vm.reg.get(0, vm.operand_size // 2), vm.operand_size))
 
-        logger.debug('cbw' if self.operand_size == 2 else 'cwde')
-        # if debug: print('cbw' if self.operand_size == 2 else 'cwde')
+        logger.debug('cbw' if vm.operand_size == 2 else 'cwde')
         return True
 
 
@@ -646,12 +638,13 @@ class CMC(Instruction):
             0xF5: self.cmc
             }
 
-    def cmc(self) -> True:
-        self.reg.eflags_set(Reg32.CF, not self.reg.eflags_get(Reg32.CF))
+    def cmc(vm) -> True:
+        vm.reg.eflags_set(Reg32.CF, not vm.reg.eflags_get(Reg32.CF))
 
         logger.debug('cmc')
-        # if debug: print('cmc')
+
         return True
+
 
 ####################
 # MOVS
@@ -663,41 +656,40 @@ class MOVS(Instruction):
             0xA5: P(self.movs, _8bit=False)
             }
 
-    def movs(self, _8bit: bool) -> True:
-        sz = 1 if _8bit else self.operand_size
+    def movs(vm, _8bit: bool) -> True:
+        sz = 1 if _8bit else vm.operand_size
 
-        esi = self.reg.get(6, self.address_size)
-        edi = self.reg.get(7, self.address_size)
+        esi = vm.reg.get(6, vm.address_size)
+        edi = vm.reg.get(7, vm.address_size)
 
         esi_init = esi
 
-        old_override = self.mem.segment_override
-        self.mem.segment_override = SegmentRegs.DS
-        esi_mem = self.mem.get(esi, sz)
+        old_override = vm.mem.segment_override
+        vm.mem.segment_override = SegmentRegs.DS
+        esi_mem = vm.mem.get(esi, sz)
 
-        self.mem.segment_override = SegmentRegs.ES
-        self.mem.set(edi, sz, esi_mem)
+        vm.mem.segment_override = SegmentRegs.ES
+        vm.mem.set(edi, sz, esi_mem)
 
-        self.mem.segment_override = old_override
+        vm.mem.segment_override = old_override
 
-        if not self.reg.eflags.DF:
+        if not vm.reg.eflags.DF:
             esi += sz
             edi += sz
         else:
             esi -= sz
             edi -= sz
 
-        esi &= MAXVALS[self.address_size]
-        edi &= MAXVALS[self.address_size]
+        esi &= MAXVALS[vm.address_size]
+        edi &= MAXVALS[vm.address_size]
 
-        self.reg.set(6, self.address_size, esi)
-        self.reg.set(7, self.address_size, edi)
+        vm.reg.set(6, vm.address_size, esi)
+        vm.reg.set(7, vm.address_size, edi)
 
         logger.debug('movs%s [edi]:=0x%x, [esi=0x%x]', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), esi_mem, esi_init)
-        # if debug:
-        # letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
-        # print(f'movs{letter} [edi(0x{edi:09_x})]({edi_mem.hex()}), [esi(0x{esi:09_x})]')
+
         return True
+
 
 ####################
 # CWD / CDQ
@@ -708,17 +700,18 @@ class CWD(Instruction):
             0x99: self.cwd_cdq
             }
 
-    def cwd_cdq(self) -> True:
-        sz = self.operand_size
+    def cwd_cdq(vm) -> True:
+        sz = vm.operand_size
 
-        tmp = self.reg.get(0, sz, True)  # AX / EAX
+        tmp = vm.reg.get(0, sz, True)  # AX / EAX
 
-        self.reg.set(2, sz, tmp >> (sz * 8))  # DX/EDX
-        self.reg.set(0, sz, tmp & MAXVALS[sz])  # AX/EAX
+        vm.reg.set(2, sz, tmp >> (sz * 8))  # DX/EDX
+        vm.reg.set(0, sz, tmp & MAXVALS[sz])  # AX/EAX
 
         logger.debug('cwd' if sz == 2 else 'cdq')
-        # if debug: print('cwd' if sz == 2 else 'cdq')
+
         return True
+
 
 ####################
 # CLC / CLD / STC / STD
@@ -732,10 +725,10 @@ class CLC(Instruction):
             0xFD: P(self.set_stuff, 'DF', 1),
             }
 
-    def set_stuff(self, flag: str, val: int) -> True:
-        setattr(self.reg.eflags, flag, val)
+    def set_stuff(vm, flag: str, val: int) -> True:
+        setattr(vm.reg.eflags, flag, val)
 
-        logger.debug('clc %s := %d', flag, val)
+        logger.debug('%s%s', ('cl', 'st')[val], flag[0])
 
         return True
 

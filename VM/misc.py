@@ -99,17 +99,6 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
     return (1, addr, size1), (0, REG, size2)
 
 
-def ModRM_reg_check(self, conditions: list, values: tuple, reg_value: int) -> bool:
-    ModRM = self.mem.get_eip(self.eip, 1)
-    REG = (ModRM & 0b00111000) >> 3
-
-    for condition in conditions:
-        if condition == values and REG == reg_value:
-            return True
-
-    return False
-
-
 def sign_extend(num: int, nbytes: int) -> int:
     # TODO: this is basically converting an unsigned number to signed. Maybe rename the function?
     '''
@@ -125,14 +114,10 @@ def sign_extend(num: int, nbytes: int) -> int:
     return (num & (sign_bit - 1)) - (num & sign_bit)
 
 
-def zero_extend(number: int, nbytes: int) -> int:
-    # TODO: to be removed because we're dealing with integers already, and zero-extension is done automatically.
-    return number
-
-
 def parity(num: int) -> int:
     '''
-    Calculate the parity of a byte. See: https://graphics.stanford.edu/~seander/bithacks.html#ParityWith64Bits
+    Calculate the parity of the least significant byte of a number.
+    See: https://graphics.stanford.edu/~seander/bithacks.html#ParityWith64Bits
     :param num: The byte to calculate the parity of.
     :return:
     '''
@@ -140,7 +125,7 @@ def parity(num: int) -> int:
     return ((((num & 0xFF) * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1
 
 
-def MSB(num: int, size: int) -> bool:
+def MSB(num: int, size: int) -> int:
     """
     Get the most significant bit of a `size`-byte number `num`.
     :param num: A number.
@@ -148,10 +133,10 @@ def MSB(num: int, size: int) -> bool:
     :return:
     """
 
-    return bool(num >> (size * 8 - 1))
+    return (num >> (size * 8 - 1)) & 1
 
 
-def LSB(num: int, size: int) -> bool:
+def LSB(num: int) -> int:
     """
     Get the least significant bit of a `size`-byte number `num`.
     :param num: A number.
@@ -159,4 +144,4 @@ def LSB(num: int, size: int) -> bool:
     :return:
     """
 
-    return bool(num & 1)
+    return num & 1
