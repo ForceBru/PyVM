@@ -1,9 +1,7 @@
 import sys
 
 from .CPU import CPU32
-from .Registers import Reg32
 from .kernel import SyscallsMixin
-from .misc import Shift
 
 
 class VM(CPU32, SyscallsMixin):
@@ -29,11 +27,12 @@ class VM(CPU32, SyscallsMixin):
 
     def interrupt(self, code: int):
         if code == 0x80:  # syscall
-            syscall = self.reg.eax
+            syscall_number = self.reg.eax
+            syscall_impl = self.valid_syscalls.get(syscall_number)
 
-            try:
-                self.valid_syscalls[syscall]()
-            except KeyError:
-                raise RuntimeError(f'System call 0x{syscall:02x} is not supported yet')
+            if syscall_impl is None:
+                raise RuntimeError(f'System call 0x{syscall_number:02x} is not supported yet')
+
+            syscall_impl()
         else:
             raise RuntimeError(f'Interrupt 0x{code:02x} is not supported yet')
