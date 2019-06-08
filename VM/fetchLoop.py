@@ -48,13 +48,6 @@ def execute_opcode(self) -> None:
     raise NotImplementedError(f'No suitable implementation found for opcode {self.opcode:x} (@0x{self.eip - off - 1:02x})')
 
 
-def override(self, name: str):
-    old_size = getattr(self, name)
-    self.current_mode = not self.current_mode
-    setattr(self, name, self.sizes[self.current_mode])
-    logger.debug('%s override (%d -> %d)', name, old_size, getattr(self, name))
-
-
 def run(self):
     """
     Implements the basic CPU instruction cycle (https://en.wikipedia.org/wiki/Instruction_cycle)

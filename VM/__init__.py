@@ -8,7 +8,7 @@ from .misc import Shift
 
 class VM(CPU32, SyscallsMixin):
     # TODO: this stuff looks ugly, refactor it
-    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, execute_elf, override
+    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, execute_elf
     from .misc import process_ModRM
 
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):

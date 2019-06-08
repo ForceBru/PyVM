@@ -1,7 +1,7 @@
 # PyVM - execute x86 bytecode in pure Python!
 
 ------
-> _WARNING!_ This branch is highly unstable and doesn't really work right now.
+> _WARNING!_ This branch may be unstable.
 
 This branch attempts to use the `ctypes` module to implement registers and memory.
 
@@ -13,6 +13,41 @@ Tests have shown that reimplementing `Registers.Reg32` and `Memory.Memory` using
  * Speedups on a 32-bit machine seem to be even greater
  * The new implementation will deal with unsigned integers only, as opposed to `bytes` in the current version. This means that conversion between `bytes` and `int` will no longer be required, which should simplify the implementation of instructions.
   
+
+------
+
+Intermediate results (commit hashes in parentheses):
+ * master (453fb47617f269fd8fa4ebe7c8cb28cc0611ede0) vs CPU_ctypes (1ff1228d68df05fe8eef258ac8a20372172d7b13)
+   
+   Benchmark:
+   ```python
+   import timeit
+   from io import StringIO
+   import VM
+
+   if __name__ == '__main__':
+      mem = 0x0017801d
+      vm = VM.VM(mem)
+   
+      print("Testing...")
+      t = timeit.repeat(
+        "vm.execute_elf('C/bin/bubblesort.elf');vm.execute_elf('C/bin/quicksort.elf');vm.execute_elf('C/bin/insertionsort.elf');vm.execute_elf('C/bin/memcpy_test.elf')",
+        "void=StringIO();vm=VM(0x0017801d, void, void, void)",
+        globals={'VM': VM.VM, 'StringIO': StringIO}, number=10, repeat=10)
+
+      avg = lambda x: sum(x) / len(x)
+      print(f"<commit hash>: {min(t):.4f}, {avg(t):.4f}, {max(t):.4f}")
+   ```
+   
+   Results:
+   ```
+   master    : 40.2129, 40.8937, 42.5636
+   CPU_ctypes: 21.7003, 22.6698, 23.5118
+   ```
+   
+   `master` best VS `CPU_ctypes` worst => 1.71 speedup
+   
+   `master` average VS `CPU_ctypes` average => **1.80 speedup**
 
 ------
 
