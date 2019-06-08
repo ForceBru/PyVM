@@ -54,9 +54,6 @@ class MOV(Instruction):
             0xA3: P(self.r_moffs, reverse=True, _8bit=False),
             }
 
-    # TODO: implement MOV with sreg
-    # sreg_rm = MagicMock(return_value=False)
-
     def r_imm(vm, _8bit) -> True:
         sz = 1 if _8bit else vm.operand_size
 
@@ -134,6 +131,7 @@ class MOV(Instruction):
         return True
 
     def sreg_rm(vm, reverse) -> True:
+        # TODO: implement MOV with sreg
         sz = 2
 
         RM, R = vm.process_ModRM(sz)
@@ -153,7 +151,7 @@ class MOV(Instruction):
                 raise RuntimeError('LDT not implemented')
 
             vm.sreg.set(R[1], SRC, descr)
-            #vm.reg.sreg[R[1]].from_bytes(SRC, descr)
+            # vm.reg.sreg[R[1]].from_bytes(SRC, descr)
         else:
             raise RuntimeError('mov r/m, sreg is not supported yet')
 
@@ -201,8 +199,6 @@ class MOVSX(Instruction):
         return True
 
     def r_rm(vm, _8bit, movsxd) -> True:
-        #sz = 1 if _8bit else vm.operand_size
-
         if not movsxd:
             RM, R = vm.process_ModRM(1 if _8bit else 2, vm.operand_size)  # r/m8 or r/m16
         else:
@@ -290,7 +286,6 @@ class PUSH(Instruction):
         vm.stack_push(data)
 
         logger.debug('push 0x%x', data)
-        # if debug: print(f'push {bytes(data)}')
 
         return True
 
@@ -308,7 +303,6 @@ class PUSH(Instruction):
         vm.stack_push(data)
 
         logger.debug('push %s', reg)
-        # if debug: print('push {}'.format(reg))
 
         return True
 

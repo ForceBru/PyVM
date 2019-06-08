@@ -99,6 +99,17 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
     return (1, addr, size1), (0, REG, size2)
 
 
+def ModRM_reg_check(self, conditions: list, values: tuple, reg_value: int) -> bool:
+    ModRM = self.mem.get_eip(self.eip, 1)
+    REG = (ModRM & 0b00111000) >> 3
+
+    for condition in conditions:
+        if condition == values and REG == reg_value:
+            return True
+
+    return False
+
+
 def sign_extend(num: int, nbytes: int) -> int:
     # TODO: this is basically converting an unsigned number to signed. Maybe rename the function?
     '''
@@ -107,7 +118,8 @@ def sign_extend(num: int, nbytes: int) -> int:
     :param nbytes: The number of bytes _in that integer_.
     :return:
     '''
-    assert num >= 0
+    if num < 0:
+        return num
     
     sign_bit = 1 << (nbytes * 8 - 1)
     return (num & (sign_bit - 1)) - (num & sign_bit)

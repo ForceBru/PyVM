@@ -1,3 +1,5 @@
+import enum
+
 from ..debug import reg_names
 from ..util import Instruction
 from ..misc import parity, sign_extend
@@ -13,6 +15,13 @@ SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the 
 ####################
 # ADD / SUB / CMP / ADC / SBB
 ####################
+class ADDSUB_operation(enum.IntFlag):
+    ADD = 0
+    ADC = 2
+    SBB = 3
+    SUB = 5
+    CMP = 7
+
 class ADDSUB(Instruction):
     """
     Perform addition or subtraction.
@@ -33,25 +42,25 @@ class ADDSUB(Instruction):
             0x05: P(self.r_imm, _8bit=False),
 
             0x80: [
-                P(self.rm_imm, _8bit_op=True, _8bit_imm=True),
-                P(self.rm_imm, _8bit_op=True, _8bit_imm=True, sub=True),
-                P(self.rm_imm, _8bit_op=True, _8bit_imm=True, sub=True, cmp=True),
-                P(self.rm_imm, _8bit_op=True, _8bit_imm=True, carry=True),
-                P(self.rm_imm, _8bit_op=True, _8bit_imm=True, sub=True, carry=True),
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=0, cmp=0, carry=0, REG=0),  # ADD r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=1, cmp=0, carry=0, REG=5),  # SUB r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=1, cmp=1, carry=0, REG=7),  # CMP r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=0, cmp=0, carry=1, REG=2),  # ADC r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=1, cmp=0, carry=1, REG=3),  # SBB r/m8, imm8
                 ],
             0x81: [
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=False),
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=False, sub=True),
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=False, sub=True, cmp=True),
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=False, carry=True),
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=False, sub=True, carry=True),
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=0, cmp=0, carry=0, REG=0),  # ADD r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=1, cmp=0, carry=0, REG=5),  # SUB r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=1, cmp=1, carry=0, REG=7),  # CMP r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=0, cmp=0, carry=1, REG=2),  # ADC r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=1, cmp=0, carry=1, REG=3),  # SBB r/m, imm
                 ],
             0x83: [
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=True),
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=True, sub=True),
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=True, sub=True, cmp=True),
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=True, carry=True),
-                P(self.rm_imm, _8bit_op=False, _8bit_imm=True, sub=True, carry=True),
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=0, cmp=0, carry=0, REG=0),  # ADD r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=1, cmp=0, carry=0, REG=5),  # SUB r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=1, cmp=1, carry=0, REG=7),  # CMP r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=0, cmp=0, carry=1, REG=2),  # ADC r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=1, cmp=0, carry=1, REG=3),  # SBB r/m, imm8
                 ],
 
             0x00: P(self.rm_r, _8bit=True),
@@ -143,34 +152,30 @@ class ADDSUB(Instruction):
 
         return True
 
-    def rm_imm(vm, _8bit_op, _8bit_imm, sub=False, cmp=False, carry=False) -> bool:
+    def rm_imm(vm, _8bit_op, _8bit_imm, sub: bool, cmp: bool, carry: bool, REG: int) -> bool:
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        REG = (ModRM & 0b00111000) >> 3
+
+        if not sub:
+            if not carry:
+                if REG != 0: return False  # this is not ADD
+            else:
+                if REG != 2: return False  # this is not ADC
+        else:
+            if not carry:
+                if not cmp:
+                    if REG != 5: return False  # this is not SUB
+                else:
+                    if REG != 7: return False  # this is not CMP
+            else:
+                if REG != 3: return False  # this is not SBB
+
         sz = 1 if _8bit_op else vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
 
         assert sz >= imm_sz
-        old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
-
-        if not sub:
-            if (not carry) and (R[1] != 0):
-                vm.eip = old_eip
-                return False  # this is not ADD
-            elif carry and (R[1] != 2):
-                vm.eip = old_eip
-                return False  # this is not ADC
-        elif sub:
-            if not carry:
-                if not cmp and (R[1] != 5):
-                    vm.eip = old_eip
-                    return False  # this is not SUB
-                elif cmp and (R[1] != 7):
-                    vm.eip = old_eip
-                    return False  # this is not CMP
-            else:
-                if R[1] != 3:
-                    vm.eip = old_eip
-                    return False  # this is not SBB
+        RM, R = vm.process_ModRM(sz)
 
         b = vm.mem.get(vm.eip, imm_sz, True)
         vm.eip += imm_sz
@@ -361,16 +366,16 @@ class INCDEC(Instruction):
 
     def rm(vm, _8bit, dec) -> bool:
         sz = 1 if _8bit else vm.operand_size
-        old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        REG = (ModRM & 0b00111000) >> 3
 
-        if (not dec) and (R[1] != 0):
-            vm.eip = old_eip
+        if (not dec) and (REG != 0):
             return False  # this is not INC
-        elif dec and (R[1] != 1):
-            vm.eip = old_eip
+        elif dec and (REG != 1):
             return False  # this is not DEC
+
+        RM, R = vm.process_ModRM(sz)
 
         type, loc, _ = RM
 
@@ -509,56 +514,58 @@ class DIV(Instruction):
                 ]
             }
 
-    def div(self, _8bit, idiv=False) -> bool:
+    def div(vm, _8bit, idiv=False) -> bool:
         """
         Unsigned divide.
         AL, AH = divmod(AX, r/m8)
         AX, DX = divmod(DX:AX, r/m16)
         EAX, EDX = divmod(EDX:EAX, r/m32)
         """
-        sz = 1 if _8bit else self.operand_size
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        REG = (ModRM & 0b00111000) >> 3
 
-        old_eip = self.eip
-
-        RM, R = self.process_ModRM(sz, sz)
-
-        if (not idiv) and (R[1] != 6):
-            self.eip = old_eip
+        if (not idiv) and (REG != 6):
             return False  # This is not DIV
-        elif idiv and (R[1] != 7):
-            self.eip = old_eip
+        elif idiv and (REG != 7):
             return False  # This is not IDIV
 
+        sz = 1 if _8bit else vm.operand_size
+
+        RM, R = vm.process_ModRM(sz)
         type, loc, _ = RM
 
-        divisor = (self.mem if type else self.reg).get(loc, sz, idiv)
+        divisor = (vm.mem if type else vm.reg).get(loc, sz, idiv)
 
         if divisor == 0:
             raise ZeroDivisionError
 
         if sz == 1:
-            dividend = self.reg.get(0, sz * 2)  # AX
+            dividend = vm.reg.get(0, sz * 2)  # AX
         else:
-            high = self.reg.get(2, sz)  # DX/EDX
-            low = self.reg.get(0, sz)  # AX/EAX
+            high = vm.reg.get(2, sz)  # DX/EDX
+            low = vm.reg.get(0, sz)  # AX/EAX
             dividend = (high << (sz * 8)) + low
         
         if idiv:
             dividend = sign_extend(dividend, sz * 2)
 
         quot, rem = dividend // divisor, dividend % divisor
-        # quot, rem = divmod(dividend, divisor)
 
         if quot > MAXVALS[sz]:
             raise RuntimeError('Divide error')
 
-        self.reg.set(0, sz, quot)  # AL/AX/EAX
+        vm.reg.set(0, sz, quot)  # AL/AX/EAX
         if sz == 1:
-            self.reg.set(4, sz, rem)  # AH
+            vm.reg.set(4, sz, rem)  # AH
         else:
-            self.reg.set(2, sz, rem)  # DX/EDX
+            vm.reg.set(2, sz, rem)  # DX/EDX
 
-        logger.debug('%sdiv %s=%d, %s=%d', 'i' if idiv else '', reg_names[0][sz], dividend, hex(loc) if type else reg_names[loc][sz], divisor)
+        logger.debug(
+            '%sdiv %s=%d, %s=%d',
+            'i' if idiv else '',
+            reg_names[0][sz], dividend,
+            hex(loc) if type else reg_names[loc][sz], divisor
+        )
 
         return True
 
