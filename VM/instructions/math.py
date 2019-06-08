@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
 
+
 ####################
 # ADD / SUB / CMP / ADC / SBB
 ####################
@@ -21,6 +22,7 @@ class ADDSUB_operation(enum.IntFlag):
     SBB = 3
     SUB = 5
     CMP = 7
+
 
 class ADDSUB(Instruction):
     """
@@ -38,74 +40,74 @@ class ADDSUB(Instruction):
     def __init__(self):
         self.opcodes = {
             # ADD
-            0x04: P(self.r_imm, _8bit=True),
-            0x05: P(self.r_imm, _8bit=False),
+            0x04: P(self.r_imm, _8bit=True,  sub=False, cmp=False, carry=False),
+            0x05: P(self.r_imm, _8bit=False, sub=False, cmp=False, carry=False),
 
             0x80: [
-                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=0, cmp=0, carry=0, REG=0),  # ADD r/m8, imm8
-                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=1, cmp=0, carry=0, REG=5),  # SUB r/m8, imm8
-                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=1, cmp=1, carry=0, REG=7),  # CMP r/m8, imm8
-                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=0, cmp=0, carry=1, REG=2),  # ADC r/m8, imm8
-                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, sub=1, cmp=0, carry=1, REG=3),  # SBB r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, REG=0),  # ADD r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, REG=5),  # SUB r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, REG=7),  # CMP r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, REG=2),  # ADC r/m8, imm8
+                P(self.rm_imm, _8bit_op=1, _8bit_imm=1, REG=3),  # SBB r/m8, imm8
                 ],
             0x81: [
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=0, cmp=0, carry=0, REG=0),  # ADD r/m, imm
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=1, cmp=0, carry=0, REG=5),  # SUB r/m, imm
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=1, cmp=1, carry=0, REG=7),  # CMP r/m, imm
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=0, cmp=0, carry=1, REG=2),  # ADC r/m, imm
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, sub=1, cmp=0, carry=1, REG=3),  # SBB r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, REG=0),  # ADD r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, REG=5),  # SUB r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, REG=7),  # CMP r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, REG=2),  # ADC r/m, imm
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=0, REG=3),  # SBB r/m, imm
                 ],
             0x83: [
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=0, cmp=0, carry=0, REG=0),  # ADD r/m, imm8
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=1, cmp=0, carry=0, REG=5),  # SUB r/m, imm8
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=1, cmp=1, carry=0, REG=7),  # CMP r/m, imm8
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=0, cmp=0, carry=1, REG=2),  # ADC r/m, imm8
-                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, sub=1, cmp=0, carry=1, REG=3),  # SBB r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, REG=0),  # ADD r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, REG=5),  # SUB r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, REG=7),  # CMP r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, REG=2),  # ADC r/m, imm8
+                P(self.rm_imm, _8bit_op=0, _8bit_imm=1, REG=3),  # SBB r/m, imm8
                 ],
 
-            0x00: P(self.rm_r, _8bit=True),
-            0x01: P(self.rm_r, _8bit=False),
-            0x02: P(self.r_rm, _8bit=True),
-            0x03: P(self.r_rm, _8bit=False),
+            0x00: P(self.rm_r, _8bit=True,  sub=False, cmp=False, carry=False),
+            0x01: P(self.rm_r, _8bit=False, sub=False, cmp=False, carry=False),
+            0x02: P(self.r_rm, _8bit=True,  sub=False, cmp=False, carry=False),
+            0x03: P(self.r_rm, _8bit=False, sub=False, cmp=False, carry=False),
 
             # SUB
-            0x2C: P(self.r_imm, _8bit=True, sub=True),
-            0x2D: P(self.r_imm, _8bit=False, sub=True),
+            0x2C: P(self.r_imm, _8bit=True,  sub=True, cmp=False, carry=False),
+            0x2D: P(self.r_imm, _8bit=False, sub=True, cmp=False, carry=False),
 
-            0x28: P(self.rm_r, _8bit=True, sub=True),
-            0x29: P(self.rm_r, _8bit=False, sub=True),
-            0x2A: P(self.r_rm, _8bit=True, sub=True),
-            0x2B: P(self.r_rm, _8bit=False, sub=True),
+            0x28: P(self.rm_r, _8bit=True,  sub=True, cmp=False, carry=False),
+            0x29: P(self.rm_r, _8bit=False, sub=True, cmp=False, carry=False),
+            0x2A: P(self.r_rm, _8bit=True,  sub=True, cmp=False, carry=False),
+            0x2B: P(self.r_rm, _8bit=False, sub=True, cmp=False, carry=False),
 
             # CMP
-            0x3C: P(self.r_imm, _8bit=True, sub=True, cmp=True),
-            0x3D: P(self.r_imm, _8bit=False, sub=True, cmp=True),
+            0x3C: P(self.r_imm, _8bit=True,  sub=True, cmp=True, carry=False),
+            0x3D: P(self.r_imm, _8bit=False, sub=True, cmp=True, carry=False),
 
-            0x38: P(self.rm_r, _8bit=True, sub=True, cmp=True),
-            0x39: P(self.rm_r, _8bit=False, sub=True, cmp=True),
-            0x3A: P(self.r_rm, _8bit=True, sub=True, cmp=True),
-            0x3B: P(self.r_rm, _8bit=False, sub=True, cmp=True),
+            0x38: P(self.rm_r, _8bit=True,  sub=True, cmp=True, carry=False),
+            0x39: P(self.rm_r, _8bit=False, sub=True, cmp=True, carry=False),
+            0x3A: P(self.r_rm, _8bit=True,  sub=True, cmp=True, carry=False),
+            0x3B: P(self.r_rm, _8bit=False, sub=True, cmp=True, carry=False),
 
             # ADC
-            0x14: P(self.r_imm, _8bit=True, carry=True),
-            0x15: P(self.r_imm, _8bit=False, carry=True),
+            0x14: P(self.r_imm, _8bit=True,  sub=False, cmp=False, carry=True),
+            0x15: P(self.r_imm, _8bit=False, sub=False, cmp=False, carry=True),
 
-            0x10: P(self.rm_r, _8bit=True, carry=True),
-            0x11: P(self.rm_r, _8bit=False, carry=True),
-            0x12: P(self.r_rm, _8bit=True, carry=True),
-            0x13: P(self.r_rm, _8bit=False, carry=True),
+            0x10: P(self.rm_r, _8bit=True,  sub=False, cmp=False, carry=True),
+            0x11: P(self.rm_r, _8bit=False, sub=False, cmp=False, carry=True),
+            0x12: P(self.r_rm, _8bit=True,  sub=False, cmp=False, carry=True),
+            0x13: P(self.r_rm, _8bit=False, sub=False, cmp=False, carry=True),
 
             # SBB
-            0x1C: P(self.r_imm, _8bit=True, sub=True, carry=True),
-            0x1D: P(self.r_imm, _8bit=False, sub=True, carry=True),
+            0x1C: P(self.r_imm, _8bit=True,  sub=True, cmp=False, carry=True),
+            0x1D: P(self.r_imm, _8bit=False, sub=True, cmp=False, carry=True),
 
-            0x18: P(self.rm_r, _8bit=True, sub=True, carry=True),
-            0x19: P(self.rm_r, _8bit=False, sub=True, carry=True),
-            0x1A: P(self.r_rm, _8bit=True, sub=True, carry=True),
-            0x1B: P(self.r_rm, _8bit=False, sub=True, carry=True),
+            0x18: P(self.rm_r, _8bit=True,  sub=True, cmp=False, carry=True),
+            0x19: P(self.rm_r, _8bit=False, sub=True, cmp=False, carry=True),
+            0x1A: P(self.r_rm, _8bit=True,  sub=True, cmp=False, carry=True),
+            0x1B: P(self.r_rm, _8bit=False, sub=True, cmp=False, carry=True),
             }
 
-    def r_imm(vm, _8bit, sub=False, cmp=False, carry=False) -> True:
+    def r_imm(vm, _8bit, sub: bool, cmp: bool, carry: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         b = vm.mem.get(vm.eip, sz)
@@ -131,13 +133,11 @@ class ADDSUB(Instruction):
             vm.reg.eflags.CF = b > a
             vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags.SF = sign_c
-
         c &= MAXVALS[sz]
 
+        vm.reg.eflags.SF = sign_c
         vm.reg.eflags.ZF = c == 0
-
-        vm.reg.eflags.PF = parity(c & 0xFF)
+        vm.reg.eflags.PF = parity(c)
 
         if not cmp:
             vm.reg.set(0, sz, c)
@@ -152,28 +152,17 @@ class ADDSUB(Instruction):
 
         return True
 
-    def rm_imm(vm, _8bit_op, _8bit_imm, sub: bool, cmp: bool, carry: bool, REG: int) -> bool:
+    def rm_imm(vm, _8bit_op: bool, _8bit_imm: bool, REG: int) -> bool:
         ModRM = vm.mem.get_eip(vm.eip, 1)
-        REG = (ModRM & 0b00111000) >> 3
+        _REG = (ModRM & 0b00111000) >> 3
 
-        if not sub:
-            if not carry:
-                if REG != 0: return False  # this is not ADD
-            else:
-                if REG != 2: return False  # this is not ADC
-        else:
-            if not carry:
-                if not cmp:
-                    if REG != 5: return False  # this is not SUB
-                else:
-                    if REG != 7: return False  # this is not CMP
-            else:
-                if REG != 3: return False  # this is not SBB
+        if _REG != REG:
+            return False
+
+        operation = ADDSUB_operation(REG)
 
         sz = 1 if _8bit_op else vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
-
-        assert sz >= imm_sz
 
         RM, R = vm.process_ModRM(sz)
 
@@ -182,22 +171,21 @@ class ADDSUB(Instruction):
 
         b &= MAXVALS[sz]  # convert to an unsigned number; ATTENTION!
 
-        if carry:
+        if operation == operation.ADC or operation == operation.SBB:
             b += vm.reg.eflags.CF
 
         type, loc, _ = RM
 
         a = (vm.mem if type else vm.reg).get(loc, sz)
 
-        c = a + (b if not sub else MAXVALS[sz] + 1 - b)
+        c = a + (b if operation == operation.ADD or operation == operation.ADC else MAXVALS[sz] + 1 - b)
 
         sign_a = (a >> (sz * 8 - 1)) & 1
         sign_b = (b >> (sz * 8 - 1)) & 1
         sign_c = (c >> (sz * 8 - 1)) & 1
 
-        if not sub:
+        if operation == operation.ADD or operation == operation.ADC:  # not in (operation.SBB, operation.SUB, operation.CMP):
             vm.reg.eflags.OF = (sign_a == sign_b) and (sign_a != sign_c)
-            # vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
             vm.reg.eflags.CF = c > MAXVALS[sz]
             vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
@@ -205,22 +193,17 @@ class ADDSUB(Instruction):
             vm.reg.eflags.CF = b > a
             vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags.SF = sign_c
-        #vm.reg.eflags_set(Reg32.SF, sign_c)
-
         c &= MAXVALS[sz]
 
+        vm.reg.eflags.SF = sign_c
         vm.reg.eflags.ZF = c == 0
-        #vm.reg.eflags_set(Reg32.ZF, c == 0)
+        vm.reg.eflags.PF = parity(c)
 
-        vm.reg.eflags.PF = parity(c & 0xFF)
-        #vm.reg.eflags_set(Reg32.PF, parity(_c[0], sz))
-
-        if not cmp:
+        if operation != operation.CMP:
             (vm.mem if type else vm.reg).set(loc, sz, c)
 
         logger.debug('%s %s=%d, imm%d=%d (%s := %d)',
-                     ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
+                     operation.name,
                      hex(loc) if type else reg_names[loc][sz],
                      a, sz * 8, b,
                      hex(loc) if type else reg_names[loc][sz], c
@@ -228,7 +211,7 @@ class ADDSUB(Instruction):
         
         return True
 
-    def rm_r(vm, _8bit, sub=False, cmp=False, carry=False) -> True:
+    def rm_r(vm, _8bit, sub: bool, cmp: bool, carry: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         RM, R = vm.process_ModRM(sz, sz)
@@ -249,7 +232,6 @@ class ADDSUB(Instruction):
 
         if not sub:
             vm.reg.eflags.OF = (sign_a == sign_b) and (sign_a != sign_c)
-            #vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
             vm.reg.eflags.CF = c > MAXVALS[sz]
             vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
@@ -257,12 +239,11 @@ class ADDSUB(Instruction):
             vm.reg.eflags.CF = b > a
             vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags.SF = sign_c
-
         c &= MAXVALS[sz]
 
+        vm.reg.eflags.SF = sign_c
         vm.reg.eflags.ZF = c == 0
-        vm.reg.eflags.PF = parity(c & 0xFF)
+        vm.reg.eflags.PF = parity(c)
 
         if not cmp:
             (vm.mem if type else vm.reg).set(loc, sz, c)
@@ -297,7 +278,6 @@ class ADDSUB(Instruction):
 
         if not sub:
             vm.reg.eflags.OF = (sign_a == sign_b) and (sign_a != sign_c)
-            #vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
             vm.reg.eflags.CF = c > MAXVALS[sz]
             vm.reg.eflags.AF = ((a & 255) + (b & 255)) > MAXVALS[1]
         else:
@@ -305,12 +285,11 @@ class ADDSUB(Instruction):
             vm.reg.eflags.CF = b > a
             vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags.SF = sign_c
-
         c &= MAXVALS[sz]
 
+        vm.reg.eflags.SF = sign_c
         vm.reg.eflags.ZF = c == 0
-        vm.reg.eflags.PF = parity(c & 0xFF)
+        vm.reg.eflags.PF = parity(c)
 
         if not cmp:
             vm.reg.set(R[1], sz, c)
@@ -349,12 +328,12 @@ class INCDEC(Instruction):
                 for o in range(0x40, 0x48)
                 },
             0xFE: [
-                P(self.rm, _8bit=True, dec=False),
-                P(self.rm, _8bit=True, dec=True)
+                P(self.rm, _8bit=True, REG=0),  # INC r/m8
+                P(self.rm, _8bit=True, REG=1)   # DEC r/m8
                 ],
             0xFF: [
-                P(self.rm, _8bit=False, dec=False),
-                P(self.rm, _8bit=False, dec=True)
+                P(self.rm, _8bit=False, REG=0),  # INC r/m
+                P(self.rm, _8bit=False, REG=1)   # DEC r/m
                 ],
 
             # DEC
@@ -364,16 +343,15 @@ class INCDEC(Instruction):
                 }
             }
 
-    def rm(vm, _8bit, dec) -> bool:
-        sz = 1 if _8bit else vm.operand_size
-
+    def rm(vm, _8bit: bool, REG: int) -> bool:
         ModRM = vm.mem.get_eip(vm.eip, 1)
-        REG = (ModRM & 0b00111000) >> 3
+        _REG = (ModRM & 0b00111000) >> 3
 
-        if (not dec) and (REG != 0):
-            return False  # this is not INC
-        elif dec and (REG != 1):
-            return False  # this is not DEC
+        if _REG != REG:
+            return False
+
+        dec = REG
+        sz = 1 if _8bit else vm.operand_size
 
         RM, R = vm.process_ModRM(sz)
 
@@ -395,12 +373,11 @@ class INCDEC(Instruction):
             vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
             vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags.SF = sign_c
-
         c &= MAXVALS[sz]
 
+        vm.reg.eflags.SF = sign_c
         vm.reg.eflags.ZF = c == 0
-        vm.reg.eflags.PF = parity(c & 0xFF)
+        vm.reg.eflags.PF = parity(c)
 
         (vm.mem if type else vm.reg).set(loc, sz, c)
 
@@ -428,12 +405,11 @@ class INCDEC(Instruction):
             vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
             vm.reg.eflags.AF = (b & 255) > (a & 255)
 
-        vm.reg.eflags.SF = sign_c
-
         c &= MAXVALS[sz]
 
+        vm.reg.eflags.SF = sign_c
         vm.reg.eflags.ZF = c == 0
-        vm.reg.eflags.PF = parity(c & 0xFF)
+        vm.reg.eflags.PF = parity(c)
 
         vm.reg.set(loc, sz, c)
 
@@ -505,16 +481,16 @@ class DIV(Instruction):
     def __init__(self):
         self.opcodes = {
             0xF6: [
-                P(self.div, _8bit=True),
-                P(self.div, _8bit=True, idiv=True)
+                P(self.div, _8bit=True, REG=6),  # DIV r/m8
+                P(self.div, _8bit=True, REG=7)  # IDIV r/m8
                 ],
             0xF7: [
-                P(self.div, _8bit=False),
-                P(self.div, _8bit=False, idiv=True)
+                P(self.div, _8bit=False, REG=6),  # DIV r/m
+                P(self.div, _8bit=False, REG=7)   # IDIV r/m
                 ]
             }
 
-    def div(vm, _8bit, idiv=False) -> bool:
+    def div(vm, _8bit, REG: int) -> bool:
         """
         Unsigned divide.
         AL, AH = divmod(AX, r/m8)
@@ -522,12 +498,12 @@ class DIV(Instruction):
         EAX, EDX = divmod(EDX:EAX, r/m32)
         """
         ModRM = vm.mem.get_eip(vm.eip, 1)
-        REG = (ModRM & 0b00111000) >> 3
+        _REG = (ModRM & 0b00111000) >> 3
 
-        if (not idiv) and (REG != 6):
-            return False  # This is not DIV
-        elif idiv and (REG != 7):
-            return False  # This is not IDIV
+        if _REG != REG:
+            return False
+
+        idiv = REG == 7
 
         sz = 1 if _8bit else vm.operand_size
 

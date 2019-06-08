@@ -136,9 +136,8 @@ def parity(num: int) -> int:
     :param num: The byte to calculate the parity of.
     :return:
     '''
-    assert 0 <= num <= 255
 
-    return (((num * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1
+    return ((((num & 0xFF) * 0x0101010101010101) & 0x8040201008040201) % 0x1FF) & 1
 
 
 def MSB(num: int, size: int) -> bool:

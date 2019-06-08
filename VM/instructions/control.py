@@ -30,9 +30,32 @@ class NOP(Instruction):
 
         return True
 
+
 ####################
 # JMP
 ####################
+JO   = compile('vm.reg.eflags.OF', 'o', 'eval')
+JNO  = compile('not vm.reg.eflags.OF', 'no', 'eval')
+JB   = compile('vm.reg.eflags.CF', 'b', 'eval')
+JNB  = compile('not vm.reg.eflags.CF', 'nb', 'eval')
+JZ   = compile('vm.reg.eflags.ZF', 'z', 'eval')
+JNZ  = compile('not vm.reg.eflags.ZF', 'nz', 'eval')
+JBE  = compile('vm.reg.eflags.CF or vm.reg.eflags.ZF', 'be', 'eval')
+JNBE = compile('not vm.reg.eflags.CF and not vm.reg.eflags.ZF', 'nbe', 'eval')
+JS   = compile('vm.reg.eflags.SF', 's', 'eval')
+JNS  = compile('not vm.reg.eflags.SF', 'ns', 'eval')
+JP  = compile('vm.reg.eflags.PF', 'p', 'eval')
+JNP  = compile('not vm.reg.eflags.PF', 'np', 'eval')
+JL   = compile('vm.reg.eflags.SF != vm.reg.eflags.OF', 'l', 'eval')
+JNL  = compile('vm.reg.eflags.SF == vm.reg.eflags.OF', 'nl', 'eval')
+JLE  = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF', 'ng', 'eval')
+JNLE   = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'g', 'eval')
+
+JUMPS = [JO, JNO, JB, JNB, JZ, JNZ, JBE, JNBE, JS, JNS, JP, JNP, JL, JNL, JLE, JNLE]
+
+JCXZ = compile('not vm.reg.get(0, sz)', 'cxz', 'eval')
+
+
 class JMP(Instruction):
     """
         Jump to a memory address.
@@ -42,25 +65,6 @@ class JMP(Instruction):
     """
 
     def __init__(self):
-        JNP = compile('not vm.reg.eflags.PF', 'jump', 'eval')
-        JG = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
-        JAE = compile('not vm.reg.eflags.CF', 'jump', 'eval')
-        JGE = compile('vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
-        JNO = compile('not vm.reg.eflags.OF', 'jump', 'eval')
-        JNS = compile('not vm.reg.eflags.SF', 'jump', 'eval')
-        JPE = compile('vm.reg.eflags.PF', 'jump', 'eval')
-        JO = compile('vm.reg.eflags.OF', 'jump', 'eval')
-        JL = compile('vm.reg.eflags.SF != vm.reg.eflags.OF', 'jump', 'eval')
-        JCXZ = compile('not vm.reg.get(0, sz)', 'jump', 'eval')
-        JNBE = compile('not vm.reg.eflags.CF and not vm.reg.eflags.ZF', 'jump', 'eval')
-        JNZ = compile('not vm.reg.eflags.ZF', 'jump', 'eval')
-        JE = compile('vm.reg.eflags.ZF', 'jump', 'eval')
-        JS = compile('vm.reg.eflags.SF', 'jump', 'eval')
-        JBE = compile('vm.reg.eflags.CF or vm.reg.eflags.ZF', 'jump', 'eval')
-        JLE = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF',
-                      'jump', 'eval')
-        JB = compile('vm.reg.eflags.CF', 'jump', 'eval')
-
         self.opcodes = {
             0xEB: P(self.rel, _8bit=True),
             0xE9: P(self.rel, _8bit=False),
@@ -68,37 +72,18 @@ class JMP(Instruction):
             0xFF: self.rm_m,
             0xEA: P(self.ptr, _8bit=False),
 
-            0x7B: P(self.rel, _8bit=True, jump=JNP),
-            0x7F: P(self.rel, _8bit=True, jump=JG),
-            0x73: P(self.rel, _8bit=True, jump=JAE),
-            0x7D: P(self.rel, _8bit=True, jump=JGE),
-            0x71: P(self.rel, _8bit=True, jump=JNO),
-            0x79: P(self.rel, _8bit=True, jump=JNS),
-            0x7A: P(self.rel, _8bit=True, jump=JPE),
-            0x70: P(self.rel, _8bit=True, jump=JO),
-            0x7C: P(self.rel, _8bit=True, jump=JL),
             0xE3: P(self.rel, _8bit=True, jump=JCXZ),
-            0x77: P(self.rel, _8bit=True, jump=JNBE),
-            0x75: P(self.rel, _8bit=True, jump=JNZ),
-            0x74: P(self.rel, _8bit=True, jump=JE),
-            0x78: P(self.rel, _8bit=True, jump=JS),
-            0x76: P(self.rel, _8bit=True, jump=JBE),
-            0x7E: P(self.rel, _8bit=True, jump=JLE),
-            0x72: P(self.rel, _8bit=True, jump=JB),
-            
-            0x0F8C: P(self.rel, _8bit=False, jump=JL),
-            0x0F84: P(self.rel, _8bit=False, jump=JE),
-            0x0F82: P(self.rel, _8bit=False, jump=JB),
-            0x0F85: P(self.rel, _8bit=False, jump=JNZ),
-            0x0f86: P(self.rel, _8bit=False, jump=JBE),
-            0x0f87: P(self.rel, _8bit=False, jump=JNBE),
-            0x0f8d: P(self.rel, _8bit=False, jump=JGE),
-            0x0f8e: P(self.rel, _8bit=False, jump=JLE),
-            0x0f8f: P(self.rel, _8bit=False, jump=JG),
-            0x0f83: P(self.rel, _8bit=False, jump=JAE),
-            0x0f88: P(self.rel, _8bit=False, jump=JS),
-            0x0f89: P(self.rel, _8bit=False, jump=JNS),
+
+            **{
+                opcode: P(self.rel, _8bit=True, jump=JUMPS[opcode % 0x70])
+                for opcode in range(0x70, 0x80)
+            },
+
+            **{
+                opcode: P(self.rel, _8bit=False, jump=JUMPS[opcode % 0x0F80])
+                for opcode in range(0x0F80, 0x0F90)
             }
+        }
 
     def rel(vm, _8bit, jump=compile('True', 'jump', 'eval')) -> True:
         sz = 1 if _8bit else vm.operand_size
@@ -117,8 +102,7 @@ class JMP(Instruction):
 
         vm.eip = tmpEIP
 
-        logger.debug('jmp rel%d 0x%08x', sz * 8, vm.eip)
-        # if debug: print('jmp rel{}({})'.format(sz * 8, hex(vm.eip)))
+        logger.debug('j%s rel%d 0x%08x', jump.co_filename, sz * 8, vm.eip)
         
         return True
 
@@ -138,7 +122,6 @@ class JMP(Instruction):
             assert vm.eip < vm.mem.size
 
             logger.debug('jmp rm%d 0x%x', sz * 8, vm.eip)
-            # if debug: print('jmp rm{}({})'.format(sz * 8, vm.eip))
 
             return True
         elif R[1] == 5:  # this is jmp m
@@ -156,7 +139,7 @@ class JMP(Instruction):
 
             assert vm.eip in vm.mem.bounds
 
-            vm.reg.CS = segment_selector
+            vm.reg.CS = segment_selector  # TODO: do something with CS
 
             if vm.operand_size == 4:
                 vm.eip = tempEIP
@@ -164,7 +147,6 @@ class JMP(Instruction):
                 vm.eip = tempEIP & 0x0000FFFF
 
             logger.debug('jmp m%d 0x%x', sz * 8, vm.eip)
-            # if debug: print('jmp m{}({})'.format(sz * 8, vm.eip))
 
             return True
 
@@ -183,7 +165,7 @@ class JMP(Instruction):
 
         assert vm.eip in vm.mem.bounds
 
-        vm.reg.CS = segment_selector
+        vm.reg.CS = segment_selector  # TODO: do something with CS
 
         if vm.operand_size == 4:
             vm.eip = tempEIP
@@ -191,7 +173,6 @@ class JMP(Instruction):
             vm.eip = tempEIP & 0x0000FFFF
 
         logger.debug('jmp m%d 0x%x', sz * 8, vm.eip)
-        # if debug: print('jmp m{}({})'.format(sz * 8, vm.eip))
 
         return True
 
@@ -201,31 +182,9 @@ class JMP(Instruction):
 ####################
 class SETcc(Instruction):
     def __init__(self):
-        SETNP = compile('not vm.reg.eflags.PF', 'jump', 'eval')
-        SETG = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
-        SETAE = compile('not vm.reg.eflags.CF', 'jump', 'eval')
-        SETGE = compile('vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
-        SETNO = compile('not vm.reg.eflags.OF', 'jump', 'eval')
-        SETNS = compile('not vm.reg.eflags.SF', 'jump', 'eval')
-        SETPE = compile('vm.reg.eflags.PF', 'jump', 'eval')
-        SETO = compile('vm.reg.eflags.OF', 'jump', 'eval')
-        SETL = compile('vm.reg.eflags.SF != vm.reg.eflags.OF', 'jump', 'eval')
-        SETCXZ = compile('not vm.reg.get(0, sz)', 'jump', 'eval')
-        SETNBE = compile('not vm.reg.eflags.CF and not vm.reg.eflags.ZF', 'jump', 'eval')
-        SETNZ = compile('not vm.reg.eflags.ZF', 'jump', 'eval')
-        SETE = compile('vm.reg.eflags.ZF', 'jump', 'eval')
-        SETS = compile('vm.reg.eflags.SF', 'jump', 'eval')
-        SETBE = compile('vm.reg.eflags.CF or vm.reg.eflags.ZF', 'jump', 'eval')
-        SETLE = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF', 'jump', 'eval')
-        SETB = compile('vm.reg.eflags.CF', 'jump', 'eval')
-
         self.opcodes = {
-            0x0F92: P(self.rm8, SETB),
-            0x0F94: P(self.rm8, SETE),
-            0x0F95: P(self.rm8, SETNZ),
-            0x0F97: P(self.rm8, SETNBE),
-            0x0F9E: P(self.rm8, SETLE),
-            0x0F9F: P(self.rm8, SETG),
+            opcode: P(self.rm8, cond=JUMPS[opcode % 0x0F90])
+            for opcode in range(0x0F90, 0x0FA0)
         }
 
     def rm8(vm, cond) -> True:
@@ -233,11 +192,10 @@ class SETcc(Instruction):
 
         type, loc, _ = RM
 
-        _bool = int(eval(cond))
-        (vm.mem if type else vm.reg).set(loc, 1, _bool)
+        byte = int(eval(cond))
+        (vm.mem if type else vm.reg).set(loc, 1, byte)
 
-        logger.debug('setcc %s := %d', hex(loc) if type else reg_names[loc][1], _bool)
-        # if debug: print(f'setcc {hex(loc) if type else reg_names[loc][1]} = {_bool[0]}')
+        logger.debug('set%s %s := %d', cond.co_filename, hex(loc) if type else reg_names[loc][1], byte)
 
         return True
 
@@ -247,36 +205,9 @@ class SETcc(Instruction):
 ####################
 class CMOVCC(Instruction):
     def __init__(self):
-        CMOVNP = compile('not vm.reg.eflags.PF', 'jump', 'eval')
-        CMOVG = compile('not vm.reg.eflags.ZF and vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
-        CMOVAE = compile('not vm.reg.eflags.CF', 'jump', 'eval')
-        CMOVGE = compile('vm.reg.eflags.SF == vm.reg.eflags.OF', 'jump', 'eval')
-        CMOVNO = compile('not vm.reg.eflags.OF', 'jump', 'eval')
-        CMOVNS = compile('not vm.reg.eflags.SF', 'jump', 'eval')
-        CMOVPE = compile('vm.reg.eflags.PF', 'jump', 'eval')
-        CMOVO = compile('vm.reg.eflags.OF', 'jump', 'eval')
-        CMOVL = compile('vm.reg.eflags.SF != vm.reg.eflags.OF', 'jump', 'eval')
-        CMOVCXZ = compile('not vm.reg.get(0, sz)', 'jump', 'eval')
-        CMOVNBE = compile('not vm.reg.eflags.CF and not vm.reg.eflags.ZF', 'jump', 'eval')
-        CMOVNZ = compile('not vm.reg.eflags.ZF', 'jump', 'eval')
-        CMOVE = compile('vm.reg.eflags.ZF', 'jump', 'eval')
-        CMOVS = compile('vm.reg.eflags.SF', 'jump', 'eval')
-        CMOVBE = compile('vm.reg.eflags.CF or vm.reg.eflags.ZF', 'jump', 'eval')
-        CMOVLE = compile('vm.reg.eflags.ZF or vm.reg.eflags.SF != vm.reg.eflags.OF',
-                        'jump', 'eval')
-        CMOVB = compile('vm.reg.eflags.CF', 'jump', 'eval')
-
         self.opcodes = {
-            0x0F42: P(self.r_rm, CMOVB),
-            0x0F43: P(self.r_rm, CMOVAE),
-            0x0F44: P(self.r_rm, CMOVE),
-            0x0F45: P(self.r_rm, CMOVNZ),
-            0x0F46: P(self.r_rm, CMOVBE),
-            0x0F47: P(self.r_rm, CMOVNBE),
-            0x0F48: P(self.r_rm, CMOVS),
-            0x0F4C: P(self.r_rm, CMOVL),
-            0x0F4E: P(self.r_rm, CMOVLE),
-            0x0F4F: P(self.r_rm, CMOVG),
+            opcode: P(self.r_rm, cond=JUMPS[opcode % 0x0F40])
+            for opcode in range(0x0F40, 0x0F50)
         }
 
     def r_rm(vm, cond) -> True:
@@ -293,8 +224,7 @@ class CMOVCC(Instruction):
 
         vm.reg.set(R[1], sz, data)
 
-        logger.debug('cmov %s, %s=0x%x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
-        # if debug: print(f'cmov {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
+        logger.debug('cmov%s %s, %s=0x%x', cond.co_filename, reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
 
         return True
 
