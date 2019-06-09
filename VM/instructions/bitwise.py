@@ -35,19 +35,19 @@ class BITWISE(Instruction):
             0x25: P(self.r_imm, _8bit=False, operation=operator.and_),
 
             0x80: [
-                P(self.rm_imm, _8bit=True, _8bit_imm=True, operation=operator.and_),
-                P(self.rm_imm, _8bit=True, _8bit_imm=True, operation=operator.or_),
-                P(self.rm_imm, _8bit=True, _8bit_imm=True, operation=operator.xor)
+                P(self.rm_imm, _8bit=True, _8bit_imm=True, operation=operator.and_, test=False, REG=4),  # AND r/m8, imm8
+                P(self.rm_imm, _8bit=True, _8bit_imm=True, operation=operator.or_, test=False, REG=1),  # OR r/m8, imm8
+                P(self.rm_imm, _8bit=True, _8bit_imm=True, operation=operator.xor, test=False, REG=6),  # XOR r/m8, imm8
                 ],
             0x81: [
-                P(self.rm_imm, _8bit=False, _8bit_imm=False, operation=operator.and_),
-                P(self.rm_imm, _8bit=False, _8bit_imm=False, operation=operator.or_),
-                P(self.rm_imm, _8bit=False, _8bit_imm=False, operation=operator.xor)
+                P(self.rm_imm, _8bit=False, _8bit_imm=False, operation=operator.and_, test=False, REG=4),  # AND r/m, imm
+                P(self.rm_imm, _8bit=False, _8bit_imm=False, operation=operator.or_, test=False, REG=1),  # OR r/m, imm
+                P(self.rm_imm, _8bit=False, _8bit_imm=False, operation=operator.xor, test=False, REG=6),  # XOR r/m, imm
                 ],
             0x83: [
-                P(self.rm_imm, _8bit=False, _8bit_imm=True, operation=operator.and_),
-                P(self.rm_imm, _8bit=False, _8bit_imm=True, operation=operator.or_),
-                P(self.rm_imm, _8bit=False, _8bit_imm=True, operation=operator.xor)
+                P(self.rm_imm, _8bit=False, _8bit_imm=True, operation=operator.and_, test=False, REG=4),  # AND r/m, imm8
+                P(self.rm_imm, _8bit=False, _8bit_imm=True, operation=operator.or_, test=False, REG=1),  # OR r/m, imm8
+                P(self.rm_imm, _8bit=False, _8bit_imm=True, operation=operator.xor, test=False, REG=6)  # XOR r/m, imm8
                 ],
 
             0x20: P(self.rm_r, _8bit=True, operation=operator.and_),
@@ -80,8 +80,8 @@ class BITWISE(Instruction):
             0xA8: P(self.r_imm, _8bit=True, operation=operator.and_, test=True),
             0xA9: P(self.r_imm, _8bit=False, operation=operator.and_, test=True),
 
-            0xF6: P(self.rm_imm, _8bit=True, _8bit_imm=True, operation=operator.and_, test=True),
-            0xF7: P(self.rm_imm, _8bit=False, _8bit_imm=False, operation=operator.and_, test=True),
+            0xF6: P(self.rm_imm, _8bit=True, _8bit_imm=True, operation=operator.and_, test=True, REG=0),  # TEST r/m8, imm8
+            0xF7: P(self.rm_imm, _8bit=False, _8bit_imm=False, operation=operator.and_, test=True, REG=0),  # TEST r/m, r/m
 
             0x84: P(self.rm_r, _8bit=True, operation=operator.and_, test=True),
             0x85: P(self.rm_r, _8bit=False, operation=operator.and_, test=True),
@@ -116,26 +116,17 @@ class BITWISE(Instruction):
 
         return True
 
-    def rm_imm(vm, _8bit, _8bit_imm, operation, test=False) -> bool:
+    def rm_imm(vm, _8bit, _8bit_imm, operation, test: bool, REG: int) -> bool:
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        _REG = (ModRM & 0b00111000) >> 3
+
+        if _REG != REG:
+            return False
+
         sz = 1 if _8bit else vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
-        old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
-
-        if operation == operator.and_:
-            if (not test) and (R[1] != 4):
-                vm.eip = old_eip
-                return False  # this is not AND
-            elif test and (R[1] != 0):
-                vm.eip = old_eip
-                return False  # this is not TEST
-        elif (operation == operator.or_) and (R[1] != 1):
-            vm.eip = old_eip
-            return False  # this is not OR
-        elif (operation == operator.xor) and (R[1] != 6):
-            vm.eip = old_eip
-            return False  # this is not XOR
+        RM, R = vm.process_ModRM(sz)
 
         b = vm.mem.get(vm.eip, imm_sz, True)
         vm.eip += imm_sz
@@ -244,12 +235,12 @@ class NEGNOT(Instruction):
         self.opcodes = {
             # NEG, NOT
             0xF6: [
-                P(self.rm, _8bit=True, operation=0),
-                P(self.rm, _8bit=True, operation=1)
+                P(self.rm, _8bit=True, REG=3),  # NEG r/m8
+                P(self.rm, _8bit=True, REG=2),  # NOT r/m8
                 ],
             0xF7: [
-                P(self.rm, _8bit=False, operation=0),
-                P(self.rm, _8bit=False, operation=1)
+                P(self.rm, _8bit=False, REG=3),  # NEG r/m
+                P(self.rm, _8bit=False, REG=2),  # NOT r/m
                 ]
             }
 
@@ -261,24 +252,18 @@ class NEGNOT(Instruction):
     def operation_neg(a, off):
         return NEGNOT.operation_not(a, off) + 1
 
-    def rm(vm, _8bit, operation) -> bool:
+    def rm(vm, _8bit, REG: int) -> bool:
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        _REG = (ModRM & 0b00111000) >> 3
+
+        if _REG != REG:
+            return False
+
+        operation = {2: NEGNOT.operation_not, 3: NEGNOT.operation_neg}[REG]
+
         sz = 1 if _8bit else vm.operand_size
-        old_eip = vm.eip
 
         RM, R = vm.process_ModRM(sz)
-
-        if operation == 0:  # NEG
-            if R[1] != 3:
-                vm.eip = old_eip
-                return False  # this is not NEG
-            operation = NEGNOT.operation_neg
-        elif operation == 1:  # NOT
-            if R[1] != 2:
-                vm.eip = old_eip
-                return False  # this is not NOT
-            operation = NEGNOT.operation_not
-        else:
-            raise ValueError("Invalid argument to __negnot_rm: this is an error in the VM")
 
         type, loc, _ = RM
 
@@ -296,7 +281,7 @@ class NEGNOT(Instruction):
             vm.reg.eflags.ZF = b == 0
 
         if operation == NEGNOT.operation_neg:
-            vm.reg.eflags.PF = parity(b & 0xFF)
+            vm.reg.eflags.PF = parity(b)
 
         (vm.mem if type else vm.reg).set(loc, sz, b)
 

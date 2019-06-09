@@ -24,7 +24,9 @@ def execute_opcode(self) -> None:
     except KeyError:
         ...  # could not find opcode
     else:
+        #print(f'Opcode {self.opcode:02x}:')
         for impl in impls:
+            #print(f'\tTrying {impl}')
             if impl():
                 return  # opcode executed
         # could not find suitable implementation

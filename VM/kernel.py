@@ -9,6 +9,40 @@ logger = logging.getLogger(__name__)
 struct_iovec = struct.Struct('<II')
 struct_user_desc = struct.Struct('<ILIBH4B')
 
+from ctypes import LittleEndianStructure, c_uint32, sizeof
+
+udword = c_uint32.__ctype_le__
+
+
+class structUserDesc(LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ('entry_number', udword),
+        ('base_addr', udword),
+        ('limit', udword),
+        ('seg_32bit', udword, 1),
+        ('contents', udword, 2),
+        ('read_exec_only', udword, 1),
+        ('limit_in_pages', udword, 1),
+        ('seg_not_present', udword, 1),
+        ('useable', udword, 1),
+
+    ]
+
+    def __str__(self):
+        return """struct user_desc {
+    unsigned int  entry_number      = 0x%08x;
+    unsigned long base_addr         = 0x%08x;
+    unsigned int  limit             = 0x%08x;
+    unsigned int  seg_32bit:1       = %u;
+    unsigned int  contents:2        = 0x%02x;
+    unsigned int  read_exec_only:1  = %u;
+    unsigned int  limit_in_pages:1  = %u;
+    unsigned int  seg_not_present:1 = %u;
+    unsigned int  useable:1         = %u;
+};""" % (self.entry_number, self.base_addr, self.limit, self.seg_32bit, self.contents,
+         self.read_exec_only, self.limit_in_pages, self.seg_not_present, self.useable)
+
 from io import UnsupportedOperation
 
 
@@ -108,11 +142,15 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         min_brk = self.code_segment_end
 
+        logger.info('sys_brk(unsigned long brk = %u)', brk)
+
         if brk < min_brk:
             logger.info(
                 'SYS_BRK: invalid break: 0x%08x < 0x%08x; return 0x%08x',
                 brk, min_brk, self.mem.program_break
             )
+
+            # error
             return self.__return(self.mem.program_break)
 
         newbrk = brk
@@ -124,14 +162,17 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
                 oldbrk, newbrk
             )
 
-            return self.__return(oldbrk)
+            # success
+            return self.__return(self.mem.program_break)
 
         self.mem.program_break = brk
 
         logger.info(
-            'SYS_BRK: changing break: 0x%08x -> 0x%08x (%d bytes)',
+            'SYS_BRK: changing break: 0x%08x -> 0x%08x (%+d bytes)',
             oldbrk, self.mem.program_break, self.mem.program_break - oldbrk
         )
+
+        # success
         self.__return(self.mem.program_break)
 
     def sys_set_thread_area(self, code=0xf3):
@@ -157,23 +198,14 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         
         logger.info(f'sys_set_thread_area(u_info=0x%08x)', u_info_addr)
 
-        u_info = struct_user_desc.unpack(
-            self.mem.get_bytes(u_info_addr, struct_user_desc.size)
-        )
+        raw_data = self.mem.get_bytes(u_info_addr, struct_user_desc.size)
 
-        logger.info(
-            """
-struct user_desc {
-    unsigned int  entry_number      = %d;
-    unsigned long base_addr         = %d;
-    unsigned int  limit             = %d;
-    unsigned int  seg_32bit:1       = %d;
-    unsigned int  contents:2        = %d;
-    unsigned int  read_exec_only:1  = %d;
-    unsigned int  limit_in_pages:1  = %d;
-    unsigned int  seg_not_present:1 = %d;
-    unsigned int  useable:1         = %d;
-};""", *u_info)
+        # print(f'Raw data: {list(raw_data)}, {sizeof(structUserDesc)}')
+
+        # u_info = struct_user_desc.unpack(raw_data)
+        u_info = structUserDesc.from_buffer_copy(raw_data)
+
+        logger.info('%s', u_info)
 
         """
         A `user_desc` is considered "empty" if `read_exec_only` and
@@ -183,7 +215,7 @@ struct user_desc {
         """
 
         selector_index = 0
-        if u_info[0] == 4294967295:  # a.k.a. (unsigned int)(-1)
+        if u_info.entry_number == 0xffffffff:  # a.k.a. (unsigned int)(-1)
             """
             When set_thread_area() is passed an entry_number of -1, it searches
             for a free TLS entry.  If set_thread_area() finds a free TLS entry,
@@ -191,35 +223,29 @@ struct user_desc {
             entry was changed.
             """
 
+            from .Registers_ctypes import SegmentDescriptor
             for selector_index, entry in enumerate(self.GDT[1:], 1):
-                base3, limit2, info, base2, base1, limit1 = segment_descriptor_struct.unpack(entry)
-                segment_present = (info >> 8) & 1
+                seg_descr = SegmentDescriptor.from_buffer_copy(entry)  #segment_descriptor_struct.unpack(entry)
 
-                if segment_present:
+                if seg_descr.P:  # segment present
                     continue
 
-                base_addr = u_info[1]
-
                 # BEGIN set up BASE
-                base1 = base_addr & 0xFFFF
-                base3 = (base_addr >> 24) & 0xFF
-                base2 = (base_addr >> 16) & 0xFF
+                seg_descr.base_1 = u_info.base_addr & 0xFFFF
+                seg_descr.base_2 = (u_info.base_addr >> 16) & 0xFF
+                seg_descr.base_3 = (u_info.base_addr >> 24) & 0xFF
                 # END set up BASE
 
-                limit = u_info[2]
-
                 # BEGIN set up LIMIT
-                limit1 = limit & 0xFFFF
-
-                limit2 &= 0xF0  # clear limit2
-                limit2 += (limit >> 16) & 0xF
+                seg_descr.limit_1 = u_info.limit & 0xFFFF
+                seg_descr.limit_2 = (u_info.limit >> 16) & 0xF
                 # END set up LIMIT
 
-                info |= 1 << 7  # set segment present to True
+                seg_descr.P = 1  # set segment present to True
 
-                descriptor = base3, limit2, info, base2, base1, limit1
+                self.GDT[selector_index] = bytes(seg_descr)  # segment_descriptor_struct.pack(*descriptor)
 
-                self.GDT[selector_index] = segment_descriptor_struct.pack(*descriptor)
+                # print(f'Written segment descriptor: {seg_descr}')
 
                 break
 

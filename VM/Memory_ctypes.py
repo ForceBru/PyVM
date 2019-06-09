@@ -87,21 +87,21 @@ class Memory:
             raise MemoryError(f"Memory.get_eip: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
 
         if size == 4:
-            ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
+            ret = self.types[size].from_address(self.base + offset).value
 
             if not signed:
                 return ret
 
             return ret if ret < 2147483648 else ret - 4294967296
         elif size == 2:
-            ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
+            ret = self.types[size].from_address(self.base + offset).value
 
             if not signed:
                 return ret
 
             return ret if ret < 32768 else ret - 65536
         elif size == 1:
-            ret = self.mem[self.__segment_base + offset]
+            ret = self.mem[offset]
 
             if not signed:
                 return ret

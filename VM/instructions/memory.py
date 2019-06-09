@@ -121,12 +121,12 @@ class MOV(Instruction):
             data = vm.reg.get(0, sz)
             vm.mem.set(loc, sz, data)
 
-            logger.debug('mov moffs %s, %s=0x%x', hex(loc), reg_names[0][sz], data)
+            logger.debug('mov moffs 0x%08x, %s=0x%x', loc, reg_names[0][sz], data)
         else:
             data = vm.mem.get(loc, sz)
             vm.reg.set(0, sz, data)
 
-            logger.debug('mov %s, moffs %s=0x%x', reg_names[0][sz], hex(loc), data)
+            logger.debug('mov %s, moffs 0x%08x=0x%x', reg_names[0][sz], loc, data)
 
         return True
 
@@ -505,7 +505,7 @@ class LEA(Instruction):
         data = tmp
         vm.reg.set(R[1], vm.operand_size, data)
 
-        logger.debug('lea %s, %s == %08x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
+        logger.debug('lea %s, %s == 0x%08x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
 
         return True
 

@@ -542,4 +542,4 @@ class HLT(Instruction):
         }
 
     def hlt(vm):
-        raise RuntimeError(f'HALT @ 0x{vm.eip:08X}')
+        raise RuntimeError(f'HALT @ 0x{vm.eip - 1:08x}')  # Subtract 1 because EIP points to the NEXT opcode

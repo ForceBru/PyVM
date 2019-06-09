@@ -78,7 +78,7 @@ class _FPU_DEPFP(ctypes.LittleEndianStructure):  # Double Extended-Precision Flo
     _fields_ = [
         ('sign', ubyte, 1),
         ('exponent', uword, 15),
-        ('significand', udword)
+        ('significand', uqword)
     ]
 
 
