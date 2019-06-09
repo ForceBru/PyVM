@@ -65,18 +65,20 @@ class SyscallsMixin_Meta(type):
 
 class SyscallsMixin(metaclass=SyscallsMixin_Meta):
     def __read_string(self, address: int):
+        # TODO: maybe use `ctypes.string_at`?
+
         ret = bytearray()
         
-        byte, = self.mem.get(address, 1)
+        byte = self.mem.get(address, 1)
         while byte != 0:
             ret.append(byte)
             address += 1
-            byte, = self.mem.get(address, 1)
+            byte = self.mem.get(address, 1)
             
         return ret
 
     def __return(self, value: int):
-        self.reg.set4(0, value)
+        self.reg.eax = value
 
     def __args(self, types: str):
         """
@@ -93,6 +95,9 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
     def sys_exit(self, code=0x01):
         code, = self.__args('s')
 
+        # deallocate memory
+        self.mem.program_break = self.code_segment_end
+
         self.descriptors[2].write(f'[!] Process exited with code {code}\n')
         self.RETCODE = code
         self.running = False
@@ -100,12 +105,19 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
     def sys_read(self, code=0x03):
         fd, data_addr, count = self.__args('uuu')
 
+        logger.info('sys_read(unsigned int fd = %u, char *dest = 0x%08x, size_t count = %u)', fd, data_addr, count)
+
         try:
             data = os.read(self.descriptors[fd].fileno(), count)
         except (AttributeError, UnsupportedOperation):
             data = (self.descriptors[fd].read(count) + '\n').encode('ascii')
+        except:
+            logger.info('\tsys_read: [ERR] failed to read %u bytes from descriptor %u', count, fd)
 
-        logger.info('sys_read(%d, 0x%08x(%s), %d)', fd, data_addr, data, count)
+            return self.__return(-1)
+
+        logger.info('\tsys_read: [SUCC] read %r from fd %u', data, fd)
+
         l = len(data)
         self.mem.set_bytes(data_addr, l, data)
 
@@ -140,39 +152,32 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         '''
         brk, = self.__args('u')
 
-        min_brk = self.code_segment_end
-
         logger.info('sys_brk(unsigned long brk = %u)', brk)
+
+        min_brk = self.code_segment_end
 
         if brk < min_brk:
             logger.info(
-                'SYS_BRK: invalid break: 0x%08x < 0x%08x; return 0x%08x',
+                '\tsys_brk: [SUCC] invalid break: 0x%08x < 0x%08x; return 0x%08x',
                 brk, min_brk, self.mem.program_break
             )
 
-            # error
             return self.__return(self.mem.program_break)
 
         newbrk = brk
         oldbrk = self.mem.program_break
 
         if oldbrk == newbrk:
-            logger.info(
-                'SYS_BRK: not changing break: 0x%08x == 0x%08x',
-                oldbrk, newbrk
-            )
+            logger.info('\tsys_brk: [SUCC] not changing break: 0x%08x == 0x%08x', oldbrk, newbrk)
 
-            # success
             return self.__return(self.mem.program_break)
 
         self.mem.program_break = brk
 
-        logger.info(
-            'SYS_BRK: changing break: 0x%08x -> 0x%08x (%+d bytes)',
+        logger.info('\tsys_brk: [SUCC] changing break: 0x%08x -> 0x%08x (%+d bytes)',
             oldbrk, self.mem.program_break, self.mem.program_break - oldbrk
         )
 
-        # success
         self.__return(self.mem.program_break)
 
     def sys_set_thread_area(self, code=0xf3):
@@ -534,12 +539,148 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         int open(const char *pathname, int flags, mode_t mode);
         """
 
-        pathname_addr, flags, mode = self.__args('uuu')
+        import enum, os
+
+        class O_MODE(enum.IntFlag):
+            """
+            File access modes.
+            See: https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/fcntl.h
+            """
+            O_ACCMODE	= 0o00000003
+            O_RDONLY	= 0o00000000
+            O_WRONLY	= 0o00000001
+            O_RDWR		= 0o00000002
+            O_CREAT		= 0o00000100  # not fcntl
+            O_EXCL		= 0o00000200  # not fcntl
+            O_NOCTTY	= 0o00000400  # not fcntl
+            O_TRUNC		= 0o00001000  # not fcntl
+            O_APPEND	= 0o00002000
+            O_NONBLOCK	= 0o00004000
+            O_DSYNC		= 0o00010000  # used to be O_SYNC, see below
+            FASYNC		= 0o00020000  # fcntl, for BSD compatibility
+            O_DIRECT	= 0o00040000  # direct disk access hint
+            O_LARGEFILE	= 0o00100000
+            O_DIRECTORY	= 0o00200000  # must be a directory
+            O_NOFOLLOW	= 0o00400000  # don't follow links
+            O_NOATIME	= 0o01000000
+            O_CLOEXEC	= 0o02000000  # set close_on_exec
+
+            _O_SYNC    = 0o04000000
+            O_SYNC		= (_O_SYNC | O_DSYNC)
+            O_PATH		= 0o010000000
+
+            _O_TMPFILE = 0o020000000
+            # a horrid kludge trying to make sure that this will fail on old kernels
+            O_TMPFILE   = (_O_TMPFILE | O_DIRECTORY)
+            O_TMPFILE_MASK = (_O_TMPFILE | O_DIRECTORY | O_CREAT)
+
+        def open_file(name: str, mode: str):
+            # find empty descriptor, starting from 3
+            descriptor = -1
+            for descr, file in enumerate(self.descriptors):
+                if file is None:
+                    # found empty descriptor
+                    # print('found empty descriptor')
+                    descriptor = descr
+                    break
+
+            if descriptor == -1:  # no empty descriptors found
+                descriptor = len(self.descriptors)
+                # print(f'opening new descriptor: {descriptor}')
+                self.descriptors.append(open(name, mode))
+            else:
+                # print(f'reusing existing descriptor: {descriptor}')
+                self.descriptors[descriptor] = open(name, mode)
+
+            return descriptor
+
+        pathname_addr, flags, mode = self.__args('usu')
 
         pathname = self.__read_string(pathname_addr).decode()
-        logger.debug(f'sys_open(const char *pathname=%r, int flags=%d, mode_t mode=%d)', pathname, flags, mode)
+        flags = O_MODE(flags)
+        mode = O_MODE(mode)
+        logger.info('sys_open(const char *pathname=%r, int flags=%s, mode_t mode=%s)', pathname, flags, mode)
 
-        self.__return(-1)
+        if flags & O_MODE.O_RDONLY:
+            if not os.path.exists(pathname):
+                return self.__return(-1)
+
+            descr = open_file(pathname, 'r')
+            logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)
+
+            return self.__return(descr)
+        elif flags & O_MODE.O_WRONLY:
+            if flags & O_MODE.O_TRUNC:
+                descr = open_file(pathname, 'w')
+            else:
+                descr = open_file(pathname, 'x')
+
+            logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)
+
+            return self.__return(descr)
+        elif flags & O_MODE.O_RDWR:
+            descr = open_file(pathname, 'r+')
+
+            logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)
+
+            return self.__return(descr)
+        elif flags & O_MODE.O_LARGEFILE:  # open for reading?
+            if pathname.startswith('/etc'):
+                return self.__return(-1)
+
+            descr = open_file(pathname, 'r')
+            logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)
+
+            return self.__return(descr)
+        else:
+            # TODO: do not know what to do with these yet...
+
+            logger.info('\tsys_open: [ERR] %s do not know how to open', flags)
+            return self.__return(-1)
+
+    def sys_close(self, code=0x06):
+        """
+        sys_close(unsigned int fd)
+        """
+
+        fd, = self.__args('u')
+
+        logger.info('sys_close(unsigned int fd = %u)', fd)
+
+        if fd >= len(self.descriptors):
+            logger.info('\tsys_close: [ERR] descriptor %u not found', fd)
+            return self.__return(-1)  # error
+
+        if self.descriptors[fd] is None:  #self.descriptors[fd].closed:
+            logger.info('\tsys_close: [ERR] descriptor %u already closed', fd)
+            return self.__return(-1)  # error
+
+        self.descriptors[fd].close()
+        self.descriptors[fd] = None
+
+        logger.info('\tsys_close: [SUCC] descriptor %u closed', fd)
+
+        self.__return(0)
+
+    def sys_unlink(self, code=0x0a):
+        """
+        int sys_unlink(const char * pathname)
+        """
+
+        pathname_addr, = self.__args('u')
+        pathname = self.__read_string(pathname_addr).decode()
+
+        logger.info('sys_unlink(const char * pathname = %r)', pathname)
+
+        try:
+            ret = os.unlink(pathname)
+        except OSError:
+            ret = -1
+            logger.info('\tsys_unlink: [ERR] failed to unlink %r', pathname)
+        else:
+            logger.info('\tsys_unlink: [SUCC] unlinked %r', pathname)
+
+        self.__return(ret)
 
     def sys_mmap_pgoff(self, code=0xc0):
         """
@@ -571,25 +712,43 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         flags = MAP_FLAGS(flags)
         prot = MAP_PROT(prot)
 
-        logger.debug(
+        logger.info(
             'mmap(void *addr=0x%08x, size_t length=%d, int prot=%s, int flags=%s, int fd=%d, off_t offset=%d)',
             addr, length, str(prot), str(flags), fd, -1
         )
 
         if flags & MAP_FLAGS.MAP_ANONYMOUS:
             # TODO: Do something with protection?
-            old_brk = self.mem.program_break
+            old_brk = self.mem.memset(self.mem.program_break, 0, length)
             self.mem.program_break += length
 
-            logger.debug(
-                'mmap: allocated %d bytes', length
-            )
+            logger.info('\tmmap: [SUCC] allocated %d bytes', length)
 
             return self.__return(old_brk)
 
         # TODO: mmap with file descriptors?
 
+        logger.info('\tmmap: [ERR] unsupported call!')
+
         self.__return(-1)
+
+    def sys_munmap(self, code=0x5b):
+        """
+        int munmap(void *addr, size_t length);
+        """
+
+        addr, length = self.__args('uu')
+
+        logger.info('sys_munmap(void *addr = 0x%08x, size_t length = %u)', addr, length)
+
+        if addr + length == self.mem.program_break:
+            logger.info('\tsys_munmap: [SUCC] simple unmap')
+            self.mem.program_break = addr
+        else:
+            logger.info('\tsys_munmap: [ERR] cannot simply unmap because %d bytes will be left', self.mem.program_break - (addr + length))
+
+        logger.info('\tsys_munmap: [SUCC] returning success anyway')
+        self.__return(0)
 
     def sys_rt_gprocmask(self, code=0xaf):
         """
@@ -716,8 +875,9 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         import time
 
-        sec, nsec = divmod(time.time_ns(), 1_000_000_000)
+        time_nanoseconds = time.time_ns()
+        sec, nsec = time_nanoseconds // 1_000_000_000, time_nanoseconds % 1_000_000_000
 
-        self.mem.set(tp_addr, struct_timespec.pack(sec, nsec))
+        self.mem.set_bytes(tp_addr, struct_timespec.size, struct_timespec.pack(sec, nsec))
 
         self.__return(0)

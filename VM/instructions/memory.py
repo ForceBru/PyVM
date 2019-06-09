@@ -576,8 +576,8 @@ class CMPXCHG(Instruction):
 
         type, loc, _ = RM
 
-        a = to_int(vm.reg.get(0, sz))  # AL/AX/EAX
-        b = to_int((vm.mem if type else vm.reg).get(loc, sz))
+        a = vm.reg.get(0, sz)  # AL/AX/EAX
+        b = (vm.mem if type else vm.reg).get(loc, sz)
 
         # BEGIN compare a and b
         c = a + MAXVALS[sz] + 1 - b
@@ -586,29 +586,25 @@ class CMPXCHG(Instruction):
         sign_b = (b >> (sz * 8 - 1)) & 1
         sign_c = (c >> (sz * 8 - 1)) & 1
 
-        vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-        vm.reg.eflags_set(Reg32.CF, b > a)
-        vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
-
-        vm.reg.eflags_set(Reg32.SF, sign_c)
+        vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+        vm.reg.eflags.CF = b > a
+        vm.reg.eflags.AF = (b & 255) > (a & 255)
+        vm.reg.eflags.SF = sign_c
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
-
-        c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags.ZF = c == 0
+        vm.reg.eflags.PF, parity(c)
         # END compare a and b
 
         accumulator, temp = a, b
 
-        if vm.reg.eflags_get(Reg32.ZF):
-            (vm.mem if type else vm.reg).set(loc, vm.reg.get(R[1], sz))
+        if vm.reg.eflags.ZF:
+            (vm.mem if type else vm.reg).set(loc, sz, vm.reg.get(R[1], sz))
         else:
-            _temp = temp.to_bytes(sz, byteorder)
-            vm.reg.set(0, _temp)
-            (vm.mem if type else vm.reg).set(loc, _temp)
+            #_temp = temp.to_bytes(sz, byteorder)
+            vm.reg.set(0, sz, temp)
+            (vm.mem if type else vm.reg).set(loc, sz, temp)
 
         return True
 

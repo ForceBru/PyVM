@@ -1,4 +1,4 @@
-from ctypes import addressof, pointer, memmove
+from ctypes import addressof, pointer, memmove, memset
 from .ctypes_types import ubyte, uword, udword
 
 __all__ = 'Memory',
@@ -17,10 +17,20 @@ class Memory:
         self.__segment_base = 0
 
         self.size = memsz
-        self.program_break = 0
+        self.__program_break = 0
 
         if segment_registers is not None:
             self.segment_override = self.__segment_override_number
+
+    @property
+    def program_break(self) -> int:
+        return self.__program_break
+
+    @program_break.setter
+    def program_break(self, value: int) -> None:
+        # print(f'Changing program break: 0x{self.__program_break:08x} => 0x{value:08x}')
+
+        self.__program_break = value
 
     @property
     def size(self):
@@ -53,24 +63,15 @@ class Memory:
         if size == 4:
             ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
 
-            if not signed:
-                return ret
-
-            return ret if ret < 2147483648 else ret - 4294967296
+            return ret if not signed else (ret if ret < 2147483648 else ret - 4294967296)
         elif size == 2:
             ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
 
-            if not signed:
-                return ret
-
-            return ret if ret < 32768 else ret - 65536
+            return ret if not signed else (ret if ret < 32768 else ret - 65536)
         elif size == 1:
             ret = self.mem[self.__segment_base + offset]
 
-            if not signed:
-                return ret
-
-            return ret if ret < 128 else ret - 256
+            return ret if not signed else (ret if ret < 128 else ret - 256)
 
         raise ValueError(
             f'Memory.get(offset={offset:08x}, size={size}): invalid size, please use Memory.get_bytes instead'
@@ -89,29 +90,23 @@ class Memory:
         if size == 4:
             ret = self.types[size].from_address(self.base + offset).value
 
-            if not signed:
-                return ret
-
-            return ret if ret < 2147483648 else ret - 4294967296
+            return ret if not signed else (ret if ret < 2147483648 else ret - 4294967296)
         elif size == 2:
             ret = self.types[size].from_address(self.base + offset).value
 
-            if not signed:
-                return ret
-
-            return ret if ret < 32768 else ret - 65536
+            return ret if not signed else (ret if ret < 32768 else ret - 65536)
         elif size == 1:
             ret = self.mem[offset]
 
-            if not signed:
-                return ret
-
-            return ret if ret < 128 else ret - 256
+            return ret if not signed else (ret if ret < 128 else ret - 256)
 
         return bytes(self.mem[offset:offset + size])
 
-    #def set_addr(self, offset: int, size: int, addr: int) -> None:
-    #    memmove(self.base + offset, addr, size)
+    def memset(self, offset: int, value: int, count: int) -> int:
+        return memset(self.base + offset, value, count) - self.base
+
+    # def set_addr(self, offset: int, size: int, addr: int) -> None:
+    #     memmove(self.base + offset, addr, size)
 
     def set_bytes(self, offset: int, size: int, val: bytes) -> None:
         if self.__segment_base + offset + size > self.__size or offset < 0:
