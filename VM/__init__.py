@@ -2,11 +2,10 @@ import sys
 
 from .CPU import CPU32
 from .kernel import SyscallsMixin
+from .fetchLoop import FetchLoopMixin, ExecuteBytes, ExecuteFlat, ExecuteELF, ExecutionStrategy
 
 
-class VM(CPU32, SyscallsMixin):
-    # TODO: this stuff looks ugly, refactor it
-    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, execute_elf
+class VM(CPU32, SyscallsMixin, FetchLoopMixin):
     from .misc import process_ModRM
 
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
@@ -36,3 +35,14 @@ class VM(CPU32, SyscallsMixin):
             syscall_impl()
         else:
             raise RuntimeError(f'Interrupt 0x{code:02x} is not supported yet')
+
+
+class VMKernel(VM, ExecuteELF, ExecuteBytes, ExecuteFlat):
+    def execute(self, strategy: ExecutionStrategy, *args, **kwargs):
+        bases = {
+            ExecutionStrategy.BYTES: ExecuteBytes,
+            ExecutionStrategy.FLAT: ExecuteFlat,
+            ExecutionStrategy.ELF: ExecuteELF
+        }
+
+        return bases[strategy].execute(self, *args, **kwargs)
