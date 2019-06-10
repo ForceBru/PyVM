@@ -1,15 +1,14 @@
 import logging
 import os
 import struct
+from ctypes import LittleEndianStructure, c_uint32, sizeof
 
-from .util import segment_descriptor_struct
+from io import UnsupportedOperation
 
 logger = logging.getLogger(__name__)
 
 struct_iovec = struct.Struct('<II')
 struct_user_desc = struct.Struct('<ILIBH4B')
-
-from ctypes import LittleEndianStructure, c_uint32, sizeof
 
 udword = c_uint32.__ctype_le__
 
@@ -43,8 +42,6 @@ class structUserDesc(LittleEndianStructure):
 };""" % (self.entry_number, self.base_addr, self.limit, self.seg_32bit, self.contents,
          self.read_exec_only, self.limit_in_pages, self.seg_not_present, self.useable)
 
-from io import UnsupportedOperation
-
 
 class SyscallsMixin_Meta(type):
     def __new__(cls, name, bases, dict):
@@ -64,18 +61,8 @@ class SyscallsMixin_Meta(type):
 
 
 class SyscallsMixin(metaclass=SyscallsMixin_Meta):
-    def __read_string(self, address: int):
-        # TODO: maybe use `ctypes.string_at`?
-
-        ret = bytearray()
-        
-        byte = self.mem.get(address, 1)
-        while byte != 0:
-            ret.append(byte)
-            address += 1
-            byte = self.mem.get(address, 1)
-            
-        return ret
+    def __read_string(self, address: int) -> bytes:
+        return self.mem.kernel_read_string(address)
 
     def __return(self, value: int):
         self.reg.eax = value
@@ -90,13 +77,23 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         registers = [3, 1, 2, 6, 7]  # ebx, ecx, edx, esi, edi
 
-        return [self.reg.get(reg, 4) for reg, type in zip(registers, types)]
+        return (self.reg.get(reg, 4, signed=type == 's') for reg, type in zip(registers, types))
 
     def sys_exit(self, code=0x01):
         code, = self.__args('s')
 
         # deallocate memory
+        logger.info('sys_exit: deallocating memory...')
         self.mem.program_break = self.code_segment_end
+
+        logger.info('sys_exit: closing file descriptors...')
+        for i, descr in enumerate(self.descriptors[3:], 3):
+            if descr is not None:
+                if not descr.closed:
+                    self.descriptors[i].close()
+                self.descriptors[i] = None
+
+        self.descriptors = list(filter(None, self.descriptors))
 
         self.descriptors[2].write(f'[!] Process exited with code {code}\n')
         self.RETCODE = code
@@ -619,6 +616,9 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
             return self.__return(descr)
         elif flags & O_MODE.O_RDWR:
+            if pathname == '/dev/tty':
+                return self.__return(0)  # TODO: what to do with TTYs?
+
             descr = open_file(pathname, 'r+')
 
             logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)

@@ -1,4 +1,4 @@
-from ctypes import addressof, pointer, memmove, memset
+from ctypes import addressof, pointer, memmove, memset, string_at
 from .ctypes_types import ubyte, uword, udword
 
 __all__ = 'Memory',
@@ -82,6 +82,9 @@ class Memory:
             raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
 
         return bytes(self.mem[self.__segment_base + offset:self.__segment_base + offset + size])
+
+    def kernel_read_string(self, offset: int, size=-1) -> bytes:
+        return string_at(self.base + offset, size)
 
     def get_eip(self, offset: int, size: int, signed=False) -> int:
         if offset + size > self.__size or offset < 0:

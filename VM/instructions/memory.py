@@ -457,9 +457,9 @@ class POP(Instruction):
 
         data = vm.stack_pop(sz)
 
-        (vm.mem if type else vm.reg).set(loc, data)
+        (vm.mem if type else vm.reg).set(loc, sz, data)
 
-        logger.debug('pop %s := %s', hex(loc) if type else reg_names[loc][sz], data.hex())
+        logger.debug('pop %s := 0x%x', hex(loc) if type else reg_names[loc][sz], data)
 
         return True
 
