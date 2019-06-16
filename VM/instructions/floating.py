@@ -1,70 +1,40 @@
-from ..debug import *
 from ..util import Instruction, byteorder
 
 from functools import partialmethod as P
-import struct  # for float packing/unpacking
 
 import logging
 logger = logging.getLogger(__name__)
-
-__fmt = {'little': '<', 'big': '>'}[byteorder]
-FPACK32 = struct.Struct(__fmt + 'f')
-FPACK64 = struct.Struct(__fmt + 'd')
-
-
-def ConvertToDoubleExtendedPrecisionFP(SRC: bytes) -> bytes:
-    if len(SRC) == FPACK64.size:
-        return SRC
-
-    unp, = FPACK32.unpack(SRC)
-    return FPACK64.pack(unp)
-
-
-def DoubleToFloat(SRC: bytes) -> bytes:
-    flt, = FPACK64.unpack(SRC)
-    return FPACK32.pack(flt)
 
 
 class FLD(Instruction):
     def __init__(self):
         self.opcodes = {
-            0xD9: P(self.m_fp, bits=32),
-            0xDD: P(self.m_fp, bits=64),
-            # 0xDB: P(self.m_fp, bits=80),
+            0xD9: P(self.m_fp, bits=32, REG=0),
+            0xDD: P(self.m_fp, bits=64, REG=0),
+            0xDB: P(self.m_fp, bits=80, REG=5),
             **{
                 0xD9C0 + i: P(self.m_st, i=i)
                 for i in range(8)
             }
         }
 
-    def m_fp(vm, bits: int):
-        old_eip = vm.eip
+    def m_fp(vm, bits: int, REG: int):
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        _REG = (ModRM & 0b00111000) >> 3
+
+        if _REG != REG:
+            return False
 
         sz = vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz)
 
-        if bits in (32, 64):
-            if R[1] != 0:
-                vm.eip = old_eip
-                return False
-        else:
-            if R[1] != 5:
-                vm.eip = old_eip
-                return False
+        _, loc, _ = RM
 
-        type, loc, _ = RM
+        flt80 = vm.mem.get_float_eip(loc, bits)
 
-        _data = (vm.mem if type else vm.reg).get(loc, bits // 8)
+        vm.fpu.push(flt80)
 
-        data = ConvertToDoubleExtendedPrecisionFP(_data)
-
-        flt, = (FPACK32 if bits == 32 else FPACK64).unpack(_data)
-        logger.debug('fld%d %s == %f', bits // 8, data.hex(), flt)
-        # if debug:
-        # flt, = (FPACK32 if bits == 32 else FPACK64).unpack(_data)
-        # print(f"fld{bits//8} {data} ({flt})")
-
-        vm.freg.push(data)
+        logger.debug('fld%d 0x%08x = %s', bits // 8, loc, flt80)
 
         return True
 
@@ -79,13 +49,20 @@ class FLD(Instruction):
         return True
 
 
-# FST / FSTP / FIST / FISTP
+# FST / FSTP
 class FST(Instruction):
     def __init__(self):
         self.opcodes = {
-            0xD9: P(self.m_fp, bits=32),  # fst m32fp / fstp32fp
-            0xDD: P(self.m_fp, bits=64),  # fst m64fp / fstp64fp
-            # 0xDB: P(self.m_fp, bits=80),
+            0xD9: [
+                P(self.m_fp, bits=32, REG=2),    # FST m32fp
+                P(self.m_fp, bits=32, REG=3),    # FSTP m32fp
+            ],
+            0xDD: [
+                P(self.m_fp, bits=64, REG=2),    # FSTP m32fp
+                P(self.m_fp, bits=64, REG=3),    # FSTP m64fp
+            ],
+            0xDB: P(self.m_fp, bits=80, REG=7),  # FSTP m80fp
+
             **{
                 0xDDD0 + i: P(self.st, i=i, pop=False)
                 for i in range(8)
@@ -93,41 +70,28 @@ class FST(Instruction):
             **{
                 0xDDD8 + i: P(self.st, i=i, pop=True)
                 for i in range(8)
-            },
-
-            0xDF: P(self.m_int, bits=0),  # fistp (m16int / m64int)
-            0xDB: P(self.m_int, bits=32), # fistp m32int
+            }
         }
 
-    def m_fp(vm, bits: int):
-        old_eip = vm.eip
+    def m_fp(vm, bits: int, REG: int):
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        _REG = (ModRM & 0b00111000) >> 3
+
+        if _REG != REG:
+            return False
 
         RM, R = vm.process_ModRM(vm.operand_size)
-        type, loc, _ = RM
+        _, loc, _ = RM
 
-        # _sz = vm.freg.allowed_sizes[0]
-        # data = vm.freg.registers[:_sz]  # get ST(0)
+        data = vm.fpu.ST(0)
+
+        vm.mem.set_float(loc, bits // 8, data)
 
         if R[1] == 2:
-            data = vm.freg.ST0
-            if bits == 32:
-                data = DoubleToFloat(data)
-
-            logger.debug('fst 0x%x := %s', loc, data[:bits // 8].hex())
-            # if debug: print(f"fst {data} -> 0x{loc:02X}")
-            (vm.mem if type else vm.reg).set(loc, data[:bits // 8])
-        elif R[1] == 3:
-            data = vm.freg.ST0
-            if bits == 32:
-                data = DoubleToFloat(data)
-
-            logger.debug('fstp 0x%x := %s', loc, data[:bits // 8].hex())
-            # if debug: print(f"fstp {data} -> 0x{loc:02X}")
-            (vm.mem if type else vm.reg).set(loc, data[:bits // 8])
-            vm.freg.pop()  # TOP may not equal 0
+            logger.debug('fst 0x%08x := %s', loc, data)
         else:
-            vm.eip = old_eip
-            return False
+            vm.fpu.pop()
+            logger.debug('fstp 0x%08x := %s', loc, data)
 
         return True
 
@@ -150,50 +114,43 @@ class FST(Instruction):
 
         return True
 
-    def m_int(vm, bits: int):
-        old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(vm.operand_size)
+# FIST / FISTP
+class FIST(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0xDF: [
+                P(self.fist, size=2, REG=2),  # FIST m16int
+                P(self.fist, size=2, REG=3),  # FISTP m16int
+                P(self.fist, size=8, REG=7),  # FISTP m64int
+            ],
+            0xDB: [
+                P(self.fist, size=4, REG=2),  # FIST m32int
+                P(self.fist, size=4, REG=3),  # FISTP m32int
+            ]
+        }
 
-        do_pop = None
-        if bits == 0:
-            if R[1] == 2:
-                bits, do_pop = 16, False
-            elif R[1] == 3:
-                bits, do_pop = 16, True
-            elif R[1] == 7:
-                bits, do_pop = 64, True
-            else:
-                return False
+    def fist(vm, size: int, REG: int) -> bool:
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        _REG = (ModRM & 0b00111000) >> 3
+
+        if _REG != REG:
+            return False
+
+        RM, R = vm.process_ModRM(0)
+        _, loc, _ = RM
+
+        SRC = int(vm.fpu.ST(0))
+
+        vm.mem.set(loc, size, SRC)
+
+        if REG != 2:
+            vm.fpu.pop()
+            logger.debug('fistp 0x%08x := %d', loc, SRC)
         else:
-            if R[1] == 2:
-                do_pop = False
-            elif R[1] == 3:
-                do_pop = True
-            else:
-                return False
-
-        assert do_pop is not None
-
-        logger.debug('fistp 0x%x (ctrl=0x%x)', -1, vm.freg.control)
-        # if debug: print("{} 0x{:02x} (ctrl={:019_b})".format('fistp', -1, vm.freg.control))
-
-        ST0 = vm.freg.ST0
-        ST0, = FPACK64.unpack(ST0)
-
-        ST0_int = int(ST0)
-
-        #print(f"FISTP Got float: {ST0}")
-
-        type, loc, _ = RM
-        (vm.mem if type else vm.reg).set(loc, ST0_int.to_bytes(bits // 8, byteorder))
-
-        if do_pop:
-            vm.freg.pop()
+            logger.debug('fist 0x%08x := %d', loc, SRC)
 
         return True
-
-
 
 
 # FMUL/FMULP/FIMUL
@@ -206,19 +163,11 @@ class FMUL(Instruction):
             }
         }
 
-    def fmulp(vm, i: int):
-        _SRC, _DST = vm.freg._get_st(i), vm.freg.ST0
+    def fmulp(vm, i: int) -> True:
+        res = vm.fpu.mul(i, 0)
+        vm.fpu.pop()
 
-        SRC, = FPACK64.unpack(_SRC)
-        DST, = FPACK64.unpack(_DST)
-
-        RET = SRC * DST
-
-        logger.debug('fmulp (%s == %f), (%s == %f)', _DST.hex(), DST, _SRC.hex(), SRC)
-        # if debug: print(f"fmulp {_SRC}({SRC}) * {_DST}({DST}) = {RET}")
-
-        vm.freg._set_st(i, FPACK64.pack(RET))
-        vm.freg.pop()
+        logger.debug('fmulp (ST(%d) = %s)', i + 1, res)
 
         return True
 
@@ -233,21 +182,12 @@ class FADD(Instruction):
             }
         }
 
-    def faddp(vm, i: int):
-        _SRC, _DST = vm.freg._get_st(i), vm.freg.ST0
+    def faddp(vm, i: int) -> True:
+        res = vm.fpu.add(i, 0)
 
-        # if debug: print(f"Add: {_SRC} + {_DST}")
+        logger.debug('faddp ST(%d), ST(0) (ST(%d) := %s)', i, i + 1, res)
 
-        SRC, = FPACK64.unpack(_SRC)
-        DST, = FPACK64.unpack(_DST)
-
-        RET = SRC + DST
-
-        logger.debug('faddp (%s == %f), (%s == %f)', _SRC.hex(), SRC, _DST.hex(), DST)
-        if debug: print(f"Add result: {RET}")
-
-        vm.freg._set_st(i, FPACK64.pack(RET))
-        vm.freg.pop()
+        vm.fpu.pop()
 
         return True
 
@@ -256,13 +196,18 @@ class FDIV(Instruction):
     def __init__(self):
         self.opcodes = {
             **{
-                0xDEF8 + i: P(self.fdivp, i=i)
+                0xD8F0 + i: P(self.fdiv, i=i, reverse=True)
                 for i in range(8)
             },
             **{
-                0xD8F0 + i: P(self.fdiv, i=i, reverse=False)
+                0xDCF8 + i: P(self.fdiv, i=i, reverse=False)
                 for i in range(8)
-            }
+            },
+
+            **{
+                0xDEF8 + i: P(self.fdivp, i=i)
+                for i in range(8)
+            },
         }
 
     def fdiv(vm, i: int, reverse: bool):
@@ -272,40 +217,20 @@ class FDIV(Instruction):
         :param reverse: If `False`, compute ST0 = ST0 / STi, otherwise STi = STi / ST0
         :return:
         """
-
-        STi, ST0 = vm.freg._get_st(i), vm.freg.ST0
-
-        STi, = FPACK64.unpack(STi)
-        ST0, = FPACK64.unpack(ST0)
-
-        if debug: print("Dividing ST{} ({}) by ST{} ({})".format(0 if not reverse else i,
-                                                             ST0 if not reverse else STi,
-                                                             0 if reverse else i,
-                                                             ST0 if reverse else STi,
-                                                             ), end='')
-
-        RET = (ST0 / STi) if not reverse else (STi / ST0)
-        if debug: print(f' = {RET}')
-        RET = FPACK64.pack(RET)
-
-        vm.freg._set_st(0 if not reverse else i, RET)
+        if reverse:
+            res = vm.fpu.div(0, i)
+            logger.debug('fdiv ST(0), ST(%d) (ST(0) := %s)', i, res)
+        else:
+            res = vm.fpu.div(i, 0)
+            logger.debug('fdiv ST(%d), ST(0) (ST(%d) := %s)', i, i, res)
 
         return True
 
-
     def fdivp(vm, i: int):
-        SRC, DST = vm.freg._get_st(i), vm.freg.ST0
+        res = vm.fpu.div(i, 0)
+        vm.fpu.pop()
 
-        if debug: print(f"Div: {SRC} / {DST}")
-
-        SRC, = FPACK64.unpack(SRC)
-        DST, = FPACK64.unpack(DST)
-
-        RET = SRC / DST
-        if debug: print(f"Div  result: {RET}")
-
-        vm.freg._set_st(i, FPACK64.pack(RET))
-        vm.freg.pop()
+        logger.debug('fdivp ST(%d), ST(0) (ST(%d) := %s)', i, i + 1, res)
 
         return True
 
@@ -316,20 +241,20 @@ class FLDCW(Instruction):
             0xD9: self.m2byte
         }
 
-    def m2byte(vm):
-        old_eip = vm.eip
+    def m2byte(vm, REG=5) -> bool:
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        _REG = (ModRM & 0b00111000) >> 3
+
+        if _REG != REG:
+            return False
 
         RM, R = vm.process_ModRM(vm.operand_size)
 
-        if R[1] != 5:
-            vm.eip = old_eip
-            return False
+        _, loc, _ = RM
+        control = vm.mem.get(loc, 2)
+        vm.fpu.control.value = control
 
-        type, loc, _ = RM
-        control = (vm.mem if type else vm.reg).get(loc, 2)
-        vm.freg.control = int.from_bytes(control, byteorder)
-
-        if debug: print("{} 0x{:02x} (ctrl={:019_b})".format('fldcw', loc, vm.freg.control))
+        logger.debug('fldcw 0x%08x := %04x', loc, control)
 
         return True
 
@@ -342,22 +267,26 @@ class FSTCW(Instruction):
             0x9BD9: P(self.m2byte, check=True)
         }
 
-    def m2byte(vm, check: bool):
-        old_eip = vm.eip
+    def m2byte(vm, check: bool, REG=7) -> bool:
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        _REG = (ModRM & 0b00111000) >> 3
+
+        if _REG != REG:
+            return False
 
         RM, R = vm.process_ModRM(vm.operand_size)
 
-        if R[1] != 7:
-            vm.eip = old_eip
-            return False
+        _, loc, _ = RM
+        vm.mem.set(loc, 2, vm.fpu.control.value)
 
-        type, loc, _ = RM
-
-        if debug: print("{} 0x{:02x} (ctrl={:019_b})".format('fstcw' if check else 'fnstcw', loc, vm.freg.control))
-        control = vm.freg.control.to_bytes(2, byteorder)
-        (vm.mem if type else vm.reg).set(loc, control)
+        if check:
+            # TODO: add check? WTF?
+            logger.debug('fstcw 0x%08x := %02x', loc, vm.fpu.control.value)
+        else:
+            logger.debug('fnstcw 0x%08x := %02x', loc,  vm.fpu.control.value)
 
         return True
+
 
 # FXCH
 class FXCH(Instruction):
@@ -367,13 +296,12 @@ class FXCH(Instruction):
             for i in range(8)
         }
 
-    def fxch(vm, i: int):
-        if debug: print(f'fxch ST{i}')
-        STi, ST0 = vm.freg._get_st(i), vm.freg.ST0
+    def fxch(vm, i: int) -> True:
+        temp = vm.fpu.ST(0)
+        vm.fpu.store(0, vm.fpu.ST(i))
+        vm.fpu.store(i, temp)
 
-        tmp = ST0
-        vm.freg.ST0 = STi
-        vm.freg._set_st(i, tmp)
+        logger.debug('fxch ST(%d)', i)
 
         # also set C1 to 0
         return True

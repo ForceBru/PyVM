@@ -1,7 +1,7 @@
 from .Memory_ctypes import Memory
-from .Registers import FReg32
 from .Registers_ctypes import Reg32, Sreg
 from .util import CPU
+from .FPU import FPU
 
 from . import instructions  # this line MUST be here for the instructions to be loaded correctly
 
@@ -14,7 +14,8 @@ class CPU32(CPU):
 
         self.reg = Reg32()
         self.sreg = Sreg()
-        self.freg = FReg32()
+
+        self.fpu = FPU()
         self.mem = Memory(memsize, self.sreg)  # stack grows downward, user memory - upward
 
         self.eip = 0

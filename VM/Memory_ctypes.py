@@ -1,5 +1,7 @@
 from ctypes import addressof, pointer, memmove, memset, string_at
-from .ctypes_types import ubyte, uword, udword
+
+from .ctypes_types import ubyte, uword, udword, uqword
+from .FPU import flt, dbl, binary80
 
 __all__ = 'Memory',
 
@@ -105,6 +107,14 @@ class Memory:
 
         return bytes(self.mem[offset:offset + size])
 
+    def get_float_eip(self, offset: int, size: int) -> binary80:
+        orig_float = {32: flt, 64: dbl, 80: binary80}[size].from_address(self.base + offset)
+
+        if size == 80:
+            return orig_float
+
+        return binary80.from_float(orig_float.value)
+
     def memset(self, offset: int, value: int, count: int) -> int:
         return memset(self.base + offset, value, count) - self.base
 
@@ -131,3 +141,13 @@ class Memory:
             self.mem[addr:addr + 2] = val & 0xFF, (val >> 8) & 0xFF  # (val & 0xFFFF).to_bytes(2, 'little')
         elif size == 1:
             self.mem[addr] = val
+
+    def set_float(self, offset: int, size: int, val: binary80) -> None:
+        if self.__segment_base + offset + size > self.__size or offset < 0:
+            raise MemoryError(f"Memory.set: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+
+        converted = {4: flt, 8: dbl}[size](float(val))
+
+        addr = self.__segment_base + offset
+
+        self.mem[addr:addr + size] = {4: udword, 8: uqword}[size].from_buffer(converted).value.to_bytes(size, 'little')

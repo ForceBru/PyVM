@@ -70,7 +70,7 @@ class _Eflags(ctypes.Union):
     ]
 
 
-class _Reg32_base(ctypes.Structure):
+class _Reg32_base(ctypes.LittleEndianStructure):
     a = ['reg_' + l for l in REG_LETTERS]
     b = ['reg_' + t for t in REG_TAILS]
 
@@ -84,7 +84,7 @@ class _Reg32_base(ctypes.Structure):
                    for name in b
                ] + [
         ('eflags', _Eflags)
-    ]
+    ][::-1]
 
     del a, b
 
@@ -137,7 +137,7 @@ AVL={self.AVL:1b}, limit2={self.limit_2:04b}, P={self.P:1b}, DPL={self.DPL:02b},
 type={self.type:04b}, base2={self.base_2:08b}, base1={self.base_1:016b}, limit1={self.limit_1:016b})'
 
 
-class Sreg(ctypes.Structure):
+class Sreg(ctypes.LittleEndianStructure):
     """
     Segment registers.
     """

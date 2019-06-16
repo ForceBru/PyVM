@@ -9,6 +9,10 @@ udword = ctypes.c_uint32.__ctype_le__
 uword  = ctypes.c_uint16.__ctype_le__
 ubyte  = ctypes.c_uint8.__ctype_le__
 
+qword = ctypes.c_int64.__ctype_le__
 dword = ctypes.c_int32.__ctype_le__
 word  = ctypes.c_int16.__ctype_le__
 byte  = ctypes.c_int8.__ctype_le__
+
+flt = ctypes.c_float.__ctype_le__
+dbl = ctypes.c_double.__ctype_le__

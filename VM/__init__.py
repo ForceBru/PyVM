@@ -11,7 +11,7 @@ class VM(CPU32, SyscallsMixin, FetchLoopMixin):
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
         super().__init__(int(memsize))
 
-        self.fmt = f'\t[0x%08x]\t%02x'
+        self.fmt = '\t[0x%08x]\t%02x'
 
         self.descriptors = [stdin, stdout, stderr]
         self.GDT = [
