@@ -1,12 +1,15 @@
-from ..util import Instruction, byteorder
-
 from functools import partialmethod as P
+from unittest.mock import MagicMock
+
+from ..util import Instruction
 
 import logging
 logger = logging.getLogger(__name__)
 
 
 class FLD(Instruction):
+    m_st = MagicMock(return_value=False)
+
     def __init__(self):
         self.opcodes = {
             0xD9: P(self.m_fp, bits=32, REG=0),
@@ -38,19 +41,11 @@ class FLD(Instruction):
 
         return True
 
-    def m_st(vm, i: int):
-        raise RuntimeError("Can't load from ST yet!")
-
-        sz = vm.freg.allowed_sizes[0]
-        tmp = vm.freg.registers[-sz * (i + 1): -sz * i]
-
-        vm.freg.registers[:sz] = tmp
-
-        return True
-
 
 # FST / FSTP
 class FST(Instruction):
+    st = MagicMock(return_value=False)
+
     def __init__(self):
         self.opcodes = {
             0xD9: [
@@ -92,25 +87,6 @@ class FST(Instruction):
         else:
             vm.fpu.pop()
             logger.debug('fstp 0x%08x := %s', loc, data)
-
-        return True
-
-    def st(vm, i: int, do_pop: bool):
-        raise RuntimeError("Can't store to ST yet")
-        old_eip = vm.eip
-
-        sz = vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
-        type, loc, _ = RM
-
-        #_sz = vm.freg.allowed_sizes[0]
-        data = vm.freg.ST0#registers[:_sz]  # get ST(0)
-
-        #getattr(self, f"")
-        #vm.freg.registers[(i & 0b111) * _sz: ((i + 1) & 0b111) * _sz] = data
-
-        if do_pop:
-            vm.freg.pop()
 
         return True
 
@@ -172,8 +148,8 @@ class FMUL(Instruction):
         return True
 
 
-# FADD
-class FADD(Instruction):
+# FADDP
+class FADDP(Instruction):
     def __init__(self):
         self.opcodes = {
             **{
@@ -190,6 +166,7 @@ class FADD(Instruction):
         vm.fpu.pop()
 
         return True
+
 
 # FDIV
 class FDIV(Instruction):
@@ -210,7 +187,7 @@ class FDIV(Instruction):
             },
         }
 
-    def fdiv(vm, i: int, reverse: bool):
+    def fdiv(vm, i: int, reverse: bool) -> True:
         """
         Divide register by register.
         :param i:
@@ -226,7 +203,7 @@ class FDIV(Instruction):
 
         return True
 
-    def fdivp(vm, i: int):
+    def fdivp(vm, i: int) -> True:
         res = vm.fpu.div(i, 0)
         vm.fpu.pop()
 
@@ -301,7 +278,8 @@ class FXCH(Instruction):
         vm.fpu.store(0, vm.fpu.ST(i))
         vm.fpu.store(i, temp)
 
+        vm.fpu.status.C1 = 0
+
         logger.debug('fxch ST(%d)', i)
 
-        # also set C1 to 0
         return True

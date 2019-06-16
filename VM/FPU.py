@@ -115,8 +115,32 @@ class _binary80(ctypes.LittleEndianStructure):  # Double Extended-Precision Floa
     BIAS = 16383
 
 
+class FPInvalidArithmeticOperand(Exception):
+    ...
+
+
 class binary80(_binary80):
-    ZERO = lambda: binary80(0, 0, 0)
+    ZERO = lambda sign=0: binary80(0, 0, sign)
+    SNaN = lambda: binary80(  # Signaling Not a Number
+        (0b10 << 62) + 1,
+        0b111111111111111,
+        0
+    )
+    QNaN = lambda: binary80(  # Quiet Not a Number
+        (0b11 << 62) + 1,
+        0b111111111111111,
+        0
+    )
+    FPIn = lambda: binary80(  # Floating-point indefinite (result of invalid calculations, like sqrt(-1))
+        (0b11 << 62),
+        0b111111111111111,
+        0
+    )
+    Inf  = lambda sign=0: binary80(  # Infinity
+        (0b10 << 62),
+        0b111111111111111,
+        sign
+    )
 
     def __str__(self):
         return f'{float(self):+.016f}'
@@ -178,8 +202,33 @@ class binary80(_binary80):
 
         return exponent, significand
 
-    def __is_zero(self):
+    def __is_zero(self) -> bool:
         return self.exponent == 0 and self.significand == 0
+
+    def __is_SNaN(self) -> bool:
+        return self.exponent == 0b111111111111111 and\
+               (self.significand & ((1 << 62) - 1) != 0) and\
+               (self.significand >> 62) == 0b10
+
+    def __is_QNaN(self) -> bool:
+        return self.exponent == 0b111111111111111 and \
+               (self.significand >> 62) == 0b11
+
+    def __is_NaN(self) -> bool:
+        return self.__is_SNaN() or self.__is_QNaN()
+
+    def __is_Inf(self, sign=None) -> bool:
+        """
+        Is infinity?
+        :return:
+        """
+        if sign is None:
+            return self.exponent == 0b111111111111111 and\
+                   (self.significand >> 62) == 0b10 and\
+                   (self.significand & ((1 << 62) - 1) == 0)
+        return self.exponent == 0b111111111111111 and \
+               (self.significand >> 62) == 0b10 and \
+               (self.significand & ((1 << 62) - 1) == 0) and self.sign == sign
 
     def __neg__(self):
         return binary80(self.significand, self.exponent, not self.sign)
@@ -245,14 +294,20 @@ class binary80(_binary80):
         return binary80(S, exponent, sign)
 
     def __truediv__(self, other):
-        if other.__is_zero():
-            # TODO: return infinity
-            raise ZeroDivisionError
-
-        if self.__is_zero():
-            return binary80.ZERO()
+        if self.__is_NaN() or other.__is_NaN():
+            return binary80.SNaN()
 
         sign = self.sign ^ other.sign
+        if self.__is_Inf():
+            if other.__is_Inf():
+                raise FPInvalidArithmeticOperand()
+            return binary80.Inf(sign)
+        elif self.__is_zero():
+            if other.__is_zero():
+                raise FPInvalidArithmeticOperand()
+            return binary80.ZERO(sign)
+        elif other.__is_zero():
+            raise FPInvalidArithmeticOperand()
 
         s1, s2 = self.significand, other.significand
         e1, e2 = self.exponent, other.exponent
@@ -319,9 +374,11 @@ class FPU(_FPU):
 
     def push(self, value: binary80) -> None:
         self.status.TOP -= 1
+        self.status.C1 = self.status.TOP == 7  # set to 1 if stack overflow occurred
+
         self.reg[self.status.TOP] = value
 
-    def push_float(self, value: float) -> None:
+    def _push_float(self, value: float) -> None:
         self.status.TOP -= 1
         self.reg[self.status.TOP] = binary80.from_float(value)
 
@@ -329,9 +386,11 @@ class FPU(_FPU):
         retval = self.reg[self.status.TOP]
         self.status.TOP += 1
 
+        self.status.C1 = self.status.TOP != 0  # set to 0 if stack overflow occurred
+
         return retval
 
-    def pop_float(self) -> float:
+    def _pop_float(self) -> float:
         retval = self.reg[self.status.TOP]
         self.status.TOP += 1
 
@@ -367,17 +426,17 @@ class FPU(_FPU):
 
 if __name__ == '__main__':
     fpu = FPU()
-    fpu.push_float(3.14)
-    fpu.push_float(-3.14)
+    fpu._push_float(3.14)
+    fpu._push_float(-3.14)
     for i in range(2):
         print(f'ST({i}) = {float(fpu.ST(i))}')
 
-    fpu.add()
+    fpu.add(0, 1)
     for i in range(2):
         print(f'ST({i}) = {float(fpu.ST(i))}')
 
-    fpu.mul()
+    fpu.mul(0, 1)
     for i in range(2):
         print(f'ST({i}) = {float(fpu.ST(i))}')
 
-    print(fpu.pop_float())
+    print(fpu._pop_float())
