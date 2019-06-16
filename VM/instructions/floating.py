@@ -33,7 +33,7 @@ class FLD(Instruction):
 
         _, loc, _ = RM
 
-        flt80 = vm.mem.get_float_eip(loc, bits)
+        flt80 = vm.mem.get_float(loc, bits)
 
         vm.fpu.push(flt80)
 

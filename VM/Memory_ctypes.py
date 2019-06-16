@@ -107,7 +107,21 @@ class Memory:
 
         return bytes(self.mem[offset:offset + size])
 
+    def get_float(self, offset: int, size: int) -> binary80:
+        if self.__segment_base + offset + size // 8 > self.__size or offset < 0:
+            raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+
+        orig_float = {32: flt, 64: dbl, 80: binary80}[size].from_address(self.base + self.__segment_base + offset)
+
+        if size == 80:
+            return orig_float
+
+        return binary80.from_float(orig_float.value)
+
     def get_float_eip(self, offset: int, size: int) -> binary80:
+        if offset + size // 8 > self.__size or offset < 0:
+            raise MemoryError(f"Memory.get_eip: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+
         orig_float = {32: flt, 64: dbl, 80: binary80}[size].from_address(self.base + offset)
 
         if size == 80:

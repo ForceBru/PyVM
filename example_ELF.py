@@ -13,8 +13,14 @@ def enable_logging(verbose=False, file=None, level=logging.DEBUG):
         format=FMT_1 if verbose else FMT_2
     )
 
-
 if __name__ == '__main__':
+    enable_logging(level=logging.DEBUG)
+    mem = 0x0017801d
+
+    vm = VM.VMKernel(mem)
+    vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/float_matmul.elf')
+
+if __name__ == '__mai__':
     # enable_logging(level=logging.INFO)
     # enable_logging(level=logging.DEBUG)
     mem = 0x0017801d * 5
