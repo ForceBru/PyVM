@@ -16,8 +16,8 @@ Tests have shown that reimplementing `Registers.Reg32` and `Memory.Memory` using
 
 ------
 
-Intermediate results (commit hashes in parentheses):
- * master (453fb47617f269fd8fa4ebe7c8cb28cc0611ede0) vs CPU_ctypes (1ff1228d68df05fe8eef258ac8a20372172d7b13)
+Intermediate results:
+ * master 453fb47617f269fd8fa4ebe7c8cb28cc0611ede0 vs CPU_ctypes 1ff1228d68df05fe8eef258ac8a20372172d7b13
    
    Benchmark:
    ```python
@@ -47,7 +47,16 @@ Intermediate results (commit hashes in parentheses):
    
    `master` best VS `CPU_ctypes` worst => 1.71 speedup
    
-   `master` average VS `CPU_ctypes` average => **1.80 speedup**
+   `master` average VS `CPU_ctypes` average => 1.80 speedup
+   
+ * master VS CPU_ctypes 831d87b1b081b9d71412246d6d0839844f5df7de
+   ```
+   CPU_ctypes: 20.9989, 21.7070, 22.2221
+   ```
+   
+   `master` best VS `CPU_ctypes` worst => 1.81 speedup
+   
+   `master` average VS `CPU_ctypes` average => **1.88 speedup**
 
 ------
 
@@ -183,9 +192,10 @@ code = """
 binary = bytearray.fromhex(code.strip('\n').replace('\n', ' '))
 
 # initialize the VM with 128 bytes of memory
-vm = VM.VM(128)
+vm = VM.VMKernel(128)
 
-vm.execute_bytes(binary)
+# treat the data as raw bytes
+vm.execute(VM.ExecutionStrategy.BYTES, binary)
 
 # output:
 # Hello, world!
@@ -194,9 +204,9 @@ vm.execute_bytes(binary)
 
 ## TODO
 
-* Add segment registers (almost done)
-* Implement more instructions
-* Add basic memory protection (already possible)
+- [ ] Add segment registers (almost done)
+- [ ] Implement more instructions
+- [ ] Add basic memory protection (already possible)
 
 ## How to deal with errors
 
@@ -204,7 +214,7 @@ If you decide to open an issue, please include a minimal, complete and verifiabl
 
 * Not enough memory supplied -> increase the amount of memory given to the VM
 
-```python
+```
 Traceback (most recent call last):
     File "...", line 53, in <module>
         vm.execute_bytes(binary)

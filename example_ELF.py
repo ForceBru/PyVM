@@ -13,7 +13,17 @@ def enable_logging(verbose=False, file=None, level=logging.DEBUG):
         format=FMT_1 if verbose else FMT_2
     )
 
+
 if __name__ == '__main__':
+    mem = 0x0017801d
+
+    vm = VM.VMKernel(mem)
+
+    retval = vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/float_matmul.elf')
+
+    print(f'Return value: {retval}')
+
+if __name__ == '__mai__':
     # enable_logging(level=logging.INFO)
     # enable_logging(level=logging.DEBUG)
     mem = 0x0017801d * 5
@@ -48,7 +58,7 @@ if __name__ == '__test__':
     mem = 0x0017801d
     vm = VM.VMKernel(mem)
 
-    TEST_C = 1
+    TEST_C = 0
 
     if TEST_C:
         from pathlib import Path
@@ -66,7 +76,10 @@ if __name__ == '__test__':
 
     print("Testing...")
     t = timeit.repeat(
-        "vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/bubblesort.elf');vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/quicksort.elf');vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/insertionsort.elf');vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/memcpy_test.elf')",
+        "vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/bubblesort.elf');"
+        "vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/quicksort.elf');"
+        "vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/insertionsort.elf');"
+        "vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/memcpy_test.elf')",
         "void=StringIO();vm=VM.VMKernel(0x0017801d, void, void, void)",
         globals={'VM': VM, 'StringIO': StringIO}, number=10, repeat=10)
 
