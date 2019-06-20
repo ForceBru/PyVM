@@ -176,7 +176,7 @@ class ADDSUB(Instruction):
 
         type, loc, _ = RM
 
-        a = (vm.mem if type else vm.reg).get(loc, sz)
+        a = (type).get(loc, sz)
 
         c = a + (b if operation == operation.ADD or operation == operation.ADC else MAXVALS[sz] + 1 - b)
 
@@ -200,7 +200,7 @@ class ADDSUB(Instruction):
         vm.reg.eflags.PF = parity(c)
 
         if operation != operation.CMP:
-            (vm.mem if type else vm.reg).set(loc, sz, c)
+            (type).set(loc, sz, c)
 
         logger.debug('%s %s=%d, imm%d=%d (%s := %d)',
                      operation.name,
@@ -218,7 +218,7 @@ class ADDSUB(Instruction):
 
         type, loc, _ = RM
 
-        a = (vm.mem if type else vm.reg).get(loc, sz)
+        a = (type).get(loc, sz)
         b = vm.reg.get(R[1], sz)
 
         if carry:
@@ -246,7 +246,7 @@ class ADDSUB(Instruction):
         vm.reg.eflags.PF = parity(c)
 
         if not cmp:
-            (vm.mem if type else vm.reg).set(loc, sz, c)
+            (type).set(loc, sz, c)
 
         logger.debug('%s %s=%d, %s=%d (%s := %d)',
                      ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
@@ -264,7 +264,7 @@ class ADDSUB(Instruction):
 
         type, loc, _ = RM
 
-        b = (vm.mem if type else vm.reg).get(loc, sz)
+        b = (type).get(loc, sz)
         a = vm.reg.get(R[1], sz)
 
         if carry:
@@ -357,7 +357,7 @@ class INCDEC(Instruction):
 
         type, loc, _ = RM
 
-        a = (vm.mem if type else vm.reg).get(loc, sz)
+        a = (type).get(loc, sz)
         b = 1
 
         c = a + (b if not dec else MAXVALS[sz] - 1 + b)
@@ -379,7 +379,7 @@ class INCDEC(Instruction):
         vm.reg.eflags.ZF = c == 0
         vm.reg.eflags.PF = parity(c)
 
-        (vm.mem if type else vm.reg).set(loc, sz, c)
+        (type).set(loc, sz, c)
 
         logger.debug('%s %s=%d', 'dec' if dec else 'inc', hex(loc) if type else reg_names[loc][sz], a)
 
@@ -446,7 +446,7 @@ class MUL(Instruction):
 
         type, loc, _ = RM
 
-        a = (vm.mem if type else vm.reg).get(loc, sz)
+        a = (type).get(loc, sz)
         b = vm.reg.get(0, sz)  # AL/AX/EAX
 
         res = a * b
@@ -508,7 +508,7 @@ class DIV(Instruction):
         RM, R = vm.process_ModRM(sz)
         type, loc, _ = RM
 
-        divisor = (vm.mem if type else vm.reg).get(loc, sz, idiv)
+        divisor = (type).get(loc, sz, idiv)
 
         if divisor == 0:
             raise ZeroDivisionError
@@ -571,7 +571,7 @@ class IMUL(Instruction):
 
         type, loc, _ = RM
 
-        src = (vm.mem if type else vm.reg).get(loc, sz, True)
+        src = (type).get(loc, sz, True)
         dst = vm.reg.get(0, sz, True)  # AL/AX/EAX
 
         tmp_xp = src * dst
@@ -606,7 +606,7 @@ class IMUL(Instruction):
 
         type, loc, _ = RM
 
-        src = (vm.mem if type else vm.reg).get(loc, sz, True)
+        src = (type).get(loc, sz, True)
         dst = vm.reg.get(R[1], sz, True)
 
         tmp_xp = src * dst
@@ -633,7 +633,7 @@ class IMUL(Instruction):
 
         type, loc, _ = RM
 
-        src2 = (vm.mem if type else vm.reg).get(loc, sz, True)
+        src2 = (type).get(loc, sz, True)
 
         tmp_xp = src1 * src2
 

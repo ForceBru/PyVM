@@ -116,7 +116,7 @@ class JMP(Instruction):
         if R[1] == 4:  # this is jmp r/m
             type, loc, _ = RM
 
-            tmpEIP = (vm.mem if type else vm.reg).get(loc, vm.address_size) 
+            tmpEIP = (type).get(loc, vm.address_size) 
                       
             vm.eip = tmpEIP & MAXVALS[vm.address_size]
 
@@ -194,7 +194,7 @@ class SETcc(Instruction):
         type, loc, _ = RM
 
         byte = eval(cond)
-        (vm.mem if type else vm.reg).set(loc, 1, byte)
+        (type).set(loc, 1, byte)
 
         logger.debug('set%s %s := %d', cond.co_filename, hex(loc) if type else reg_names[loc][1], byte)
 
@@ -221,7 +221,7 @@ class CMOVCC(Instruction):
 
         type, loc, _ = RM
 
-        data = (vm.mem if type else vm.reg).get(loc, sz)
+        data = (type).get(loc, sz)
 
         vm.reg.set(R[1], sz, data)
 
@@ -246,7 +246,7 @@ class BT(Instruction):
         RM, R = vm.process_ModRM(sz)
         type, loc, _ = RM
 
-        base = (vm.mem if type else vm.reg).get(loc, sz)
+        base = (type).get(loc, sz)
         offset = vm.reg.get(R[1], sz)
 
         logger.debug('bt %s, 0x%02x', hex(loc) if type else reg_names[loc][sz], offset)
@@ -342,7 +342,7 @@ class CALL(Instruction):
         if R[1] == 2:  # this is call r/m
             type, loc, size = RM
 
-            data = (vm.mem if type else vm.reg).get(loc, size)
+            data = (type).get(loc, size)
           
             tmpEIP = data & MAXVALS[sz]
           

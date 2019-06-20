@@ -356,9 +356,14 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
                      )
 
         offset = (offset_high << 32) | offset_low
+        
+        try:
+            descriptor = self.descriptors[fd].fileno()
+        except AttributeError:
+            return self.__return(0)
 
         try:
-            ret = os.lseek(self.descriptors[fd].fileno(), offset & 0xFFFFFFFF, whence)
+            ret = os.lseek(descriptor, offset & 0xFFFFFFFF, whence)
         except OSError:
             return self.__return(-1)
         else:
@@ -875,7 +880,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
 
         import time
 
-        time_nanoseconds = time.time_ns()
+        time_nanoseconds = int(time.time() * 1_000_000_000)  # Python 3.6 compatibility
         sec, nsec = time_nanoseconds // 1_000_000_000, time_nanoseconds % 1_000_000_000
 
         self.mem.set_bytes(tp_addr, struct_timespec.size, struct_timespec.pack(sec, nsec))

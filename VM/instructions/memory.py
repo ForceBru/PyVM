@@ -83,7 +83,7 @@ class MOV(Instruction):
         imm = vm.mem.get_eip(vm.eip, sz)
         vm.eip += sz
 
-        (vm.mem if type else vm.reg).set(loc, sz, imm)
+        (type).set(loc, sz, imm)
 
         logger.debug('mov %s, 0x%x', hex(loc) if type else reg_names[loc][sz], imm)
 
@@ -97,7 +97,7 @@ class MOV(Instruction):
         type, loc, _ = RM
 
         if reverse:
-            data = (vm.mem if type else vm.reg).get(loc, sz)
+            data = (type).get(loc, sz)
             
             vm.reg.set(R[1], sz, data)
 
@@ -105,7 +105,7 @@ class MOV(Instruction):
         else:
             data = vm.reg.get(R[1], R[2])
             
-            (vm.mem if type else vm.reg).set(loc, R[2], data)
+            (type).set(loc, R[2], data)
 
             logger.debug('mov %s, %s=0x%x', hex(loc) if type else reg_names[loc][sz], reg_names[R[1]][sz], data)
 
@@ -138,7 +138,7 @@ class MOV(Instruction):
 
         type, From, size = RM
 
-        SRC = (vm.mem if type else vm.reg).get(From, size)
+        SRC = (type).get(From, size)
 
         index, TI, RPL = SRC >> 3, (SRC >> 2) & 1, SRC & 0b11
 
@@ -185,7 +185,7 @@ class MOVSX(Instruction):
         type, loc, size = RM
 
         #print(f'memory.MOVSX.r_rm_movzx reg(loc={R[1]}), {"mem" if type else "reg"}(loc=0x{loc:08x}, size={size})')
-        SRC = (vm.mem if type else vm.reg).get(loc, size)  # auto zero extension
+        SRC = (type).get(loc, size)  # auto zero extension
 
         vm.reg.set(R[1], R[2], SRC)
 
@@ -201,7 +201,7 @@ class MOVSX(Instruction):
 
         type, From, size = RM
 
-        SRC = (vm.mem if type else vm.reg).get(From, size, True)
+        SRC = (type).get(From, size, True)
 
         # print(f'Sign-extend {size} bytes to fit {R[2]} bytes ({SRC.hex()} -> {SRC_.hex()})')
 
@@ -264,7 +264,7 @@ class PUSH(Instruction):
 
         type, loc, _ = RM
 
-        data = (vm.mem if type else vm.reg).get(loc, sz)
+        data = (type).get(loc, sz)
         vm.stack_push(data)
 
         logger.debug('push %s=0x%x', hex(loc) if type else reg_names[loc][sz], data)
@@ -457,7 +457,7 @@ class POP(Instruction):
 
         data = vm.stack_pop(sz)
 
-        (vm.mem if type else vm.reg).set(loc, sz, data)
+        (type).set(loc, sz, data)
 
         logger.debug('pop %s := 0x%x', hex(loc) if type else reg_names[loc][sz], data)
 
@@ -547,9 +547,9 @@ class XCHG(Instruction):
         type, loc, _ = RM
 
         if loc != R[1]:
-            a_val = (vm.mem if type else vm.reg).get(loc, sz)
+            a_val = (type).get(loc, sz)
             b_val = vm.reg.get(R[1], sz)
-            (vm.mem if type else vm.reg).set(loc, b_val)
+            (type).set(loc, b_val)
             vm.reg.set(R[1], a_val)
 
             logger.debug('xchg %s=%s, %s=%s', hex(loc) if type else reg_names[loc][sz], a_val, reg_names[loc][sz], b_val)
@@ -577,7 +577,7 @@ class CMPXCHG(Instruction):
         type, loc, _ = RM
 
         a = vm.reg.get(0, sz)  # AL/AX/EAX
-        b = (vm.mem if type else vm.reg).get(loc, sz)
+        b = (type).get(loc, sz)
 
         # BEGIN compare a and b
         c = a + MAXVALS[sz] + 1 - b
@@ -600,11 +600,11 @@ class CMPXCHG(Instruction):
         accumulator, temp = a, b
 
         if vm.reg.eflags.ZF:
-            (vm.mem if type else vm.reg).set(loc, sz, vm.reg.get(R[1], sz))
+            (type).set(loc, sz, vm.reg.get(R[1], sz))
         else:
             #_temp = temp.to_bytes(sz, byteorder)
             vm.reg.set(0, sz, temp)
-            (vm.mem if type else vm.reg).set(loc, sz, temp)
+            (type).set(loc, sz, temp)
 
         return True
 
@@ -752,7 +752,7 @@ class BitScan(Instruction):
 
         type, loc, _ = RM
 
-        SRC = (vm.mem if type else vm.reg).get(loc, sz)
+        SRC = (type).get(loc, sz)
         SRC_orig = SRC
 
         if SRC == 0:

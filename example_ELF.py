@@ -14,13 +14,6 @@ def enable_logging(verbose=False, file=None, level=logging.DEBUG):
     )
 
 if __name__ == '__main__':
-    enable_logging(level=logging.DEBUG)
-    mem = 0x0017801d
-
-    vm = VM.VMKernel(mem)
-    vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/float_matmul.elf')
-
-if __name__ == '__mai__':
     # enable_logging(level=logging.INFO)
     # enable_logging(level=logging.DEBUG)
     mem = 0x0017801d * 5
@@ -53,7 +46,7 @@ if __name__ == '__mai__':
 if __name__ == '__test__':
     # enable_logging()
     mem = 0x0017801d
-    vm = VM.VM(mem)
+    vm = VM.VMKernel(mem)
 
     TEST_C = 1
 
@@ -64,8 +57,8 @@ if __name__ == '__test__':
             name = str(name)
             print(f'Running {name}...')
             mem = 0x0017801d
-            vm = VM.VM(mem)
-            vm.execute_elf(name)
+            vm = VM.VMKernel(mem)
+            vm.execute(VM.ExecutionStrategy.ELF, name)
             print(f'Finished running {name}')
 
     import timeit
@@ -73,9 +66,9 @@ if __name__ == '__test__':
 
     print("Testing...")
     t = timeit.repeat(
-        "vm.execute_elf('C/bin/bubblesort.elf');vm.execute_elf('C/bin/quicksort.elf');vm.execute_elf('C/bin/insertionsort.elf');vm.execute_elf('C/bin/memcpy_test.elf')",
-        "void=StringIO();vm=VM(0x0017801d, void, void, void)",
-        globals={'VM': VM.VM, 'StringIO': StringIO}, number=10, repeat=10)
+        "vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/bubblesort.elf');vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/quicksort.elf');vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/insertionsort.elf');vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/memcpy_test.elf')",
+        "void=StringIO();vm=VM.VMKernel(0x0017801d, void, void, void)",
+        globals={'VM': VM, 'StringIO': StringIO}, number=10, repeat=10)
 
     avg = lambda x: sum(x) / len(x)
     print(f"LATEST: {min(t):.4f}, {avg(t):.4f}, {max(t):.4f}")

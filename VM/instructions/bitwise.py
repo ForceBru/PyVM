@@ -135,7 +135,7 @@ class BITWISE(Instruction):
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
-        a = (vm.mem if type else vm.reg).get(loc, sz)
+        a = type.get(loc, sz)
         c = operation(a, b)
 
         vm.reg.eflags.SF = (c >> (sz * 8 - 1)) & 1
@@ -147,7 +147,7 @@ class BITWISE(Instruction):
 
         if not test:
             name = operation.__name__
-            (vm.mem if type else vm.reg).set(loc, sz, c)
+            type.set(loc, sz, c)
         else:
             name = 'test'
 
@@ -163,7 +163,7 @@ class BITWISE(Instruction):
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
-        a = (vm.mem if type else vm.reg).get(loc, sz)
+        a = type.get(loc, sz)
         b = vm.reg.get(R[1], sz)
 
         c = operation(a, b)
@@ -177,7 +177,7 @@ class BITWISE(Instruction):
 
         if not test:
             name = operation.__name__
-            (vm.mem if type else vm.reg).set(loc, sz, c)
+            type.set(loc, sz, c)
         else:
             name = 'test'
 
@@ -193,7 +193,7 @@ class BITWISE(Instruction):
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
-        a = (vm.mem if type else vm.reg).get(loc, sz)
+        a = (type).get(loc, sz)
         b = vm.reg.get(R[1], sz)
 
         c = operation(a, b)
@@ -267,7 +267,7 @@ class NEGNOT(Instruction):
 
         type, loc, _ = RM
 
-        a = (vm.mem if type else vm.reg).get(loc, sz)
+        a = (type).get(loc, sz)
 
         if operation == NEGNOT.operation_neg:
             vm.reg.eflags.CF = a != 0
@@ -283,7 +283,7 @@ class NEGNOT(Instruction):
         if operation == NEGNOT.operation_neg:
             vm.reg.eflags.PF = parity(b)
 
-        (vm.mem if type else vm.reg).set(loc, sz, b)
+        (type).set(loc, sz, b)
 
         logger.debug('%s %s=%d (%s := %d)', operation.__name__, hex(loc) if type else reg_names[loc][sz], a,
                      hex(loc) if type else reg_names[loc][sz], b
@@ -369,7 +369,7 @@ class SHIFT(Instruction):
 
         type, loc, _ = RM
 
-        dst = (vm.mem if type else vm.reg).get(loc, sz, operation == Shift.SAR)
+        dst = (type).get(loc, sz, operation == Shift.SAR)
         tmp_dst = dst
 
         while tmp_cnt != 0:
@@ -400,7 +400,7 @@ class SHIFT(Instruction):
         vm.reg.eflags.ZF = dst == 0
         vm.reg.eflags.PF = parity(dst & 0xFF)
 
-        (vm.mem if type else vm.reg).set(loc, sz, dst)
+        (type).set(loc, sz, dst)
 
         if operation == Shift.SHL:
             name = 'shl'
@@ -445,7 +445,7 @@ class SHIFTD(Instruction):
         RM, R = vm.process_ModRM(sz)
         type, loc, _ = RM
 
-        dst = (vm.mem if type else vm.reg).get(loc, sz)
+        dst = (type).get(loc, sz)
         src = vm.reg.get(R[1], sz)
 
         dst_init = dst
@@ -488,7 +488,7 @@ class SHIFTD(Instruction):
         if cnt == 1:
             vm.reg.eflags.OF = _sign_dst != sign_dst
 
-        (vm.mem if type else vm.reg).set(loc, sz, dst)
+        (type).set(loc, sz, dst)
 
         logger.debug(
             'sh%sd %s=0x%x, %s=0x%x, 0x%x (%s := 0x%x)',
