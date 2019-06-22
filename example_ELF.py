@@ -19,9 +19,7 @@ if __name__ == '__main__':
 
     vm = VM.VMKernel(mem)
 
-    retval = vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/float_matmul.elf')
-
-    print(f'Return value: {retval}')
+    vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/float_matmul.elf')
 
 if __name__ == '__mai__':
     # enable_logging(level=logging.INFO)
@@ -85,7 +83,8 @@ if __name__ == '__test__':
 
     avg = lambda x: sum(x) / len(x)
     print(f"LATEST: {min(t):.4f}, {avg(t):.4f}, {max(t):.4f}")
-    # OLD                  : 26.6493, 28.4966, 29.9140
-    # NEW (rolled back)    : 28.6566, 29.1709, 29.9998
-    # LATEST               : 23.2240, 25.5855, 27.2388
-    # LATEST (ModRM checks): 23.2138, 23.7009, 24.1041
+    # OLD                   : 26.6493, 28.4966, 29.9140
+    # NEW (rolled back)     : 28.6566, 29.1709, 29.9998
+    # LATEST                : 23.2240, 25.5855, 27.2388
+    # LATEST (ModRM checks) : 23.2138, 23.7009, 24.1041
+    # LATEST (simpler ModRM): 20.9989, 21.7070, 22.2221

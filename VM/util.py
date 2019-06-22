@@ -30,6 +30,23 @@ def to_signed(num: int, bytes: int) -> int:
     return num
 
 
+def is_signed_out_of_range(num: int, size: int) -> bool:
+    """
+    Check if the signed number `num` is out of range for signed numbers of `size` byte length.
+    :param num:
+    :param size:
+    :return:
+    """
+    if size == 1:
+        return -128 <= num <= 127
+    elif size == 2:
+        return -32_768 <= num <= 32_767
+    elif size == 4:
+        return -2_147_483_648 <= num <= 2_147_483_647
+
+    raise ValueError(f'Invalid number size: {size} not in (1, 2, 4)')
+
+
 class MissingOpcodeError(RuntimeError):
     ...
 

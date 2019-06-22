@@ -25,6 +25,9 @@ class MOV(Instruction):
     Operation: b <- a
     """
 
+    _attrs_ = 'operand_size', 'mem', 'reg', 'opcode', 'GDT'
+    _funcs_ = 'process_ModRM',
+
     def __init__(self):
         self.opcodes = {
             **{
@@ -166,6 +169,9 @@ class MOVSX(Instruction):
     Move and sign extend
     """
 
+    _attrs_ = 'reg', 'operand_size',
+    _funcs_ = 'process_ModRM',
+
     def __init__(self):
         self.opcodes = {
             0x0FBE: P(self.r_rm, _8bit=True, movsxd=False),
@@ -184,7 +190,6 @@ class MOVSX(Instruction):
 
         type, loc, size = RM
 
-        #print(f'memory.MOVSX.r_rm_movzx reg(loc={R[1]}), {"mem" if type else "reg"}(loc=0x{loc:08x}, size={size})')
         SRC = (type).get(loc, size)  # auto zero extension
 
         vm.reg.set(R[1], R[2], SRC)
@@ -283,22 +288,15 @@ class PUSH(Instruction):
 
         return True
 
-    def sreg(vm, reg: str) -> True:
+    def sreg(vm, reg: str) -> bool:
         """
         Push a segment register onto the stack.
 
         :param reg: the name of the register to be pushed.
         """
-        data = getattr(vm.reg, reg).to_bytes(2, byteorder)
 
-        if len(data) < vm.operand_size:
-            data = zero_extend(data, vm.operand_size)
-
-        vm.stack_push(data)
-
-        logger.debug('push %s', reg)
-
-        return True
+        # TODO: implement this
+        return False
 
 
 ####################

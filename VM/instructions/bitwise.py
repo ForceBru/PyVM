@@ -1,5 +1,5 @@
 from ..debug import reg_names
-from ..util import Instruction
+from ..util import Instruction, is_signed_out_of_range
 from ..misc import parity, Shift, MSB, LSB
 
 from functools import partialmethod as P
@@ -226,7 +226,7 @@ class NEGNOT(Instruction):
         CF flag set to 0 if the source operand is 0; otherwise it is set to 1.
         OF (!), SF, ZF, AF(!), and PF flags are set according to the result.
 
-    NOT: one's complement negation  (reverses bits)
+    NOT: one's complement negation  (reverses bits). No flags affected.
     Flags:
         None affected
     """
@@ -268,21 +268,19 @@ class NEGNOT(Instruction):
         type, loc, _ = RM
 
         a = (type).get(loc, sz)
+        b = operation(a, sz)
 
         if operation == NEGNOT.operation_neg:
+            sign_b = (b >> (sz * 8 - 1)) & 1
             vm.reg.eflags.CF = a != 0
-
-        b = operation(a, sz) & MAXVALS[sz]
-
-        sign_b = (b >> (sz * 8 - 1)) & 1
-
-        if operation == NEGNOT.operation_neg:
             vm.reg.eflags.SF = sign_b
             vm.reg.eflags.ZF = b == 0
-
-        if operation == NEGNOT.operation_neg:
             vm.reg.eflags.PF = parity(b)
+            vm.reg.eflags.OF = is_signed_out_of_range(b, sz)
+            # TODO: deal with AF
+            # vm.reg.efags.AF = ??
 
+        b &= MAXVALS[sz]
         (type).set(loc, sz, b)
 
         logger.debug('%s %s=%d (%s := %d)', operation.__name__, hex(loc) if type else reg_names[loc][sz], a,

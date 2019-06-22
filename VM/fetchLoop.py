@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 class FetchLoopMixin:
+    _attrs_ = 'eip', 'mem', 'reg.ebx', 'fmt', 'instr', 'sizes', 'default_mode'
+
     def execute_opcode(self) -> None:
         self.eip += 1
 
@@ -147,6 +149,9 @@ class ExecutionMixin(FetchLoopMixin):
 
 
 class ExecuteBytes(ExecutionMixin):
+    _attrs_ = 'eip', 'mem', 'code_segment_end'
+    _funcs_ = 'run',
+
     def execute(self, data: bytes, offset=0):
         l = len(data)
         self.mem.set_bytes(offset, l, data)
@@ -159,6 +164,9 @@ class ExecuteBytes(ExecutionMixin):
 
 
 class ExecuteFlat(ExecutionMixin):
+    _attrs_ = 'eip', 'mem', 'code_segment_end'
+    _funcs_ = 'run',
+
     def execute(self, fname: str, offset=0):
         with open(fname, 'rb') as f:
             data = f.read()
@@ -173,6 +181,9 @@ class ExecuteFlat(ExecutionMixin):
     
 
 class ExecuteELF(ExecutionMixin):
+    _attrs_ = 'eip', 'mem', 'reg', 'code_segment_end'
+    _funcs_ = 'run', 'stack_init', 'stack_push'
+
     def execute(self, fname: str, args=()):
         with ELF32(fname) as elf:
             if elf.hdr.e_type != enums.e_type.ET_EXEC:
