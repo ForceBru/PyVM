@@ -5,4 +5,4 @@ python:
   - "3.7"
   - "nightly"
 
-script: python3 -m unittest unittest_basics unittest_memory unittest_registers unittest_VM
+script: python3 -m unittest discover -v
