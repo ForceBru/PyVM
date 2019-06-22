@@ -3,10 +3,18 @@ import io
 
 from pathlib import Path
 
-from compile_asm import compile_all
+from compile_asm import compile_all, find_nasm_executable
 import VM
 
 binaries_path = Path('asm/bin')
+
+
+def can_find_nasm() -> bool:
+    try:
+        find_nasm_executable()
+    except:
+        return False
+    return True
 
 
 class TestInserter(type):
@@ -29,6 +37,10 @@ class TestInserter(type):
         return type(cls_name, parents, scope)
 
 
+@unittest.skipIf(
+    not can_find_nasm(),
+    "Skipping assembling because no NASM executable was found"
+)
 class TestAssemble(unittest.TestCase):
     def test_assemble(self):
         self.assertEqual(compile_all(), 0, 'Failed to assemble binaries!')

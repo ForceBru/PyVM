@@ -25,7 +25,11 @@ def find_nasm_executable(root=".") -> Path:
     nasm_paths = [path for path in root.glob("nasm-*") if path.is_dir()]
 
     nasm_paths.sort(key=lambda path: path.name)
-    nasm_executable = nasm_paths[-1] / 'nasm'
+
+    try:
+        nasm_executable = nasm_paths[-1] / 'nasm'
+    except:
+        raise ValueError(f'Could not find any paths to search for NASM in {root!r}')
 
     if not nasm_executable.is_file():
         raise ValueError(f'File {nasm_executable!r} is a directory.')
@@ -85,6 +89,7 @@ def compile_many(nasm_executable: Path,
 
 def compile_all() -> int:
     executable = find_nasm_executable()
+
     filepath = Path.cwd() / "asm"
 
     print(f"Assembling in directory {filepath}...")
