@@ -19,7 +19,17 @@ if __name__ == '__main__':
 
     vm = VM.VMKernel(mem)
 
-    vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/float_matmul.elf')
+    import datetime
+    s = datetime.datetime.now()
+    print('Starting multiplication at', s)
+    retcode = vm.execute(VM.ExecutionStrategy.ELF, 'C/bin/float_matmul.elf')
+    e = datetime.datetime.now()
+
+    if retcode != 0:
+        print('[ERROR] The result of multiplication was not correct! Error code:', retcode)
+
+    print('Multiplication done at', e)
+    print('Multiplied in', e - s)
 
 if __name__ == '__mai__':
     # enable_logging(level=logging.INFO)

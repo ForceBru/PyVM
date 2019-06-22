@@ -1,9 +1,4 @@
-#define AR 4
-#define AC 4
-#define BR AC
-#define BC 5
-#define CR AR
-#define CC BC
+#include "float_arrays.h"
 
 void matmul(double dst[CR][CC], double A[AR][AC], double B[BR][BC]) {
     for (int i = 0; i < AR; i++) {
@@ -18,38 +13,17 @@ void matmul(double dst[CR][CC], double A[AR][AC], double B[BR][BC]) {
 }
 
 int main() {
-    double A[AR][AC] = {
-        {1,2,3,4},
-        {2,3,4,5},
-        {3,4,5,6},
-        {4,5,6,7}
-    };
-    double B[BR][BC] = {
-        {0,1,2,3,4},
-        {1,2,3,4,5},
-        {2,3,4,5,6},
-        {3,4,5,6,7}
-    };
-
     double DST[CR][CC] = {{0}};
 
     matmul(DST, A, B);
 
-/*
-    static const double correct[CR][CC] = {
-        {20.,  30.,  40.,  50.,  60.},
-        {26.,  40.,  54.,  68.,  82.},
-        {32.,  50.,  68.,  86., 104.},
-        {38.,  60.,  82., 104., 126.}
-    };
-
-// Comparison is not implemented yet
     for (unsigned i = 0; i < CR; i++) {
         for (unsigned j = 0; j < CC; j++) {
-            if (DST[i][j] != correct[i][j])
+            if (DST[i][j] != C[i][j])
+                // the return value will be greater than 0
                 return i + j + 1;
         }
     }
-*/
+
     return 0;
 }

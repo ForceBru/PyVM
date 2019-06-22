@@ -212,6 +212,97 @@ class FDIV(Instruction):
         return True
 
 
+# FUCOM/FUCOMP/FUCOMPP
+# FCOMI/FCOMIP/FUCOMIP/FUCOMIPP
+class FCOMP(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            # F*COM*
+            **{
+                0xD0E0 + i: P(self.fucom, pop=0, i=i, set_eflags=False)
+                for i in range(8)
+            },
+            **{
+                0xDDE8 + i: P(self.fucom, pop=1, i=i, set_eflags=False)
+                for i in range(8)
+            },
+            0xDAE9: P(self.fucom, pop=2, i=1, set_eflags=False),
+
+            # FCOMI
+            **{
+                0xDBF0 + i: P(self.fcom, pop=0, i=i, set_eflags=True)
+                for i in range(8)
+            },
+
+            # FCOMIP
+            **{
+                0xDFF0 + i: P(self.fcom, pop=1, i=i, set_eflags=True)
+                for i in range(8)
+            },
+
+            # FUCOMI
+            **{
+                0xDBE8 + i: P(self.fucom, pop=0, i=i, set_eflags=True)
+                for i in range(8)
+            },
+
+            # FUCOMIP
+            **{
+                0xDFE8 + i: P(self.fucom, pop=1, i=i, set_eflags=True)
+                for i in range(8)
+            },
+        }
+
+    def fucom(vm, pop: int, i: int, set_eflags: bool) -> True:
+        # Vol. 2A FUCOM/FUCOMP/FUCOMPP—Unordered Compare Floating Point Values
+        # TODO: this should raise some exception or something?
+
+        ST0, STi = vm.fpu.ST(0), vm.fpu.ST(i)
+
+        if ST0 > STi:
+            flags = 0, 0, 0
+        elif ST0 < STi:
+            flags = 0, 0, 1
+        elif ST0 == STi:
+            flags = 1, 0, 0
+        else:
+            # unordered
+            flags = 1, 1, 1
+
+        if set_eflags:
+            vm.reg.eflags.ZF, vm.reg.eflags.PF, vm.reg.eflags.CF = flags
+        else:
+            vm.fpu.status.C3, vm.fpu.status.C2, vm.fpu.status.C0 = flags
+
+        for _ in range(pop):
+            vm.fpu.pop()
+
+        return True
+
+    def fcom(vm, pop: int, i: int, set_eflags: bool) -> True:
+        ST0, STi = vm.fpu.ST(0), vm.fpu.ST(i)
+
+        if ST0 > STi:
+            flags = 0, 0, 0
+        elif ST0 < STi:
+            flags = 0, 0, 1
+        elif ST0 == STi:
+            flags = 1, 0, 0
+        else:
+            # unordered
+            flags = 1, 1, 1
+
+        if set_eflags:
+            vm.reg.eflags.ZF, vm.reg.eflags.PF, vm.reg.eflags.CF = flags
+        else:
+            vm.fpu.status.C3, vm.fpu.status.C2, vm.fpu.status.C0 = flags
+
+        for _ in range(pop):
+            vm.fpu.pop()
+
+        return True
+
+
 class FLDCW(Instruction):
     def __init__(self):
         self.opcodes = {

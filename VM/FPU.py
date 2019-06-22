@@ -321,6 +321,73 @@ class binary80(_binary80):
 
         return binary80(S, exponent, sign)
 
+    def __eq__(self, other) -> bool:
+        if self.__is_NaN() or other.__is_NaN():
+            return False
+
+        if self.__is_zero() and other.__is_zero():
+            return True
+
+        return self.sign == other.sign\
+               and self.exponent == other.exponent\
+               and self.significand == other.significand
+
+    def __gt__(self, other) -> bool:
+        if self.__is_NaN() or other.__is_NaN():
+            return False
+        if self.__is_Inf(0):
+            # positive infinity
+            return True
+        if self.__is_Inf(1):
+            # negative infinity
+            return False
+
+        if not self.sign:
+            if other.sign:
+                # (positive) > (negative)
+                return True
+            if self.exponent > other.exponent:
+                return True
+
+            return self.significand > other.significand
+
+        if not other.sign:
+            # (negative) < (positive)
+            return False
+        if self.exponent < other.exponent:
+            return True
+        return self.significand < other.significand
+
+    def __lt__(self, other) -> bool:
+        if self.__is_NaN() or other.__is_NaN():
+            return False
+        if self.__is_Inf(0):
+            # positive infinity
+            return False
+        if self.__is_Inf(1):
+            # negative infinity
+            return True
+
+        if not self.sign:
+            if other.sign:
+                # (positive) > (negative)
+                return False
+            # (positive) vs (positive)
+            if self.exponent < other.exponent:
+                return True
+
+            return self.significand < other.significand
+
+        # (negative) vs (something else)
+        if not other.sign:
+            # (negative) < (positive)
+            return True
+        # (negative) vs (negative)
+        if self.exponent < other.exponent:
+            return False
+        return self.significand > other.significand
+
+
     @staticmethod
     def from_double(val: float):
         double = binary64.from_buffer_copy(dbl(val))
