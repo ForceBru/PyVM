@@ -1,6 +1,5 @@
 import unittest
 import os
-import random
 
 import VM.Memory
 import VM.Registers
