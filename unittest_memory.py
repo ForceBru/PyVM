@@ -3,7 +3,7 @@ import os
 import ctypes
 
 
-from VM.Memory_ctypes import Memory
+from VM.Memory import Memory
 
 
 class TestMemory(unittest.TestCase):

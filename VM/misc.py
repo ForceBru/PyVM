@@ -20,8 +20,7 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
     :param size2: The size of data to read/write from/to the second returned register
     :return: (type1, address1, size1), (type2, address2, size2)
         type:
-            0 - register
-            1 - memory
+            self.mem or self.reg
         address:
             Address in memory or the number of the register
         size1, size2:

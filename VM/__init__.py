@@ -4,6 +4,9 @@ from .CPU import CPU32
 from .kernel import SyscallsMixin
 from .fetchLoop import FetchLoopMixin, ExecuteBytes, ExecuteFlat, ExecuteELF, ExecutionStrategy
 
+__author__ = '@ForceBru'
+__version__ = '0.0.1'
+
 
 class VM(CPU32, SyscallsMixin, FetchLoopMixin):
     from .misc import process_ModRM

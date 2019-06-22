@@ -262,12 +262,12 @@ class BT(Instruction):
         sz = vm.operand_size
 
         RM, R = vm.process_ModRM(sz)
-        type, loc, _ = RM
+        _type, loc, _ = RM
 
         if R[1] != 4:  # this is not bt
             return False
 
-        if type == 1:
+        if isinstance(_type, type(vm.mem)):
             base = vm.mem.get(loc, 1)  # read ONE BYTE
         else:
             base = vm.reg.get(loc, sz)

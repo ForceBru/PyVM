@@ -225,7 +225,7 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
             entry was changed.
             """
 
-            from .Registers_ctypes import SegmentDescriptor
+            from .Registers import SegmentDescriptor
             for selector_index, entry in enumerate(self.GDT[1:], 1):
                 seg_descr = SegmentDescriptor.from_buffer_copy(entry)  #segment_descriptor_struct.unpack(entry)
 

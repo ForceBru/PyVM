@@ -2,7 +2,7 @@ import unittest
 import os
 
 
-from VM.Registers_ctypes import Reg32
+from VM.Registers import Reg32
 
 
 class TestRegisters(unittest.TestCase):

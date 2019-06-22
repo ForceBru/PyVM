@@ -9,3 +9,4 @@ C/musl*
 C/libgcc*
 *.pdf
 ClassDiagram*
+playground

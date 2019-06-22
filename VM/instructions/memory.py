@@ -1,5 +1,4 @@
 from ..debug import reg_names
-from ..Registers import Reg32
 from ..util import Instruction, to_int, byteorder, SegmentRegs
 from ..misc import sign_extend, parity
 
@@ -633,8 +632,7 @@ class CMC(Instruction):
             }
 
     def cmc(vm) -> True:
-        vm.reg.eflags_set(Reg32.CF, not vm.reg.eflags_get(Reg32.CF))
-
+        vm.reg.eflags.CF = not vm.reg.eflags.CF
         logger.debug('cmc')
 
         return True

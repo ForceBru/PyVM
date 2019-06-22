@@ -1,5 +1,5 @@
-from .Memory_ctypes import Memory
-from .Registers_ctypes import Reg32, Sreg
+from .Memory import Memory
+from .Registers import Reg32, Sreg
 from .util import CPU
 from .FPU import FPU
 
