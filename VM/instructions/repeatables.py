@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
 
+
 ####################
 # STOSB / STOSW / STOSD
 ####################

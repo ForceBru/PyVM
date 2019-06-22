@@ -5,7 +5,7 @@ from .kernel import SyscallsMixin
 from .fetchLoop import FetchLoopMixin, ExecuteBytes, ExecuteFlat, ExecuteELF, ExecutionStrategy
 
 __author__ = '@ForceBru'
-__version__ = '0.0.1'
+__version__ = '0.1-beta'
 
 
 class VM(CPU32, SyscallsMixin, FetchLoopMixin):

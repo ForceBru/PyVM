@@ -5,15 +5,15 @@ import VM
 
 def Stats(pr):
     s = io.StringIO()
-    sortby = 'tottime'#'cumulative'
+    sortby = 'tottime'
     ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
     ps.print_stats()
     print(s.getvalue())
 
 
-def parse_code(code: str):
+def parse_code(code: str) -> bytearray:
     binary = ''
-    regex = re.compile("[0-9a-f]+:\s+([^\;]+)\s*;.*", re.DOTALL)
+    regex = re.compile(r"[0-9a-f]+:\s+([^;]+)\s*;.*", re.DOTALL)
 
     for line in code.strip().splitlines(keepends=False):
         if line.startswith(';'):
@@ -45,12 +45,12 @@ f:  ba 0e 00 00 00          ;mov    edx,0xe   ; length of the message
 29: 48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A ; "Hello, world!",10
              """
 
-    vm = VM.VM(5000)
-    binary = parse_code(code)
+    vm = VM.VMKernel(500)
+    raw_binary = parse_code(code)
 
     # pr = cProfile.Profile()
     # pr.enable()
-    vm.execute_bytes(binary)
+    vm.execute(VM.ExecutionStrategy.BYTES, raw_binary)
     # pr.disable()
 
     # Stats(pr)

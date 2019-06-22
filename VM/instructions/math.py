@@ -417,6 +417,7 @@ class INCDEC(Instruction):
 
         return True
 
+
 ####################
 # MUL
 ####################
@@ -471,6 +472,7 @@ class MUL(Instruction):
         )
 
         return True
+
 
 ####################
 # DIV / IDIV
@@ -542,6 +544,7 @@ class DIV(Instruction):
         )
 
         return True
+
 
 ####################
 # IMUL

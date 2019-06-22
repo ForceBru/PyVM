@@ -168,7 +168,7 @@ class FADDP(Instruction):
         return True
 
 
-# FDIV
+# FDIV/FDIVP
 class FDIV(Instruction):
     def __init__(self):
         self.opcodes = {
@@ -212,8 +212,7 @@ class FDIV(Instruction):
         return True
 
 
-# FUCOM/FUCOMP/FUCOMPP
-# FCOMI/FCOMIP/FUCOMIP/FUCOMIPP
+# FUCOM/FUCOMP/FUCOMPP/FCOMI/FCOMIP/FUCOMIP/FUCOMIPP
 class FCOMP(Instruction):
     def __init__(self):
         self.opcodes = {
@@ -302,7 +301,7 @@ class FCOMP(Instruction):
 
         return True
 
-
+# FLDCW
 class FLDCW(Instruction):
     def __init__(self):
         self.opcodes = {

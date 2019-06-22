@@ -15,6 +15,11 @@ def enable_logging(verbose=False, file=None, level=logging.DEBUG):
 
 
 if __name__ == '__main__':
+    vm = VM.VMKernel(10_000)
+
+    vm.execute(VM.ExecutionStrategy.ELF, "C/bin/calculator.elf")
+
+if __name__ == '__float_matmul_benchmark__':
     mem = 0x0017801d
 
     vm = VM.VMKernel(mem)
@@ -31,7 +36,7 @@ if __name__ == '__main__':
     print('Multiplication done at', e)
     print('Multiplied in', e - s)
 
-if __name__ == '__mai__':
+if __name__ == '__run_nasm__':
     # enable_logging(level=logging.INFO)
     # enable_logging(level=logging.DEBUG)
     mem = 0x0017801d * 5
@@ -50,7 +55,11 @@ if __name__ == '__mai__':
 
     start = datetime.datetime.now()
     print(f'[{start}] nasm -o {outfile} -O0 {infile}\nPLEASE WAIT! This is going to be VERY slow.\nSeriously, JUST WAIT.')
-    retval = vm.execute(VM.ExecutionStrategy.ELF, 'C/real_life/nasm', ('-o', outfile, '-O0', infile, ))
+    retval = vm.execute(
+        VM.ExecutionStrategy.ELF,  # How to execute?
+        'C/real_life/nasm',  # What to execute?
+        ('-o', outfile, '-O0', infile)  # What arguments to pass to the executable?
+    )
     end = datetime.datetime.now()
     print(f'[{end}] NASM done in {end - start}')
 
@@ -61,7 +70,7 @@ if __name__ == '__mai__':
     else:
         print(f'NASM could not compile {infile}. Exit code: {retval}')
 
-if __name__ == '__test__':
+if __name__ == '__speed_test__':
     # enable_logging()
     mem = 0x0017801d
     vm = VM.VMKernel(mem)
