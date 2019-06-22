@@ -1,23 +1,20 @@
 import sys
-import collections
 
 from .CPU import CPU32
-from .util import to_int, byteorder
-from .debug import debug
-from .Registers import Reg32
-from .misc import Shift
 from .kernel import SyscallsMixin
+from .fetchLoop import FetchLoopMixin, ExecuteBytes, ExecuteFlat, ExecuteELF, ExecutionStrategy
+
+__author__ = '@ForceBru'
+__version__ = '0.1-beta'
 
 
-class VM(CPU32, SyscallsMixin):
-    # TODO: this stuff looks ugly, refactor it
-    from .fetchLoop import execute_opcode, run, execute_bytes, execute_file, execute_elf, override
+class VM(CPU32, SyscallsMixin, FetchLoopMixin):
     from .misc import process_ModRM
 
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
         super().__init__(int(memsize))
 
-        self.fmt = '\t[0x{:0' + str(len(str(self.mem.size))//16) + 'x}]: 0x{:02x}'
+        self.fmt = '\t[0x%08x]\t%02x'
 
         self.descriptors = [stdin, stdout, stderr]
         self.GDT = [
@@ -31,14 +28,24 @@ class VM(CPU32, SyscallsMixin):
         self.running = True
 
     def interrupt(self, code: int):
-        valid_codes = [0x80]
+        if code == 0x80:  # syscall
+            syscall_number = self.reg.eax
+            syscall_impl = self.valid_syscalls.get(syscall_number)
 
-        if code == valid_codes[0]:  # syscall
-            syscall = to_int(self.reg.get(0, 4))  # EAX
+            if syscall_impl is None:
+                raise RuntimeError(f'System call 0x{syscall_number:02x} is not supported yet')
 
-            try:
-                self.valid_syscalls[syscall]()
-            except KeyError:
-                raise RuntimeError('System call 0x{:02x} is not supported yet'.format(syscall))
+            syscall_impl()
         else:
-            raise RuntimeError('Interrupt 0x{:02x} is not supported yet'.format(code))
+            raise RuntimeError(f'Interrupt 0x{code:02x} is not supported yet')
+
+
+class VMKernel(VM, ExecuteELF, ExecuteBytes, ExecuteFlat):
+    def execute(self, strategy: ExecutionStrategy, *args, **kwargs):
+        bases = {
+            ExecutionStrategy.BYTES: ExecuteBytes,
+            ExecutionStrategy.FLAT: ExecuteFlat,
+            ExecutionStrategy.ELF: ExecuteELF
+        }
+
+        return bases[strategy].execute(self, *args, **kwargs)

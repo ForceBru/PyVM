@@ -1,4 +1,4 @@
-#define assert(some_bool, code) if (!(some_bool)) return (code);
+#define assert(some_bool, code) do { if (!(some_bool)) return (code); } while(0)
 
 struct Huge {
     char a;
@@ -33,8 +33,8 @@ int main(void) {
     test2.c = test1.c + test1.g;
 
     assert(test2.a == (test1.a - 5)      ,  9);
-    assert(test2.b == (test1.b + test1.f), 10);
-    assert(test2.c == (test1.c + test1.g), 11);
+    assert(test2.b == (int)(test1.b + test1.f), 10);
+    assert(test2.c == (long)(test1.c + test1.g), 11);
 
     return 0;
 }

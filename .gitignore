@@ -3,7 +3,10 @@ __pycache__/
 !/.gitignore
 *.py[cod]
 *$py.class
-nasm*
+nasm-2.14.02*
+tcc-0.9.27*
 C/musl*
 C/libgcc*
 *.pdf
+ClassDiagram*
+playground

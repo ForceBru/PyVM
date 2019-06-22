@@ -1,6 +1,7 @@
 from .Memory import Memory
-from .Registers import Reg32, FReg32
-from .util import CPU, byteorder, to_int
+from .Registers import Reg32, Sreg
+from .util import CPU
+from .FPU import FPU
 
 from . import instructions  # this line MUST be here for the instructions to be loaded correctly
 
@@ -12,8 +13,10 @@ class CPU32(CPU):
         super().__init__()
 
         self.reg = Reg32()
-        self.freg = FReg32()
-        self.mem = Memory(memsize, self.reg)  # stack grows downward, user memory - upward
+        self.sreg = Sreg()
+
+        self.fpu = FPU()
+        self.mem = Memory(memsize, self.sreg)  # stack grows downward, user memory - upward
 
         self.eip = 0
 
@@ -30,28 +33,25 @@ class CPU32(CPU):
         self.stack_init()
         
     def stack_init(self):
-        self.reg.set(esp, (self.mem.size - 1).to_bytes(4, byteorder))
-        self.reg.set(ebp, (self.mem.size - 1).to_bytes(4, byteorder))
+        self.reg.esp = self.mem.size - 1
+        self.reg.ebp = self.mem.size - 1
 
-    def stack_push(self, value: bytes) -> None:
-        new_esp = to_int(self.reg.get(esp, self.stack_address_size)) - self.operand_size
+    def stack_push(self, value: int) -> None:
+        old_esp = self.reg.get(esp, self.stack_address_size)
+        new_esp = old_esp - self.operand_size
 
         if new_esp < self.mem.program_break:
             raise RuntimeError(f"The stack cannot grow larger than {self.mem.program_break}")
 
-        self.mem.set(new_esp, value)
-        self.reg.set(esp, new_esp.to_bytes(self.stack_address_size, byteorder))
+        self.mem.set(new_esp, self.operand_size, value)
+        self.reg.set(esp, self.stack_address_size, new_esp)
 
-    def stack_pop(self, size: int) -> bytes:
-        old_esp = to_int(self.reg.get(esp, self.stack_address_size))
+    def stack_pop(self, size: int) -> int:
+        # TODO: check if stack is empty?
+        old_esp = self.reg.get(esp, self.stack_address_size)
 
         data = self.mem.get(old_esp, size)
-        new_esp = (old_esp + size).to_bytes(self.stack_address_size, byteorder)
-        self.reg.set(esp, new_esp)
+        new_esp = old_esp + size
+        self.reg.set(esp, self.stack_address_size, new_esp)
 
         return data
-
-    def stack_get(self, size: int) -> bytes:
-        addr = to_int(self.reg.get(esp, self.stack_address_size))
-
-        return self.mem.get(addr, size)

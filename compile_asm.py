@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     vm = VM.VM(262145 * 3)
 
-    fname = f'asm/bin/test_imul2.bin'
+    fname = f'asm/bin/standalone.bin'
     print(f'\tExecuting {fname!r}...')
 
     ebx = vm.execute_file(fname)

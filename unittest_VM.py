@@ -34,12 +34,20 @@ class TestAssemble(unittest.TestCase):
         self.assertEqual(compile_all(), 0, 'Failed to assemble binaries!')
 
 
+def Ret(x):
+    return '', x
+
+
+def Msg(msg):
+    return msg, 0
+
+
+def Both(msg, x):
+    return msg, x
+
+
 class TestInstructions(unittest.TestCase, metaclass=TestInserter):
     MEMSZ = 1024 * 10
-
-    Ret = lambda x: ('', x)
-    Msg = lambda msg: (msg, 0)
-    Both = lambda msg, x: (msg, x)
 
     CORRECT = {
         'c_float1': Ret(28),
@@ -81,7 +89,7 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
         file_name = self._testMethodName[5:]
         correct_msg, correct_retval = self.CORRECT[file_name]
 
-        self.vm.execute_file(f'asm/bin/{file_name}.bin')
+        self.vm.execute(VM.ExecutionStrategy.FLAT, f'asm/bin/{file_name}.bin')
 
         _stdout = self.stdout.getvalue()
 
@@ -93,7 +101,7 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
         self.stdout = io.StringIO()
         self.stderr = io.StringIO()
 
-        self.vm = VM.VM(self.MEMSZ, self.stdin, self.stdout, self.stderr)
+        self.vm = VM.VMKernel(self.MEMSZ, self.stdin, self.stdout, self.stderr)
 
     def tearDown(self):
         self.stdin.close()

@@ -1,5 +1,3 @@
-debug = False
-
 reg_names = [
     [0, 'al', 'ax', 0, 'eax'],
     [0, 'cl', 'cx', 0, 'ecx'],

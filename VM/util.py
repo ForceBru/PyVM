@@ -16,6 +16,37 @@ def to_int(data: bytes, signed=False):
     return int.from_bytes(data, byteorder, signed=signed)
 
 
+def to_signed(num: int, bytes: int) -> int:
+    if bytes == 1:
+        if num > 127:
+            return num - 256
+    elif bytes == 2:
+        if num > 32767:
+            return num - 65536
+    elif bytes == 4:
+        if num > 2147483647:
+            return num - 4294967296
+
+    return num
+
+
+def is_signed_out_of_range(num: int, size: int) -> bool:
+    """
+    Check if the signed number `num` is out of range for signed numbers of `size` byte length.
+    :param num:
+    :param size:
+    :return:
+    """
+    if size == 1:
+        return -128 <= num <= 127
+    elif size == 2:
+        return -32_768 <= num <= 32_767
+    elif size == 4:
+        return -2_147_483_648 <= num <= 2_147_483_647
+
+    raise ValueError(f'Invalid number size: {size} not in (1, 2, 4)')
+
+
 class MissingOpcodeError(RuntimeError):
     ...
 

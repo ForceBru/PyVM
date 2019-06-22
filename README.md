@@ -1,178 +1,131 @@
 # PyVM - execute x86 bytecode in pure Python!
 
-PyVM is a Python module that allows to execute x86 32-bit (IA-32) bytecode on any hardware where Python can run, with no external dependencies.
+PyVM executes x86 (IA-32) bytecode in _pure Python_, without any dependencies.
 
-The instructions' opcodes as well as their operation algorithms have been taken from the [Intel Software Developer Manual](https://software.intel.com/en-us/articles/intel-sdm).
+It can run multiple types of executables:
+ - Raw bytecode (interprets `bytes` and `bytearray`s as bytecode)
+ - Flat binaries (for example, those produced by default by NASM; interprets a file's contents as bytecode)
+ - ELF binaries (any statically linked ELF binary)
+ 
+Features:
+ - x86 CPU (files: `VM/Registers.py`, `VM/CPU.py`, `VM/fetchLoop.py`, `VM/misc.py`)
+   - General-purpose registers: 32-bit, 16-bit, 8-bit. See file #1;
+   - Segment registers: ES, CS, SS, DS, FS, GS. See file #1;
+   - `EFLAGS` register. See file #1;
+   - Stack. See file #2;
+   - The "fetch-decode-execute" cycle (instruction cycle). Includes prefixes handling. See file #3;
+   - ModRM and SIB bytes parser. See file #4 <sub>...which should be refactored</sub>;
+ - x87 FPU (files: `VM/FPU.py`)
+   - The extended precision floating-point type, a.k.a. `binary80`;
+   - 8 data registers: ST(0), ST(1), ..., ST(7);
+   - `control`, `status` and `flag` registers;
+ - RAM (files: `VM/Memory.py`)
+   - Allows to read 8-bit, 16-bit and 32-bit integers, 80-bit, 64-bit and 32-bit floating-point numbers
+   and raw bytes at any valid address;
+   - Provides basic bounds checking (so that Python doesn't segfault when a program tries to access an invalid address);
+   - Provides basic segmented access via segment registers;
+ - x86 instruction set (files: `VM/instructions/*`)
+   - Bitwise operations: `and`, `or`, `xor`, `test`, `neg`, `not`, `sal`, `sar`, `shl`, `shr`, `shld`, `shrd`;
+   - Control flow operations: `nop`, `jmp`, `jcc`, `setcc`, `cmovcc`, `bt`, `int`, `call`, `ret`, `enter`, `leave`, `cpuid`;
+   - Floating-point operations: `fld`, `fst`, `fstp`, `fist`, `fistp`, `fmul`, `fmulp`, `fimul`, `faddp`, `fdiv`, `fdivp`,
+   `fucom`, `fucomp`, `fucompp`, `fcomi`, `fcomip`, `fucomip`, `fucomipp`, `fldcw`, `fstcw`, `fnstcw`, `fxch`;
+   - Integer arithmetic operations: `add`, `sub`, `cmp`, `adc`, `sbb`, `inc`, `dec`, `mul`, `imul`, `div`, `idiv`;
+   - Memory management operations: `mov`, `movs`, `movsx`, `movsxd`, `movzx`, `push`, `pop`, `lea`, `xchg`, `cmpxchg`,
+   `cbw`, `cwde`, `cwd`, `cdq`, `cmc`, `clc`, `cld`, `stc`, `std`, `bsf`, `bsr`;
+   - Repeatable operations: `stos`.
+ - Linux system calls (files: `VM/kernel.py`)
+   - Input-output: `sys_read`, `sys_write`, `sys_writev`, `sys_open`, `sys_close`, `sys_unlink`, `sys_readlink`;
+   - System management: `sys_exit`, `sys_clock_gettime`;
+   - Memory management: `brk`, `sys_set_thread_area`, `mmap`, `munmap` <sub>(be warned: the latter two are super buggy)</sub>
+   - Some syscalls that are provided by Python's `os` module.
+ - Debugger that prints the instructions and syscalls that are being executed in a (relatively) human-readable format.
+ 
+## How to use
+Simple example:
 
-## Features
+```python
+import VM  # import the module
 
-* 32-, 16- and 8-bit registers
-* stack
-* user memory
-* stdin, stdout and stderr
+def parse_code(code: str) -> bytearray:
+    # This just converts the prettified code below to the raw, ugly bytecode. You can ignore this function.
+    import re
+    
+    binary = ''
+    regex = re.compile(r"[0-9a-f]+:\s+([^;]+)\s*;.*", re.DOTALL)
 
-## Instructions currently supported
+    for line in code.strip().splitlines(keepends=False):
+        if line.startswith(';'):
+            continue
+        match = regex.match(line)
+        if not match:
+            raise ValueError("Malformed code!")
+        binary += match.groups()[0]
 
-The instructions  marked wth `*` are supported partially. For the actual reasons of this partial support, please see the `#TODO` comments in `VM/instructions/<category>.py`.
-
-1.  `adc`
-2.  `add`
-3.  `and`
-4.  `call` (*)
-5.  `cdq`
-5.  `clc`
-6.  `cld`
-7.  `cli`
-8.  `cmc`
-5.  `cmp`
-6.  `cwd`
-7.  `cwde`
-6.  `dec`
-7.  `div`
-8.  `idiv`
-9.  `imul`
-9.  `inc`
-10. `int`
-7.  `jcc`  (*)
-8.  `jmp`  (*)
-11. `lea`
-12. `leave`
-13. `mov`  (*)
-14. `movsb`
-15. `movsx`
-16. `movsxd`
-15. `movsw`
-16. `movzx`
-16. `mul`
-14. `neg`  (*)
-15. `nop`
-15. `not`  (*)
-16. `or`
-17. `pop`
-18. `push`
-19. `ret`  (*)
-20. `sal`
-21. `sar`
-22. `sbb`
-23. `shl`
-24. `shr`
-25. `stc`
-26. `std`
-27. `sti`
-25. `sub`
-26. `test`
-27. `xchg`
-27. `xor`
-
-## Documentation
-
-### Memory
-
-If you would like to manipulate the memory directly, look into `VM/Memory.py`, which defines a class `Memory` that is later used in `VM/CPU.py` to handle all memory operations of the `CPU` class. It checks whether the bounds of the available memory aren't exceed automatically. The memory is zero-filled by default.
-
-There are two functions that allow the VM to manipulate data stored in memory:
-
-* `Memory.set(self, offset: int, value: bytes) -> None` - set the memory region starting at address `offset` to the given `value`. Again, here and thereon, that the value can actually be written or read is checked automatically, and if it cannot, an exception is raised.
-* `Memory.get(self, offset: int, size: int) -> bytes` - read `size` bytes from memory starting at address `offset`.
-* `Memory.fill(self, offset: int, value: int) -> None` - fill the memory starting at address `offset` with a byte with the given `value`.
-
-### Registers
-
-The `Reg32` class defined in `VM/Registers.py` handles all operations with registers: general-purpose ones and EFLAGS. Segment registers support is yet to be implemented.
-
-There are two functions that govern the access to individual registers. Note that their signatures are absolutely the same as those of `Memory.Memory`:
-
-* `Reg32.set(self, offset: int, value: bytes) -> None` - set a register with the number `offset` (the registers' numbers are given in the Intel Software Development Manual (see 2.1.5, tables 2-1 and 2-2; the register number is the value of REG given in the 7th row) to the given `value`. The size of the value determines the size of the register to use.
-* `Reg32.get(self, offset: int, size: int) -> bytes` - read `size` bytes of the register number `offset`.
-* `Reg32.eflags_set(self, bit: int, value: bool) -> None` - set the EFLAGS bit number `bit` to the given `value` (`True` or `False`).
-* `Reg32.eflags_get(self, bit: int) -> int` - get the value of the EFLAGS bit number `bit`.
-
-### CPU
-
-The `CPU32` class is defined in `VM/CPU.py`. It sets up the memory (represented by `VM.Memory.Memory`) and registers (represented by `VM.Registers.Reg32`) and gives the ability to work with the stack.
-
-* `CPU32.stack_push(self, value: bytes) -> None` - push a `value` onto stack. The memory bounds are checked automatically, as in the following function.
-* `CPU32.stack_pop(self, size: int) -> bytes` - pop `size` bytes from the stack.
-
-### VM
-
-The `VM` class is defined in `VM.__init__.py`. It inherits from `VM.CPU.CPU32` and provides a lot of additional functions, the majority of which need not to be accessed directly by the user code. This is the class that actually runs the binary.
-
-There are only 3 user-level functions:
-
-* `VM(memory_size: int)` - the constructor, accepts a positive integer that determines the amount of memory to be allocated for the VM, in bytes.
-* `execute_bytes(data: bytes, offset=0)` - load the given data into memory starting from address `offset` and execute it.
-* `execute_file(file_name: str, offset=0)` - load the contents of the given file into memory starting from address `offset` and execute it.
-
-The individual instructions are implemented as classes in `VM/instructions/<category>.py`.
+    return bytearray.fromhex(binary)
 
 
-## Example
+if __name__ == "__main__":
+    # This is the bytecode we'll run
+    code = """
+;                           section .text
+;                           _start:
+0:  b8 04 00 00 00          ;mov    eax,0x4   ; SYS_WRITE
+5:  bb 01 00 00 00          ;mov    ebx,0x1   ; STDOUT
+a:  b9 29 00 00 00          ;mov    ecx,0x29  ; address of the message
+f:  ba 0e 00 00 00          ;mov    edx,0xe   ; length of the message
+14: cd 80                   ;int    0x80      ; interrupt kernel
+16: e9 02 00 00 00          ;jmp    0x1d      ; _exit
+1b: 89 c8                   ;mov    eax,ecx   ; this is here to mess things up if JMP doesn't work
+;                           _exit:
+1d: b8 01 00 00 00          ;mov    eax,0x1   ; SYS_EXIT
+22: bb 00 00 00 00          ;mov    ebx,0x0   ; EXIT_SUCCESS
+27: cd 80                   ;int    0x80      ; interrupt kernel
+; section .data
+29: 48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A ; "Hello, world!",10
+             """
 
-Before running this you may consider setting `debug = False` in `VM/debug.py`, if it's not already set.
+    vm = VM.VMKernel(500)  # Initialize the VM with the Linux kernel and give it 500 bytes of memory.
 
-	import VM
+    # EXECUTE IT!
+    vm.execute(
+        VM.ExecutionStrategy.BYTES,  # We're executing raw bytecode
+        parse_code(code)  # This is the actual bytecode
+    )
+```
 
-	code = """
-	B8 04 00 00 00
-    BB 01 00 00 00
-    B9 29 00 00 00
-    BA 0E 00 00 00
-    CD 80
-    E9 02 00 00 00
-    89 C8
-    B8 01 00 00 00
-    BB 00 00 00 00
-    CD 80
-    48 65 6C 6C 6F 2C 20 77 6F 72 6C 64 21 0A
-    """
+Output:
 
-    # convert the hexadecimal representation above to bytes
-    binary = bytearray.fromhex(code.strip('\n').replace('\n', ' '))
+```
+Hello, world!
+[!] Process exited with code 0
+```
 
-    # initialize the VM with 128 bytes of memory
-    vm = VM.VM(128)
-
-    vm.execute_bytes(binary)
-
-    # output:
-    # Hello, world!
-    # [!] Process exited with code 0
-
-## TODO
-
-* Add segment registers
-* Implement more instructions
-* Add basic memory protection
-
-## How to deal with errors
-
-If you decide to open an issue, please include a minimal, complete and verifiable example that reproduces the error and the traceback.
-
-* Not enough memory supplied -> increase the amount of memory given to the VM
-
-      Traceback (most recent call last):
-        File "...", line 53, in <module>
-          vm.execute_bytes(binary)
-        File ".../VM/fetchLoop.py", line ..., in execute_bytes
-          self.mem.set(offset, data)
-        File ".../VM/Memory.py", line ..., in set
-          assert offset + size in self.bounds
-      AssertionError
-
-* Unknown opcode -> please open an issue entitled `Unknown opcode: [opcode in hex]`
-
-      ...
-      ValueError: Unknown opcode: 0xf8
-
-* The executable attempted to access a nonexistent memory location -> make sure your code _absolutely cannot_ do this (that is, works fine after having been assembled, linked and run as a native executable), that there's enough memory supplied to the VM and open an issue entitled `Invalid memory access`.
-
-      ...
-         assert offset + size in self.bounds
-      AssertionError
-
-* Other errors -> please open an issue entitled accordingly
-
-## How to contribute
-
-Everyone is welcome to contribute! For some guidelines, please refer to the comments in the project, especially in `VM/__init__.py`, `VM/fetchLoop.py` and `VM/instructions`.
+Please see `example_BYTES.py`, `example_FLAT.py` and `example_ELF.py` for more examples of usage.
+ 
+## What this is
+ - A toy emulator of the x86 CPU that actually works;
+ - A small toy Linux Kernel written in Python that kinda works, but is mostly a giant stub;
+ - A learning resource that shows how an Intel CPU may work;
+   - The instructions and the basic architecture are implemented according to
+   the [Intel Software Developer Manual](https://software.intel.com/en-us/articles/intel-sdm),
+   but the algorithms for parsing opcodes, finding the appropriate instruction implementation for an opcode,
+   parsing the ModRM and SIB bytes, accessing registers and memory are custom, because they aren't exactly specified
+   in the Manual;
+   - The implementation of instructions may be buggy, so take the code with a grain of salt.
+ - A learning resource that shows how a teeny-tiny <sub>and buggy</sub> replica of the Linux kernel may work;
+   - Individual implementations of system calls should have links to the docs that explain how a given syscall works;
+   - Some of the syscalls were roughly translated from the C code of the Linux kernel.
+   
+## What this is not
+ - A fast emulator. It's actually super slow. I mean, this is _pure Python_, what did you expect?!
+   - Although version `0.1-beta` is almost two times faster than the commit `453fb47617f269fd8fa4ebe7c8cb28cc0611ede0` on master.
+ - A fast (or properly implemented, or safe) Linux kernel.
+   - At this point (version `0.1-beta`) it's a huge stub that has a minimal set of syscalls that allow basic programs to work.
+ - Something that's written by an expert in either CPUs or kernels. There are lots of `TODO`s and bugs.
+   - If your program crashes, chances are that this is _not_ you, but it's still possible to get a legitimate segmentation fault.
+   Please open an issue about the crash.
+   
+   
+## Found a bug? Have an idea?
+You're welcome to contribute! Open issues, pull requests, contact me via Twitter or Reddit.
+Learn more about the x86 architecture and the Linux kernel and have fun!

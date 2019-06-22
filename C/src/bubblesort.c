@@ -40,7 +40,7 @@ int main()
 	printf("Sorted array:");
 	printArray(arr, n);
 
-	for (size_t i = 0; i < n; ++i)
+	for (int i = 0; i < n; ++i)
         if (arr[i] != i)
             return i + 1;
 

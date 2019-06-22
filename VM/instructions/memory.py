@@ -1,10 +1,8 @@
-from ..debug import *
-from ..Registers import Reg32
+from ..debug import reg_names
 from ..util import Instruction, to_int, byteorder, SegmentRegs
-from ..misc import sign_extend, zero_extend, parity
+from ..misc import sign_extend, parity
 
 from functools import partialmethod as P
-from unittest.mock import MagicMock
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,6 +23,9 @@ class MOV(Instruction):
 
     Operation: b <- a
     """
+
+    _attrs_ = 'operand_size', 'mem', 'reg', 'opcode', 'GDT'
+    _funcs_ = 'process_ModRM',
 
     def __init__(self):
         self.opcodes = {
@@ -55,9 +56,6 @@ class MOV(Instruction):
             0xA3: P(self.r_moffs, reverse=True, _8bit=False),
             }
 
-    # TODO: implement MOV with sreg
-    # sreg_rm = MagicMock(return_value=False)
-
     def r_imm(vm, _8bit) -> True:
         sz = 1 if _8bit else vm.operand_size
 
@@ -66,9 +64,9 @@ class MOV(Instruction):
         vm.eip += sz
 
         r = vm.opcode & 0b111
-        vm.reg.set(r, imm)
+        vm.reg.set(r, sz, imm)
 
-        logger.debug('mov %s, %s', reg_names[r][sz], imm.hex())
+        logger.debug('mov %s, %x', reg_names[r][sz], imm)
 
         return True
 
@@ -87,63 +85,62 @@ class MOV(Instruction):
         imm = vm.mem.get_eip(vm.eip, sz)
         vm.eip += sz
 
-        (vm.mem if type else vm.reg).set(loc, imm)
+        (type).set(loc, sz, imm)
 
-        logger.debug('mov %s, %s', hex(loc) if type else reg_names[loc][sz], imm.hex())
+        logger.debug('mov %s, 0x%x', hex(loc) if type else reg_names[loc][sz], imm)
 
         return True
 
     def rm_r(vm, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz)
 
         type, loc, _ = RM
 
         if reverse:
-            data = (vm.mem if type else vm.reg).get(loc, sz)
+            data = (type).get(loc, sz)
             
-            vm.reg.set(R[1], data)
+            vm.reg.set(R[1], sz, data)
 
-            logger.debug('mov %s, %s=%s', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data.hex())
+            logger.debug('mov %s, %s=0x%x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
         else:
             data = vm.reg.get(R[1], R[2])
             
-            (vm.mem if type else vm.reg).set(loc, data)
+            (type).set(loc, R[2], data)
 
-            logger.debug('mov %s, %s=%s', hex(loc) if type else reg_names[loc][sz], reg_names[R[1]][sz], data.hex())
+            logger.debug('mov %s, %s=0x%x', hex(loc) if type else reg_names[loc][sz], reg_names[R[1]][sz], data)
 
         return True
 
     def r_moffs(vm, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        loc = to_int(vm.mem.get_eip(vm.eip, vm.address_size))
+        loc = vm.mem.get_eip(vm.eip, vm.address_size)
         vm.eip += vm.address_size
 
         if reverse:
             data = vm.reg.get(0, sz)
-            vm.mem.set(loc, data)
+            vm.mem.set(loc, sz, data)
 
-            logger.debug('mov moffs %s, %s=%s', hex(loc), reg_names[0][sz], data.hex())
+            logger.debug('mov moffs 0x%08x, %s=0x%x', loc, reg_names[0][sz], data)
         else:
             data = vm.mem.get(loc, sz)
-            vm.reg.set(0, data)
+            vm.reg.set(0, sz, data)
 
-            logger.debug('mov %s, moffs %s=%s', reg_names[0][sz], hex(loc), data.hex())
+            logger.debug('mov %s, moffs 0x%08x=0x%x', reg_names[0][sz], loc, data)
 
         return True
 
     def sreg_rm(vm, reverse) -> True:
+        # TODO: implement MOV with sreg
         sz = 2
 
         RM, R = vm.process_ModRM(sz)
 
         type, From, size = RM
 
-        _SRC = (vm.mem if type else vm.reg).get(From, size)
-
-        SRC = to_int(_SRC)
+        SRC = (type).get(From, size)
 
         index, TI, RPL = SRC >> 3, (SRC >> 2) & 1, SRC & 0b11
 
@@ -155,13 +152,12 @@ class MOV(Instruction):
             else:  # move from LDT
                 raise RuntimeError('LDT not implemented')
 
-            vm.reg.sreg[R[1]].from_bytes(SRC, descr)
+            vm.sreg.set(R[1], SRC, descr)
+            # vm.reg.sreg[R[1]].from_bytes(SRC, descr)
         else:
             raise RuntimeError('mov r/m, sreg is not supported yet')
 
         return True
-
-
 
 
 ####################
@@ -171,6 +167,9 @@ class MOVSX(Instruction):
     """
     Move and sign extend
     """
+
+    _attrs_ = 'reg', 'operand_size',
+    _funcs_ = 'process_ModRM',
 
     def __init__(self):
         self.opcodes = {
@@ -190,20 +189,15 @@ class MOVSX(Instruction):
 
         type, loc, size = RM
 
-        SRC = (vm.mem if type else vm.reg).get(loc, size)
+        SRC = (type).get(loc, size)  # auto zero extension
 
-        SRC_ = zero_extend(SRC, R[2])
+        vm.reg.set(R[1], R[2], SRC)
 
-        vm.reg.set(R[1], SRC_)
-
-        logger.debug('movzx %s, %s=%s', reg_names[R[1]][4], hex(loc) if type else reg_names[loc][size], SRC_.hex())
-        # if debug: print(f'movzx {reg_names[R[1]][4]}, {hex(loc) if type else reg_names[loc][size]}(data={SRC_})')
+        logger.debug('movzx %s, %s=0x%x', reg_names[R[1]][4], hex(loc) if type else reg_names[loc][size], SRC)
 
         return True
 
-    def r_rm(vm, _8bit, movsxd) -> True:
-        sz = 1 if _8bit else vm.operand_size
-
+    def r_rm(vm, _8bit, movsxd: bool) -> True:
         if not movsxd:
             RM, R = vm.process_ModRM(1 if _8bit else 2, vm.operand_size)  # r/m8 or r/m16
         else:
@@ -211,19 +205,15 @@ class MOVSX(Instruction):
 
         type, From, size = RM
 
-        SRC = (vm.mem if type else vm.reg).get(From, size)
-
-        SRC_ = sign_extend(SRC, R[2])
+        SRC = (type).get(From, size, True)
 
         # print(f'Sign-extend {size} bytes to fit {R[2]} bytes ({SRC.hex()} -> {SRC_.hex()})')
 
-        vm.reg.set(R[1], SRC_)
+        vm.reg.set(R[1], R[2], SRC)
 
-        logger.debug('movsx%s %s, %s=%s', 'd' if movsxd else '', reg_names[R[1]][R[2]], hex(From) if type else reg_names[From][size], SRC_.hex())
-        # if debug: print(f'movsx{"d" if movsxd else ""} {reg_names[R[1]][R[2]]}, {hex(From) if type else reg_names[From][size]}')
+        logger.debug('movsx%s %s, %s=0x%x', 'd' if movsxd else '', reg_names[R[1]][R[2]], hex(From) if type else reg_names[From][size], SRC)
 
         return True
-    
     
 
 ####################
@@ -262,8 +252,7 @@ class PUSH(Instruction):
 
         vm.stack_push(data)
 
-        logger.debug('push %s=%s', reg_names[loc][sz], data.hex())
-        # if debug: print(f'push {reg_names[loc][sz]} -> {bytes(data)}')
+        logger.debug('push %s=0x%x', reg_names[loc][sz], data)
 
         return True
 
@@ -271,7 +260,7 @@ class PUSH(Instruction):
         old_eip = vm.eip
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM(sz)
 
         if R[1] != 6:
             vm.eip = old_eip
@@ -279,47 +268,34 @@ class PUSH(Instruction):
 
         type, loc, _ = RM
 
-        data = (vm.mem if type else vm.reg).get(loc, sz)
+        data = (type).get(loc, sz)
         vm.stack_push(data)
 
-        logger.debug('push %s=%s', hex(loc) if type else reg_names[loc][sz], data.hex())
-        # if debug: print(f'push {hex(loc) if type else reg_names[loc][sz]} -> {bytes(data)}')
-        # if debug: print('push {2}{0}({1} -> {3})'.format(sz * 8, hex(loc) if type else reg_names[loc][sz], ('m' if type else '_r'), bytes(data)))
+        logger.debug('push %s=0x%x', hex(loc) if type else reg_names[loc][sz], data)
+
         return True
 
     def imm(vm, _8bit=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        data = vm.mem.get_eip(vm.eip, sz)
+        data = vm.mem.get_eip(vm.eip, sz, sz < vm.operand_size)
         vm.eip += sz
-
-        if len(data) < vm.operand_size:
-            data = sign_extend(data, vm.operand_size)
 
         vm.stack_push(data)
 
-        logger.debug('push %s', data.hex())
-        # if debug: print(f'push {bytes(data)}')
+        logger.debug('push 0x%x', data)
 
         return True
 
-    def sreg(vm, reg: str) -> True:
+    def sreg(vm, reg: str) -> bool:
         """
         Push a segment register onto the stack.
 
         :param reg: the name of the register to be pushed.
         """
-        data = getattr(vm.reg, reg).to_bytes(2, byteorder)
 
-        if len(data) < vm.operand_size:
-            data = zero_extend(data, vm.operand_size)
-
-        vm.stack_push(data)
-
-        logger.debug('push %s', reg)
-        # if debug: print('push {}'.format(reg))
-
-        return True
+        # TODO: implement this
+        return False
 
 
 ####################
@@ -427,6 +403,7 @@ class POPF(Instruction):
 
         return True
 
+
 ####################
 # POP
 ####################
@@ -456,9 +433,9 @@ class POP(Instruction):
 
         loc = vm.opcode & 0b111
         data = vm.stack_pop(sz)
-        vm.reg.set(loc, data)
+        vm.reg.set(loc, sz, data)
 
-        logger.debug('pop %s := %s', reg_names[loc][sz], data.hex())
+        logger.debug('pop %s := %x', reg_names[loc][sz], data)
         # if debug: print(f'pop {reg_names[loc][sz]} <- {bytes(data)}')
 
         return True
@@ -477,11 +454,9 @@ class POP(Instruction):
 
         data = vm.stack_pop(sz)
 
-        (vm.mem if type else vm.reg).set(loc, data)
+        (type).set(loc, sz, data)
 
-        logger.debug('pop %s := %s', hex(loc) if type else reg_names[loc][sz], data.hex())
-        # if debug: print(f'pop {hex(loc) if type else reg_names[loc][sz]} <- {bytes(data)}')
-        # if debug: print('pop {2}{0}({1} <- {3})'.format(sz * 8, hex(loc) if type else reg_names[loc][sz], ('m' if type else '_r'), bytes(data)))
+        logger.debug('pop %s := 0x%x', hex(loc) if type else reg_names[loc][sz], data)
 
         return True
 
@@ -493,7 +468,6 @@ class POP(Instruction):
         setattr(vm.reg, reg, to_int(data, False))
 
         logger.debug('pop %s := %s', reg, data.hex())
-        # if debug: print('pop {}'.format(reg))
 
         return True
 
@@ -507,31 +481,31 @@ class LEA(Instruction):
             0x8D: self.r_rm
             }
 
-    def r_rm(self) -> True:
-        RM, R = self.process_ModRM(self.address_size, self.operand_size)  # should be address_size
+    def r_rm(vm) -> True:
+        RM, R = vm.process_ModRM(vm.address_size, vm.operand_size)  # should be address_size
 
         type, loc, sz = RM
 
-        if (self.operand_size == 2) and (self.address_size == 2):
+        if (vm.operand_size == 2) and (vm.address_size == 2):
             tmp = loc
-        elif (self.operand_size == 2) and (self.address_size == 4):
+        elif (vm.operand_size == 2) and (vm.address_size == 4):
             tmp = loc & 0xffff
-        elif (self.operand_size == 4) and (self.address_size == 2):
+        elif (vm.operand_size == 4) and (vm.address_size == 2):
             tmp = loc & 0xffff
-        elif (self.operand_size == 4) and (self.address_size == 4):
+        elif (vm.operand_size == 4) and (vm.address_size == 4):
             tmp = loc
         else:
             raise RuntimeError("Invalid operand size / address size")
 
-        tmp &= MAXVALS[self.address_size]
+        tmp &= MAXVALS[vm.address_size]
 
-        data = tmp.to_bytes(self.operand_size, byteorder)
-        self.reg.set(R[1], data)
+        data = tmp
+        vm.reg.set(R[1], vm.operand_size, data)
 
-        logger.debug('lea %s, %s == %s', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data.hex())
-        # if debug: print(f'lea {reg_names[R[1]][sz]}, {hex(loc) if type else reg_names[loc][sz]}={bytes(data)}')
+        logger.debug('lea %s, %s == 0x%08x', reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
 
         return True
+
 
 ####################
 # XCHG
@@ -554,14 +528,13 @@ class XCHG(Instruction):
         if loc != 0:  # not EAX
             eax_val = vm.reg.get(0, sz)
             other_val = vm.reg.get(loc, sz)
-            vm.reg.set(0, other_val)
-            vm.reg.set(loc, eax_val)
+            vm.reg.set(0, sz, other_val)
+            vm.reg.set(loc, sz, eax_val)
 
-            logger.debug('xchg eax=%s, %s=%s', eax_val.hex(), reg_names[loc][sz], other_val.hex())
+            logger.debug('xchg eax=0x%x, %s=0x%x', eax_val, reg_names[loc][sz], other_val)
         else:
             logger.debug('xchg eax, eax')
 
-        # if debug: print('xchg eax, r{}({})'.format(sz * 8, loc))
         return True
 
     def rm_r(vm, _8bit) -> True:
@@ -571,17 +544,17 @@ class XCHG(Instruction):
         type, loc, _ = RM
 
         if loc != R[1]:
-            a_val = (vm.mem if type else vm.reg).get(loc, sz)
+            a_val = (type).get(loc, sz)
             b_val = vm.reg.get(R[1], sz)
-            (vm.mem if type else vm.reg).set(loc, b_val)
+            (type).set(loc, b_val)
             vm.reg.set(R[1], a_val)
 
             logger.debug('xchg %s=%s, %s=%s', hex(loc) if type else reg_names[loc][sz], a_val, reg_names[loc][sz], b_val)
         else:
             logger.debug('xchg %s, %s', hex(loc) if type else reg_names[loc][sz], hex(loc) if type else reg_names[loc][sz])
 
-        # if debug: print('xchg r{1}({2}),{0}{1}({3})'.format(('m' if type else '_r'), sz * 8, R[1], tmp))
         return True
+
 
 ####################
 # CMPXCHG
@@ -595,14 +568,13 @@ class CMPXCHG(Instruction):
 
     def rm_r(vm, _8bit) -> True:
         sz = 1 if _8bit else vm.operand_size
-        old_eip = vm.eip
 
         RM, R = vm.process_ModRM(sz)
 
         type, loc, _ = RM
 
-        a = to_int(vm.reg.get(0, sz))  # AL/AX/EAX
-        b = to_int((vm.mem if type else vm.reg).get(loc, sz))
+        a = vm.reg.get(0, sz)  # AL/AX/EAX
+        b = (type).get(loc, sz)
 
         # BEGIN compare a and b
         c = a + MAXVALS[sz] + 1 - b
@@ -611,31 +583,28 @@ class CMPXCHG(Instruction):
         sign_b = (b >> (sz * 8 - 1)) & 1
         sign_c = (c >> (sz * 8 - 1)) & 1
 
-        vm.reg.eflags_set(Reg32.OF, (sign_a != sign_b) and (sign_a != sign_c))
-        vm.reg.eflags_set(Reg32.CF, b > a)
-        vm.reg.eflags_set(Reg32.AF, (b & 255) > (a & 255))
-
-        vm.reg.eflags_set(Reg32.SF, sign_c)
+        vm.reg.eflags.OF = (sign_a != sign_b) and (sign_a != sign_c)
+        vm.reg.eflags.CF = b > a
+        vm.reg.eflags.AF = (b & 255) > (a & 255)
+        vm.reg.eflags.SF = sign_c
 
         c &= MAXVALS[sz]
 
-        vm.reg.eflags_set(Reg32.ZF, c == 0)
-
-        c = c.to_bytes(sz, byteorder)
-
-        vm.reg.eflags_set(Reg32.PF, parity(c[0], sz))
+        vm.reg.eflags.ZF = c == 0
+        vm.reg.eflags.PF, parity(c)
         # END compare a and b
 
         accumulator, temp = a, b
 
-        if vm.reg.eflags_get(Reg32.ZF):
-            (vm.mem if type else vm.reg).set(loc, vm.reg.get(R[1], sz))
+        if vm.reg.eflags.ZF:
+            (type).set(loc, sz, vm.reg.get(R[1], sz))
         else:
-            _temp = temp.to_bytes(sz, byteorder)
-            vm.reg.set(0, _temp)
-            (vm.mem if type else vm.reg).set(loc, _temp)
+            #_temp = temp.to_bytes(sz, byteorder)
+            vm.reg.set(0, sz, temp)
+            (type).set(loc, sz, temp)
 
         return True
+
 
 ####################
 # CBW / CWDE
@@ -646,11 +615,10 @@ class CBW(Instruction):
             0x98: self.cbwcwde
             }
 
-    def cbwcwde(self) -> True:
-        self.reg.set(0, sign_extend(self.reg.get(0, self.operand_size // 2), self.operand_size))
+    def cbwcwde(vm) -> True:
+        vm.reg.set(0, sign_extend(vm.reg.get(0, vm.operand_size // 2), vm.operand_size))
 
-        logger.debug('cbw' if self.operand_size == 2 else 'cwde')
-        # if debug: print('cbw' if self.operand_size == 2 else 'cwde')
+        logger.debug('cbw' if vm.operand_size == 2 else 'cwde')
         return True
 
 
@@ -663,12 +631,12 @@ class CMC(Instruction):
             0xF5: self.cmc
             }
 
-    def cmc(self) -> True:
-        self.reg.eflags_set(Reg32.CF, not self.reg.eflags_get(Reg32.CF))
-
+    def cmc(vm) -> True:
+        vm.reg.eflags.CF = not vm.reg.eflags.CF
         logger.debug('cmc')
-        # if debug: print('cmc')
+
         return True
+
 
 ####################
 # MOVS
@@ -680,34 +648,40 @@ class MOVS(Instruction):
             0xA5: P(self.movs, _8bit=False)
             }
 
-    def movs(self, _8bit) -> True:
-        sz = 1 if _8bit else self.operand_size
+    def movs(vm, _8bit: bool) -> True:
+        sz = 1 if _8bit else vm.operand_size
 
-        esi = to_int(self.reg.get(6, self.address_size))
-        edi = to_int(self.reg.get(7, self.address_size))
+        esi = vm.reg.get(6, vm.address_size)
+        edi = vm.reg.get(7, vm.address_size)
 
         esi_init = esi
-        esi_mem = self.mem.get_seg(SegmentRegs.DS, esi, sz)
-        self.mem.set_seg(SegmentRegs.ES, edi, esi_mem)
 
-        if not self.reg.eflags_get(Reg32.DF):
+        old_override = vm.mem.segment_override
+        vm.mem.segment_override = SegmentRegs.DS
+        esi_mem = vm.mem.get(esi, sz)
+
+        vm.mem.segment_override = SegmentRegs.ES
+        vm.mem.set(edi, sz, esi_mem)
+
+        vm.mem.segment_override = old_override
+
+        if not vm.reg.eflags.DF:
             esi += sz
             edi += sz
         else:
             esi -= sz
             edi -= sz
 
-        esi &= MAXVALS[self.address_size]
-        edi &= MAXVALS[self.address_size]
+        esi &= MAXVALS[vm.address_size]
+        edi &= MAXVALS[vm.address_size]
 
-        self.reg.set(6, esi.to_bytes(self.address_size, byteorder))
-        self.reg.set(7, edi.to_bytes(self.address_size, byteorder))
+        vm.reg.set(6, vm.address_size, esi)
+        vm.reg.set(7, vm.address_size, edi)
 
-        logger.debug('movs%s [edi]=%s, [esi=%s]', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), esi_mem.hex(), hex(esi_init))
-        # if debug:
-        # letter = 'b' if sz == 1 else ('w' if sz == 2 else 'd')
-        # print(f'movs{letter} [edi(0x{edi:09_x})]({edi_mem.hex()}), [esi(0x{esi:09_x})]')
+        logger.debug('movs%s [edi]:=0x%x, [esi=0x%x]', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), esi_mem, esi_init)
+
         return True
+
 
 ####################
 # CWD / CDQ
@@ -718,17 +692,18 @@ class CWD(Instruction):
             0x99: self.cwd_cdq
             }
 
-    def cwd_cdq(self) -> True:
-        sz = self.operand_size
+    def cwd_cdq(vm) -> True:
+        sz = vm.operand_size
 
-        tmp = sign_extend(self.reg.get(0, sz), sz * 2)  # AX / EAX
+        tmp = vm.reg.get(0, sz, True)  # AX / EAX
 
-        self.reg.set(2, tmp[sz:])  # DX/EDX
-        self.reg.set(0, tmp[:sz])  # AX/EAX
+        vm.reg.set(2, sz, tmp >> (sz * 8))  # DX/EDX
+        vm.reg.set(0, sz, tmp & MAXVALS[sz])  # AX/EAX
 
         logger.debug('cwd' if sz == 2 else 'cdq')
-        # if debug: print('cwd' if sz == 2 else 'cdq')
+
         return True
+
 
 ####################
 # CLC / CLD / STC / STD
@@ -736,15 +711,67 @@ class CWD(Instruction):
 class CLC(Instruction):
     def __init__(self):
         self.opcodes = {
-            0xF8: P(self.set_stuff, Reg32.CF, 0),
-            0xFC: P(self.set_stuff, Reg32.DF, 0),
-            0xF9: P(self.set_stuff, Reg32.CF, 1),
-            0xFD: P(self.set_stuff, Reg32.DF, 1)
+            0xF8: P(self.set_stuff, 'CF', 0),
+            0xFC: P(self.set_stuff, 'DF', 0),
+            0xF9: P(self.set_stuff, 'CF', 1),
+            0xFD: P(self.set_stuff, 'DF', 1),
             }
 
-    def set_stuff(self, flag, val) -> True:
-        self.reg.eflags_set(flag, val)
+    def set_stuff(vm, flag: str, val: int) -> True:
+        setattr(vm.reg.eflags, flag, val)
 
-        logger.debug('clc %s := %d', flag, val)
+        logger.debug('%s%s', ('cl', 'st')[val], flag[0])
+
+        return True
+
+
+####################
+# BSF / BSR
+####################
+class BitScan(Instruction):
+    """
+    Searches the source operand (second operand) for the least significant set bit (1 bit).
+    If a least significant 1 bit is found, its bit index is stored in the destination operand (first operand).
+    The bit index is an unsigned offset from bit 0 of the source operand.
+    If the content of the source operand is 0, the content of the destination operand is undefined.
+    """
+
+    def __init__(self):
+        self.opcodes = {
+            0x0FBC: self.bsf
+        }
+
+    def bsf(vm) -> True:
+        sz = vm.operand_size
+
+        RM, R = vm.process_ModRM(sz)
+
+        type, loc, _ = RM
+
+        SRC = (type).get(loc, sz)
+        SRC_orig = SRC
+
+        if SRC == 0:
+            vm.reg.eflags.ZF = 1
+
+            logger.debug(
+                'bsf %s, %s=%032b',
+                hex(loc) if type else reg_names[loc][sz], reg_names[loc][sz], SRC_orig
+            )
+            return True
+
+        vm.reg.eflags.ZF = 0
+
+        temp = 0
+        while SRC & 1 == 0:
+            temp += 1
+            SRC >>= 1
+
+        vm.reg.set(R[1], sz, temp)
+
+        logger.debug(
+            'bsf %s, %s=%032b',
+            hex(loc) if type else reg_names[loc][sz], reg_names[loc][sz], SRC_orig
+        )
 
         return True

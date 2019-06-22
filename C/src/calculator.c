@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h> // atoll
 
 #define OP_LEN 8
 
@@ -37,18 +38,24 @@ int main(void) {
             break;
 
         len = strlen(str_b);
-        if (len && (str_b[len - 1] == '\n'))
+
+        if (len && (str_b[len - 1] == '\n')) {
             str_b[len - 1] = 0;
+        }
 
-        if (str_a[0] == 'r')
+        if (str_a[0] == 'r') {
             a = c;
-        else
-            sscanf(str_a, "%lld", &a);
+        } else {
+            // sscanf(str_a, "%ld", &a); -> DOESN'T WORK
+            a = atoll(str_a);
+        }
 
-        if (str_b[0] == 'r')
+        if (str_b[0] == 'r') {
             b = c;
-        else
-            sscanf(str_b, "%lld", &b);
+        } else {
+            // sscanf(str_b, "%lld", &b);
+            b = atoll(str_b);
+        }
 
         switch (op) {
             case '+':
@@ -64,8 +71,8 @@ int main(void) {
                 c = a / b;
                 break;
             default:
-                printf("[ERR] Invalid operation: '%c'", op);
-                return -1;
+                printf("[ERR] Invalid operation: '%c'\n", op);
+                continue;
         }
 
         printf("[ANS] %lld\n", c);

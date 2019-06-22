@@ -1,15 +1,46 @@
-from .debug import debug
-from .util import to_int, byteorder, segment_descriptor_struct
+import logging
 import os
 import struct
+from ctypes import LittleEndianStructure, c_uint32, sizeof
 
-import logging
+from io import UnsupportedOperation
+
 logger = logging.getLogger(__name__)
 
 struct_iovec = struct.Struct('<II')
 struct_user_desc = struct.Struct('<ILIBH4B')
 
-from io import UnsupportedOperation
+udword = c_uint32.__ctype_le__
+
+
+class structUserDesc(LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ('entry_number', udword),
+        ('base_addr', udword),
+        ('limit', udword),
+        ('seg_32bit', udword, 1),
+        ('contents', udword, 2),
+        ('read_exec_only', udword, 1),
+        ('limit_in_pages', udword, 1),
+        ('seg_not_present', udword, 1),
+        ('useable', udword, 1),
+
+    ]
+
+    def __str__(self):
+        return """struct user_desc {
+    unsigned int  entry_number      = 0x%08x;
+    unsigned long base_addr         = 0x%08x;
+    unsigned int  limit             = 0x%08x;
+    unsigned int  seg_32bit:1       = %u;
+    unsigned int  contents:2        = 0x%02x;
+    unsigned int  read_exec_only:1  = %u;
+    unsigned int  limit_in_pages:1  = %u;
+    unsigned int  seg_not_present:1 = %u;
+    unsigned int  useable:1         = %u;
+};""" % (self.entry_number, self.base_addr, self.limit, self.seg_32bit, self.contents,
+         self.read_exec_only, self.limit_in_pages, self.seg_not_present, self.useable)
 
 
 class SyscallsMixin_Meta(type):
@@ -30,19 +61,11 @@ class SyscallsMixin_Meta(type):
 
 
 class SyscallsMixin(metaclass=SyscallsMixin_Meta):
-    def __read_string(self, address: int):
-        ret = bytearray()
-        
-        byte, = self.mem.get(address, 1)
-        while byte != 0:
-            ret.append(byte)
-            address += 1
-            byte, = self.mem.get(address, 1)
-            
-        return ret
+    def __read_string(self, address: int) -> bytes:
+        return self.mem.kernel_read_string(address)
 
     def __return(self, value: int):
-        self.reg.set(0, value.to_bytes(4, byteorder, signed=value < 0))
+        self.reg.eax = value
 
     def __args(self, types: str):
         """
@@ -54,49 +77,48 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         registers = [3, 1, 2, 6, 7]  # ebx, ecx, edx, esi, edi
 
-        return [to_int(self.reg.get(reg, 4), signed=type == 's')for reg, type in zip(registers, types)]
-        
-    def sys_py_dbg(self, code=0x00):
-        raw = self.reg.get(3, 4)
-        data = to_int(raw)  # EBX
-        _type = to_int(self.reg.get(1, 4))  # ECX
-
-        if _type == 0:  # treat as pointer to char
-            addr = data
-            buffer = bytearray()
-            byte, = self.mem.get(addr, 1)
-            while byte != 0:
-                buffer.append(byte)
-                addr += 1
-                byte, = self.mem.get(addr, 1)
-
-            print(f'[PY_DBG_STRING] {buffer.decode()}')
-        elif _type == 1:  # treat as unsigned integer
-            print(f'[PY_DBG_UINT] {data}')
-        elif _type == 2:  # treat as signed integer
-            print(f'[PY_DBG_INT] {to_int(raw, True)}')
-        else:
-            print(f'[PY_DBG_UNRECOGNIZED] {raw}')
+        return (self.reg.get(reg, 4, signed=type == 's') for reg, type in zip(registers, types))
 
     def sys_exit(self, code=0x01):
         code, = self.__args('s')
 
-        self.descriptors[2].write('[!] Process exited with code {}\n'.format(code))
+        # deallocate memory
+        logger.info('sys_exit: deallocating memory...')
+        self.mem.program_break = self.code_segment_end
+
+        logger.info('sys_exit: closing file descriptors...')
+        for i, descr in enumerate(self.descriptors[3:], 3):
+            if descr is not None:
+                if not descr.closed:
+                    self.descriptors[i].close()
+                self.descriptors[i] = None
+
+        self.descriptors = list(filter(None, self.descriptors))
+
+        self.descriptors[2].write(f'[!] Process exited with code {code}\n')
         self.RETCODE = code
         self.running = False
 
     def sys_read(self, code=0x03):
         fd, data_addr, count = self.__args('uuu')
 
+        logger.info('sys_read(unsigned int fd = %u, char *dest = 0x%08x, size_t count = %u)', fd, data_addr, count)
+
         try:
             data = os.read(self.descriptors[fd].fileno(), count)
         except (AttributeError, UnsupportedOperation):
             data = (self.descriptors[fd].read(count) + '\n').encode('ascii')
+        except:
+            logger.info('\tsys_read: [ERR] failed to read %u bytes from descriptor %u', count, fd)
 
-        logger.debug('sys_read({}, {}({}), {})'.format(fd, data_addr, data, count))
-        self.mem.set(data_addr, data)
+            return self.__return(-1)
 
-        self.__return(len(data))
+        logger.info('\tsys_read: [SUCC] read %r from fd %u', data, fd)
+
+        l = len(data)
+        self.mem.set_bytes(data_addr, l, data)
+
+        self.__return(l)
 
     def sys_write(self, code=0x04):
         """
@@ -104,9 +126,9 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         fd, buf_addr, count = self.__args('uuu')
 
-        buf = self.mem.get(buf_addr, count)
+        buf = self.mem.get_bytes(buf_addr, count)
 
-        logger.debug('sys_write({}, {}({}), {})'.format(fd, buf_addr, buf, count))
+        logger.info('sys_write(%d, 0x%08x(%s), %d)', fd, buf_addr, buf, count)
         try:
             fileno = self.descriptors[fd].fileno()
             ret = os.write(fileno, buf)
@@ -127,32 +149,32 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         '''
         brk, = self.__args('u')
 
+        logger.info('sys_brk(unsigned long brk = %u)', brk)
+
         min_brk = self.code_segment_end
 
         if brk < min_brk:
-            logger.debug(
-                'SYS_BRK: invalid break: 0x%08x < 0x%08x; return 0x%08x',
+            logger.info(
+                '\tsys_brk: [SUCC] invalid break: 0x%08x < 0x%08x; return 0x%08x',
                 brk, min_brk, self.mem.program_break
             )
+
             return self.__return(self.mem.program_break)
 
         newbrk = brk
         oldbrk = self.mem.program_break
 
         if oldbrk == newbrk:
-            logger.debug(
-                'SYS_BRK: not changing break: 0x%08x == 0x%08x',
-                oldbrk, newbrk
-            )
+            logger.info('\tsys_brk: [SUCC] not changing break: 0x%08x == 0x%08x', oldbrk, newbrk)
 
-            return self.__return(oldbrk)
+            return self.__return(self.mem.program_break)
 
         self.mem.program_break = brk
 
-        logger.debug(
-            'SYS_BRK: changing break: 0x%08x -> 0x%08x (%d bytes)',
+        logger.info('\tsys_brk: [SUCC] changing break: 0x%08x -> 0x%08x (%+d bytes)',
             oldbrk, self.mem.program_break, self.mem.program_break - oldbrk
         )
+
         self.__return(self.mem.program_break)
 
     def sys_set_thread_area(self, code=0xf3):
@@ -176,23 +198,16 @@ class SyscallsMixin(metaclass=SyscallsMixin_Meta):
         """
         u_info_addr, = self.__args('u')
         
-        logger.debug(f'sys_set_thread_area(u_info=0x%x)', u_info_addr)
+        logger.info(f'sys_set_thread_area(u_info=0x%08x)', u_info_addr)
 
-        u_info = struct_user_desc.unpack(self.mem.get(u_info_addr, struct_user_desc.size))
+        raw_data = self.mem.get_bytes(u_info_addr, struct_user_desc.size)
 
-        logger.debug(
-            """
-struct user_desc {
-    unsigned int  entry_number      = %d;
-    unsigned long base_addr         = %d;
-    unsigned int  limit             = %d;
-    unsigned int  seg_32bit:1       = %d;
-    unsigned int  contents:2        = %d;
-    unsigned int  read_exec_only:1  = %d;
-    unsigned int  limit_in_pages:1  = %d;
-    unsigned int  seg_not_present:1 = %d;
-    unsigned int  useable:1         = %d;
-};""", *u_info)
+        # print(f'Raw data: {list(raw_data)}, {sizeof(structUserDesc)}')
+
+        # u_info = struct_user_desc.unpack(raw_data)
+        u_info = structUserDesc.from_buffer_copy(raw_data)
+
+        logger.info('%s', u_info)
 
         """
         A `user_desc` is considered "empty" if `read_exec_only` and
@@ -202,7 +217,7 @@ struct user_desc {
         """
 
         selector_index = 0
-        if u_info[0] == 4294967295:  # a.k.a. (unsigned int)(-1)
+        if u_info.entry_number == 0xffffffff:  # a.k.a. (unsigned int)(-1)
             """
             When set_thread_area() is passed an entry_number of -1, it searches
             for a free TLS entry.  If set_thread_area() finds a free TLS entry,
@@ -210,41 +225,33 @@ struct user_desc {
             entry was changed.
             """
 
+            from .Registers import SegmentDescriptor
             for selector_index, entry in enumerate(self.GDT[1:], 1):
-                base3, limit2, info, base2, base1, limit1 = segment_descriptor_struct.unpack(entry)
-                segment_present = (info >> 8) & 1
+                seg_descr = SegmentDescriptor.from_buffer_copy(entry)  #segment_descriptor_struct.unpack(entry)
 
-                if segment_present:
+                if seg_descr.P:  # segment present
                     continue
 
-                base_addr = u_info[1]
-
                 # BEGIN set up BASE
-                base1 = base_addr & 0xFFFF
-                base3 = (base_addr >> 24) & 0xFF
-                base2 = (base_addr >> 16) & 0xFF
+                seg_descr.base_1 = u_info.base_addr & 0xFFFF
+                seg_descr.base_2 = (u_info.base_addr >> 16) & 0xFF
+                seg_descr.base_3 = (u_info.base_addr >> 24) & 0xFF
                 # END set up BASE
 
-                limit = u_info[2]
-
                 # BEGIN set up LIMIT
-                limit1 = limit & 0xFFFF
-
-                limit2 &= 0xF0  # clear limit2
-                limit2 += (limit >> 16) & 0xF
+                seg_descr.limit_1 = u_info.limit & 0xFFFF
+                seg_descr.limit_2 = (u_info.limit >> 16) & 0xF
                 # END set up LIMIT
 
-                info |= 1 << 7  # set segment present to True
+                seg_descr.P = 1  # set segment present to True
 
-                descriptor = base3, limit2, info, base2, base1, limit1
+                self.GDT[selector_index] = bytes(seg_descr)  # segment_descriptor_struct.pack(*descriptor)
 
-                self.GDT[selector_index] = segment_descriptor_struct.pack(
-                    *descriptor
-                )
+                # print(f'Written segment descriptor: {seg_descr}')
 
                 break
 
-        self.mem.set(u_info_addr, selector_index.to_bytes(4, byteorder))  # set address of new selector
+        self.mem.set(u_info_addr, 4, selector_index)  # set address of new selector
         # return success (0) or error (-1)
         self.__return(0)
         
@@ -256,11 +263,9 @@ struct user_desc {
        process.
         """
 
-        func = to_int(self.reg.get(3, 4))  # EBX
-        ptr_addr = to_int(self.reg.get(1, 4))  # ECX
-        bytecount = to_int(self.reg.get(2, 4))  # EDX
+        func, ptr_addr, bytecount = self.__args('uuu')
 
-        if debug: print(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
+        logger.info(f'modify_ldt(func={func}, ptr={ptr_addr:04x}, bytecount={bytecount})')
         # do nothing, return error
         self.__return(-1)
         
@@ -277,10 +282,10 @@ struct user_desc {
 
         tid = self.mem.get(tidptr, 4)
 
-        logger.debug(f'sys_set_tid_address(tidptr={tidptr:04x} (tid={tid}))')
+        logger.info('sys_set_tid_address(tidptr=0x%08x (tid=%d))', tidptr, tid)
 
         # do nothing, return tid (thread ID)
-        self.reg.set(0, tid)
+        self.__return(tid)
 
     def sys_exit_group(self, code=0xfc):
         return self.sys_exit()
@@ -306,21 +311,23 @@ struct user_desc {
         """
         fd, iov_addr, iovcnt = self.__args('sus')
 
-        logger.debug('sys_writev(fd=%d, iov=0x%x, iovcnt=%d)', fd, iov_addr, iovcnt)
+        logger.info('sys_writev(fd=%d, iov=0x%x, iovcnt=%d)', fd, iov_addr, iovcnt)
 
         size = 0
         for x in range(iovcnt):
-            iov_base, iov_len = struct_iovec.unpack(self.mem.get(iov_addr, struct_iovec.size))
+            iov_base, iov_len = struct_iovec.unpack(
+                self.mem.get_bytes(iov_addr, struct_iovec.size)
+            )
 
-            logger.debug('struct iovec {\n\tvoid *iov_base=0x%x;\n\tsize_t iov_len=%d;\n}', iov_base, iov_len)
+            logger.debug('struct iovec {\n\tvoid *iov_base=0x%08x;\n\tsize_t iov_len=%d;\n}', iov_base, iov_len)
 
             if not iov_len:
                 iov_addr += struct_iovec.size
                 continue
 
-            buf = self.mem.get(iov_base, iov_len)
+            buf = self.mem.get_bytes(iov_base, iov_len)
 
-            logger.debug('iov_%d=0x%x; iov_len=%d, buf=%s', x, iov_base, iov_len, buf)
+            logger.debug('iov_%d=0x%08x; iov_len=%d, buf=%s', x, iov_base, iov_len, buf)
 
             try:
                 ret = os.write(self.descriptors[fd].fileno(), buf)
@@ -344,18 +351,23 @@ struct user_desc {
 
         fd, offset_high, offset_low, result_addr, whence = self.__args('uuuuu')
 
-        logger.debug('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%04X, whence=%d)',
+        logger.info('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%08x, whence=%d)',
                      fd, offset_high, offset_low, result_addr, whence
                      )
 
         offset = (offset_high << 32) | offset_low
+        
+        try:
+            descriptor = self.descriptors[fd].fileno()
+        except AttributeError:
+            return self.__return(0)
 
         try:
-            ret = os.lseek(self.descriptors[fd].fileno(), offset & 0xFFFFFFFF, whence)
+            ret = os.lseek(descriptor, offset & 0xFFFFFFFF, whence)
         except OSError:
             return self.__return(-1)
         else:
-            self.mem.set(result_addr, ret.to_bytes(4, byteorder))
+            self.mem.set(result_addr, 4, ret)
 
         # return success
         self.__return(0)
@@ -461,7 +473,7 @@ struct user_desc {
         request_direction = directions(_IOC_DIR(request))
         request_size = _IOC_SIZE(request)
 
-        if debug: print(f'ioctl(fd={fd},request={request:09_x} (type={request_type}, number={request_number}, direction={request_direction}, size={request_size}))')
+        logger.info(f'ioctl(fd={fd},request={request:09_x} (type={request_type}, number={request_number}, direction={request_direction}, size={request_size}))')
 
         if request_type == b'T':
             if request_number == 19 and request_direction == directions._IOC_NONE:
@@ -481,7 +493,7 @@ struct user_desc {
                 # };
                 struct_winsize = struct.Struct('<HHHH')
 
-                self.mem.set(data_addr, struct_winsize.pack(256, 256, 0, 0))
+                self.mem.set_bytes(data_addr, struct_winsize.size, struct_winsize.pack(256, 256, 0, 0))
 
                 return self.__return(0)
 
@@ -529,12 +541,151 @@ struct user_desc {
         int open(const char *pathname, int flags, mode_t mode);
         """
 
-        pathname_addr, flags, mode = self.__args('uuu')
+        import enum, os
+
+        class O_MODE(enum.IntFlag):
+            """
+            File access modes.
+            See: https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/fcntl.h
+            """
+            O_ACCMODE	= 0o00000003
+            O_RDONLY	= 0o00000000
+            O_WRONLY	= 0o00000001
+            O_RDWR		= 0o00000002
+            O_CREAT		= 0o00000100  # not fcntl
+            O_EXCL		= 0o00000200  # not fcntl
+            O_NOCTTY	= 0o00000400  # not fcntl
+            O_TRUNC		= 0o00001000  # not fcntl
+            O_APPEND	= 0o00002000
+            O_NONBLOCK	= 0o00004000
+            O_DSYNC		= 0o00010000  # used to be O_SYNC, see below
+            FASYNC		= 0o00020000  # fcntl, for BSD compatibility
+            O_DIRECT	= 0o00040000  # direct disk access hint
+            O_LARGEFILE	= 0o00100000
+            O_DIRECTORY	= 0o00200000  # must be a directory
+            O_NOFOLLOW	= 0o00400000  # don't follow links
+            O_NOATIME	= 0o01000000
+            O_CLOEXEC	= 0o02000000  # set close_on_exec
+
+            _O_SYNC    = 0o04000000
+            O_SYNC		= (_O_SYNC | O_DSYNC)
+            O_PATH		= 0o010000000
+
+            _O_TMPFILE = 0o020000000
+            # a horrid kludge trying to make sure that this will fail on old kernels
+            O_TMPFILE   = (_O_TMPFILE | O_DIRECTORY)
+            O_TMPFILE_MASK = (_O_TMPFILE | O_DIRECTORY | O_CREAT)
+
+        def open_file(name: str, mode: str):
+            # find empty descriptor, starting from 3
+            descriptor = -1
+            for descr, file in enumerate(self.descriptors):
+                if file is None:
+                    # found empty descriptor
+                    # print('found empty descriptor')
+                    descriptor = descr
+                    break
+
+            if descriptor == -1:  # no empty descriptors found
+                descriptor = len(self.descriptors)
+                # print(f'opening new descriptor: {descriptor}')
+                self.descriptors.append(open(name, mode))
+            else:
+                # print(f'reusing existing descriptor: {descriptor}')
+                self.descriptors[descriptor] = open(name, mode)
+
+            return descriptor
+
+        pathname_addr, flags, mode = self.__args('usu')
 
         pathname = self.__read_string(pathname_addr).decode()
-        logger.debug(f'sys_open(const char *pathname=%r, int flags=%d, mode_t mode=%d)', pathname, flags, mode)
+        flags = O_MODE(flags)
+        mode = O_MODE(mode)
+        logger.info('sys_open(const char *pathname=%r, int flags=%s, mode_t mode=%s)', pathname, flags, mode)
 
-        self.__return(-1)
+        if flags & O_MODE.O_RDONLY:
+            if not os.path.exists(pathname):
+                return self.__return(-1)
+
+            descr = open_file(pathname, 'r')
+            logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)
+
+            return self.__return(descr)
+        elif flags & O_MODE.O_WRONLY:
+            if flags & O_MODE.O_TRUNC:
+                descr = open_file(pathname, 'w')
+            else:
+                descr = open_file(pathname, 'x')
+
+            logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)
+
+            return self.__return(descr)
+        elif flags & O_MODE.O_RDWR:
+            if pathname == '/dev/tty':
+                return self.__return(0)  # TODO: what to do with TTYs?
+
+            descr = open_file(pathname, 'r+')
+
+            logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)
+
+            return self.__return(descr)
+        elif flags & O_MODE.O_LARGEFILE:  # open for reading?
+            if pathname.startswith('/etc'):
+                return self.__return(-1)
+
+            descr = open_file(pathname, 'r')
+            logger.info('\tsys_open: [SUCC] %s descriptor %u', flags, descr)
+
+            return self.__return(descr)
+        else:
+            # TODO: do not know what to do with these yet...
+
+            logger.info('\tsys_open: [ERR] %s do not know how to open', flags)
+            return self.__return(-1)
+
+    def sys_close(self, code=0x06):
+        """
+        sys_close(unsigned int fd)
+        """
+
+        fd, = self.__args('u')
+
+        logger.info('sys_close(unsigned int fd = %u)', fd)
+
+        if fd >= len(self.descriptors):
+            logger.info('\tsys_close: [ERR] descriptor %u not found', fd)
+            return self.__return(-1)  # error
+
+        if self.descriptors[fd] is None:  #self.descriptors[fd].closed:
+            logger.info('\tsys_close: [ERR] descriptor %u already closed', fd)
+            return self.__return(-1)  # error
+
+        self.descriptors[fd].close()
+        self.descriptors[fd] = None
+
+        logger.info('\tsys_close: [SUCC] descriptor %u closed', fd)
+
+        self.__return(0)
+
+    def sys_unlink(self, code=0x0a):
+        """
+        int sys_unlink(const char * pathname)
+        """
+
+        pathname_addr, = self.__args('u')
+        pathname = self.__read_string(pathname_addr).decode()
+
+        logger.info('sys_unlink(const char * pathname = %r)', pathname)
+
+        try:
+            ret = os.unlink(pathname)
+        except OSError:
+            ret = -1
+            logger.info('\tsys_unlink: [ERR] failed to unlink %r', pathname)
+        else:
+            logger.info('\tsys_unlink: [SUCC] unlinked %r', pathname)
+
+        self.__return(ret)
 
     def sys_mmap_pgoff(self, code=0xc0):
         """
@@ -566,25 +717,43 @@ struct user_desc {
         flags = MAP_FLAGS(flags)
         prot = MAP_PROT(prot)
 
-        logger.debug(
+        logger.info(
             'mmap(void *addr=0x%08x, size_t length=%d, int prot=%s, int flags=%s, int fd=%d, off_t offset=%d)',
             addr, length, str(prot), str(flags), fd, -1
         )
 
         if flags & MAP_FLAGS.MAP_ANONYMOUS:
             # TODO: Do something with protection?
-            old_brk = self.mem.program_break
+            old_brk = self.mem.memset(self.mem.program_break, 0, length)
             self.mem.program_break += length
 
-            logger.debug(
-                'mmap: allocated %d bytes', length
-            )
+            logger.info('\tmmap: [SUCC] allocated %d bytes', length)
 
             return self.__return(old_brk)
 
         # TODO: mmap with file descriptors?
 
+        logger.info('\tmmap: [ERR] unsupported call!')
+
         self.__return(-1)
+
+    def sys_munmap(self, code=0x5b):
+        """
+        int munmap(void *addr, size_t length);
+        """
+
+        addr, length = self.__args('uu')
+
+        logger.info('sys_munmap(void *addr = 0x%08x, size_t length = %u)', addr, length)
+
+        if addr + length == self.mem.program_break:
+            logger.info('\tsys_munmap: [SUCC] simple unmap')
+            self.mem.program_break = addr
+        else:
+            logger.info('\tsys_munmap: [ERR] cannot simply unmap because %d bytes will be left', self.mem.program_break - (addr + length))
+
+        logger.info('\tsys_munmap: [SUCC] returning success anyway')
+        self.__return(0)
 
     def sys_rt_gprocmask(self, code=0xaf):
         """
@@ -711,8 +880,9 @@ struct user_desc {
 
         import time
 
-        sec, nsec = divmod(time.time_ns(), 1_000_000_000)
+        time_nanoseconds = int(time.time() * 1_000_000_000)  # Python 3.6 compatibility
+        sec, nsec = time_nanoseconds // 1_000_000_000, time_nanoseconds % 1_000_000_000
 
-        self.mem.set(tp_addr, struct_timespec.pack(sec, nsec))
+        self.mem.set_bytes(tp_addr, struct_timespec.size, struct_timespec.pack(sec, nsec))
 
         self.__return(0)

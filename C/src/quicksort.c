@@ -35,7 +35,7 @@ int main() {
     printf("%d,", array[i]);
   printf("\n");
 
-  for (size_t i = 0; i < SIZE; ++i)
+  for (int i = 0; i < SIZE; ++i)
     if (array[i] != i)
         return i + 1;
 
