@@ -1,8 +1,32 @@
-dist: xenial
 language: python
-python:
-  - "3.6"
-  - "3.7"
-  - "nightly"
+matrix:
+  include:
+    - name: "Python 3.6 on Linux"
+      os: linux
+      python: 3.6
+      dist: xenial
+    - name: "Python 3.7 on Linux"
+      os: linux
+      python: 3.7
+      dist: xenial
+    - name: "Python nightly on Linux"
+      os: linux
+      python: nightly
+      dist: xenial
+    - name: "Python 3.6 on Windows"
+      os: windows
+      language: shell
+      before_install: choco install python3 --version 3.6.8
+      env: PATH=/c/Python36:/c/Python36/Scripts:$PATH
+    - name: "Python 3.7 on Windows"
+      os: windows
+      language: shell
+      before_install: choco install python3 --version 3.7.3
+      env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
+    - name: "Python 3.8 on Windows"
+      os: windows
+      language: shell
+      before_install: choco install python3 --pre
+      env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
 
-script: python3 -m unittest discover -v
+script: python3 -m unittest discover -v || python -m unittest discover -v
