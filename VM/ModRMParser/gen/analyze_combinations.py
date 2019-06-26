@@ -1,6 +1,7 @@
 import csv
-from ModRM_parsers import AddressC
 from collections import namedtuple
+
+from ..ModRM_parsers import AddressC
 
 
 class Register:
