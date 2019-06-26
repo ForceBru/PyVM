@@ -1,7 +1,12 @@
 import itertools
-import requests
 import re
 import csv
+
+try:
+    import requests
+except ImportError:
+    print('Requests ccannot be imported')
+    requests = object()
 
 TOTAL_COMBINAIONS = (
     0x100 - 3 * 8 +
