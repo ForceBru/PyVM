@@ -1,12 +1,6 @@
 import subprocess
 from pathlib import Path
 
-if __name__ == '__main__':
-    import logging, sys
-    FMT_1 = '%(levelname)s: %(module)s.%(funcName)s @ %(lineno)d: %(message)s'
-    FMT_2 = '%(message)s'
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format=FMT_2)
-
 
 def find_nasm_executable(root=".") -> Path:
     '''
@@ -111,12 +105,12 @@ if __name__ == '__main__':
 
     import VM
 
-    vm = VM.VM(262145 * 3)
+    vm = VM.VMKernel(262145 * 3)
 
     fname = f'asm/bin/standalone.bin'
     print(f'\tExecuting {fname!r}...')
 
-    ebx = vm.execute_file(fname)
+    ebx = vm.execute(VM.ExecutionStrategy.FLAT, fname)
 
     print(f'\t{fname!r} -> retval = {ebx}')
 

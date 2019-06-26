@@ -4,6 +4,31 @@
 
 PyVM executes x86 (IA-32) bytecode in _pure Python_, without any dependencies.
 
+-----------
+> WARNING! This branch may be unstable!
+
+This branch attempts to implement a mapping from ModRM & SIB bytes to automatic address generators, instead of the parser
+in `VM/misc.py:process_ModRM`. The idea is, why parse the thing over and over again if we know for sure what each of the
+ModRM & SIB values mean. So, we can create a map that looks like this:
+
+```python
+ModRM_map = [
+    DoThis(...),
+    DoThis(...),
+    [
+        DealWithSIB(...),
+        DealWithSIB(...)
+    ]
+]
+```
+
+Here `ModRM_map` will be indexed with the values of the `ModRM` byte, and, if `ModRM_map[something]` is a list, it
+should be indexed with the `SIB` byte. The values `DoThis(...)` and so on have some kind of `compute_address(cpu)` method
+that will accept the current instance of the `VMKernel` (or `CPU`?) class and retrieve the values of the registers,
+displacements, etc that are required by the given combination of the ModRM & SIB bytes.
+
+-----------
+
 It can run multiple types of executables:
  - Raw bytecode (interprets `bytes` and `bytearray`s as bytecode)
  - Flat binaries (for example, those produced by default by NASM; interprets a file's contents as bytecode)
