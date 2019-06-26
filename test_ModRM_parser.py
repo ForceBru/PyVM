@@ -40,4 +40,6 @@ if __name__ == '__main__':
         assert i == total
 
         print(f'Correct: {correct_num / total:.2%}')
-        print(f'Error: {error / total:.2%}')
+
+        if error != 0:
+            print(f'Error: {error / total:.2%}')
