@@ -1,12 +1,13 @@
-from ..debug import reg_names
 from ..util import Instruction, is_signed_out_of_range
 from ..misc import parity, Shift, MSB, LSB
 
 from functools import partialmethod as P
 import operator
 
-import logging
-logger = logging.getLogger(__name__)
+if __debug__:
+    from ..debug import debug_operand, debug_register_operand
+    import logging
+    logger = logging.getLogger(__name__)
 
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
@@ -107,12 +108,15 @@ class BITWISE(Instruction):
         vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not test:
-            name = operation.__name__
+            if __debug__:
+                name = operation.__name__
             vm.reg.set(0, sz, c)
         else:
-            name = 'test'
+            if __debug__:
+                name = 'test'
 
-        logger.debug('%s %s=%d, imm%d=%d', name, reg_names[0][sz], a, sz * 8, b)
+        if __debug__:
+            logger.debug('%s %s=%d, imm%d=%d', name, debug_register_operand(0, sz), a, sz * 8, b)
 
         return True
 
@@ -126,12 +130,11 @@ class BITWISE(Instruction):
         sz = 1 if _8bit else vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         b = vm.mem.get(vm.eip, imm_sz, True)
         vm.eip += imm_sz
-
-        type, loc, _ = RM
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
@@ -143,23 +146,25 @@ class BITWISE(Instruction):
         c &= MAXVALS[sz]
 
         vm.reg.eflags.ZF = c == 0
-        vm.reg.eflags.PF = parity(c & 0xFF)
+        vm.reg.eflags.PF = parity(c)
 
         if not test:
-            name = operation.__name__
+            if __debug__:
+                name = operation.__name__
             type.set(loc, sz, c)
         else:
-            name = 'test'
+            if __debug__:
+                name = 'test'
 
-        logger.debug('%s %s=%d, imm%d=%d', name, hex(loc) if type else reg_names[loc][sz], a, sz * 8, b)
+        if __debug__:
+            logger.debug('%s %s=%d, imm%d=%d', name, debug_operand(RM, sz), a, sz * 8, b)
 
         return True
 
     def rm_r(vm, _8bit, operation, test=False) -> True:
         sz = 1 if _8bit else vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
@@ -176,20 +181,27 @@ class BITWISE(Instruction):
         vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not test:
-            name = operation.__name__
+            if __debug__:
+                name = operation.__name__
             type.set(loc, sz, c)
         else:
-            name = 'test'
+            if __debug__:
+                name = 'test'
 
-        logger.debug('%s %s=%d, %s=%d', name, hex(loc) if type else reg_names[loc][sz], a, reg_names[R[1]][sz], b)
+        if __debug__:
+            logger.debug(
+                '%s %s=%d, %s=%d',
+                name,
+                debug_operand(RM, sz), a,
+                debug_operand(R, sz), b
+            )
 
         return True
 
     def r_rm(vm, _8bit, operation, test=False) -> True:
         sz = 1 if _8bit else vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
@@ -206,12 +218,20 @@ class BITWISE(Instruction):
         vm.reg.eflags.PF = parity(c & 0xFF)
 
         if not test:
-            name = operation.__name__
+            if __debug__:
+                name = operation.__name__
             vm.reg.set(R[1], sz, c)
         else:
-            name = 'test'
+            if __debug__:
+                name = 'test'
 
-        logger.debug('%s %s=%d, %s=%d', name, reg_names[R[1]][sz], a, hex(loc) if type else reg_names[loc][sz], b)
+        if __debug__:
+            logger.debug(
+                '%s %s=%d, %s=%d',
+                name,
+                debug_operand(R, sz), a,
+                debug_operand(RM, sz), b
+            )
 
         return True
 
@@ -263,9 +283,8 @@ class NEGNOT(Instruction):
 
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         a = (type).get(loc, sz)
         b = operation(a, sz)
@@ -283,9 +302,14 @@ class NEGNOT(Instruction):
         b &= MAXVALS[sz]
         (type).set(loc, sz, b)
 
-        logger.debug('%s %s=%d (%s := %d)', operation.__name__, hex(loc) if type else reg_names[loc][sz], a,
-                     hex(loc) if type else reg_names[loc][sz], b
-                     )
+        if __debug__:
+            dbg = debug_operand(RM, sz)
+            logger.debug(
+                '%s %s=%d (%s := %d)',
+                operation.__name__,
+                dbg, a,
+                dbg, b
+            )
 
         return True
 
@@ -334,7 +358,8 @@ class SHIFT(Instruction):
         sz = 1 if _8bit else vm.operand_size
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(vm.operand_size, vm.operand_size)
+        sz = vm.operand_size  # WTF?!
+        RM, R = vm.process_ModRM()
 
         if (operation == Shift.SHL) and (R[1] != 4):
             vm.eip = old_eip
@@ -365,7 +390,7 @@ class SHIFT(Instruction):
         if tmp_cnt == 0:
             return True
 
-        type, loc, _ = RM
+        type, loc = RM
 
         dst = (type).get(loc, sz, operation == Shift.SAR)
         tmp_dst = dst
@@ -396,30 +421,22 @@ class SHIFT(Instruction):
         dst &= MAXVALS[sz]
 
         vm.reg.eflags.ZF = dst == 0
-        vm.reg.eflags.PF = parity(dst & 0xFF)
+        vm.reg.eflags.PF = parity(dst)
 
         (type).set(loc, sz, dst)
 
-        if operation == Shift.SHL:
-            name = 'shl'
-        elif operation == Shift.SHR:
-            name = 'shr'
-        elif operation == Shift.SAR:
-            name = 'sar'
+        if __debug__:
+            name = operation.name.lower()
+            op = {Shift.C_ONE: '', Shift.C_CL: 'cl', Shift.C_imm8: 'imm8'}[_cnt]
 
-        if _cnt == Shift.C_ONE:
-            op = ''
-        elif _cnt == Shift.C_CL:
-            op = 'cl'
-        elif _cnt == Shift.C_imm8:
-            op = 'imm8'
-
-        logger.debug(
-            '%s %s=%s, %s=%s (%s := %d)',
-            name, hex(loc) if type else reg_names[loc][sz],
-            tmp_dst, op, cnt,
-            hex(loc) if type else reg_names[loc][sz], dst
-        )
+            dbg = debug_operand(RM, sz)
+            logger.debug(
+                '%s %s=%s, %s=%s (%s := %d)',
+                name,
+                dbg,
+                tmp_dst, op, cnt,
+                dbg, dst
+            )
 
         return True
 
@@ -440,8 +457,8 @@ class SHIFTD(Instruction):
     def shift(vm, operation, cnt) -> True:
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         dst = (type).get(loc, sz)
         src = vm.reg.get(R[1], sz)
@@ -480,7 +497,7 @@ class SHIFTD(Instruction):
         vm.reg.eflags.SF = sign_dst
         dst &= MAXVALS[sz]
         vm.reg.eflags.ZF = dst == 0
-        vm.reg.eflags.PF = parity(dst & 0xFF)
+        vm.reg.eflags.PF = parity(dst)
 
         # set OF flag
         if cnt == 1:
@@ -488,13 +505,15 @@ class SHIFTD(Instruction):
 
         (type).set(loc, sz, dst)
 
-        logger.debug(
-            'sh%sd %s=0x%x, %s=0x%x, 0x%x (%s := 0x%x)',
-            'l' if operation == Shift.SHL else 'r',
-            hex(loc) if type else reg_names[loc][sz], dst_init,
-            reg_names[R[1]][sz], src,
-            cnt,
-            hex(loc) if type else reg_names[loc][sz], dst,
-        )
+        if __debug__:
+            dbg = debug_operand(RM, sz)
+            logger.debug(
+                'sh%sd %s=0x%x, %s=0x%x, 0x%x (%s := 0x%x)',
+                'l' if operation == Shift.SHL else 'r',
+                dbg, dst_init,
+                debug_operand(R, sz), src,
+                cnt,
+                dbg, dst,
+            )
 
         return True

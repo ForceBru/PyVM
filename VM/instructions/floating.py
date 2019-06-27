@@ -3,8 +3,9 @@ from unittest.mock import MagicMock
 
 from ..util import Instruction
 
-import logging
-logger = logging.getLogger(__name__)
+if __debug__:
+    import logging
+    logger = logging.getLogger(__name__)
 
 
 class FLD(Instruction):
@@ -29,9 +30,9 @@ class FLD(Instruction):
             return False
 
         sz = vm.operand_size
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
 
-        _, loc, _ = RM
+        _, loc = RM
 
         flt80 = vm.mem.get_float(loc, bits)
 
@@ -75,8 +76,8 @@ class FST(Instruction):
         if _REG != REG:
             return False
 
-        RM, R = vm.process_ModRM(vm.operand_size)
-        _, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        _, loc = RM
 
         data = vm.fpu.ST(0)
 
@@ -113,8 +114,8 @@ class FIST(Instruction):
         if _REG != REG:
             return False
 
-        RM, R = vm.process_ModRM(0)
-        _, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        _, loc = RM
 
         SRC = int(vm.fpu.ST(0))
 
@@ -315,9 +316,9 @@ class FLDCW(Instruction):
         if _REG != REG:
             return False
 
-        RM, R = vm.process_ModRM(vm.operand_size)
+        RM, R = vm.process_ModRM()
+        _, loc = RM
 
-        _, loc, _ = RM
         control = vm.mem.get(loc, 2)
         vm.fpu.control.value = control
 
@@ -341,9 +342,9 @@ class FSTCW(Instruction):
         if _REG != REG:
             return False
 
-        RM, R = vm.process_ModRM(vm.operand_size)
+        RM, R = vm.process_ModRM()
 
-        _, loc, _ = RM
+        _, loc = RM
         vm.mem.set(loc, 2, vm.fpu.control.value)
 
         if check:

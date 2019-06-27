@@ -1,3 +1,5 @@
+from .Memory import Memory
+
 reg_names = [
     [0, 'al', 'ax', 0, 'eax'],
     [0, 'cl', 'cx', 0, 'ecx'],
@@ -8,3 +10,16 @@ reg_names = [
     [0, 'dh', 'si', 0, 'esi'],
     [0, 'bh', 'di', 0, 'edi'],
     ]
+
+
+def debug_operand(operand: tuple, size: int) -> str:
+    operand_type, operand_address = operand
+
+    if isinstance(operand_type, Memory):
+        return f'0x{operand_address:08x}'
+
+    return reg_names[operand_address][size]
+
+
+def debug_register_operand(operand: int, size: int) -> str:
+    return reg_names[operand][size]

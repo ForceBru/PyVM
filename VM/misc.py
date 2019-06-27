@@ -12,22 +12,17 @@ class Shift(enum.Enum):
     SAR = 6
 
 
-def process_ModRM(self, size1: int, size2=None) -> tuple:
+def process_ModRM(self) -> tuple:
     """
     Parses the ModRM byte, which is pointed to by `self.eip`.
 
-    :param size1: The size of data to read/write from/to the first returned address or register.
-    :param size2: The size of data to read/write from/to the second returned register
-    :return: (type1, address1, size1), (type2, address2, size2)
+    :return: (type1, address1), (type2, address2)
         type:
             self.mem or self.reg
         address:
             Address in memory or the number of the register
-        size1, size2:
-            Exact copies of whatever was passed as arguments
     """
     # TODO: 16-bit addressing is not supported!
-    size2 = size2 or size1  # TODO: do we need `size`s at all?
 
     ModRM = self.mem.get_eip(self.eip, 1)
     self.eip += 1
@@ -37,7 +32,7 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
     RM  = (ModRM & 0b00000111)
 
     if MOD == 0b11:
-        return (self.reg, RM, size1), (self.reg, REG, size2)
+        return (self.reg, RM), (self.reg, REG)
 
     if RM != 0b100:  # No SIB byte
         if MOD == 0b01:
@@ -45,25 +40,25 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
             addr += self.mem.get_eip(self.eip, 1, True)
             self.eip += 1
 
-            return (self.mem, addr, size1), (self.reg, REG, size2)
+            return (self.mem, addr), (self.reg, REG)
         if MOD == 0b10:
             addr = self.reg.get(RM, 4, True)
             addr += self.mem.get_eip(self.eip, 4, True)
             self.eip += 4
 
-            return (self.mem, addr, size1), (self.reg, REG, size2)
+            return (self.mem, addr), (self.reg, REG)
 
         # MOD == 0b00
         if RM != 0b101:
             addr = self.reg.get(RM, 4, True)
 
-            return (self.mem, addr, size1), (self.reg, REG, size2)
+            return (self.mem, addr), (self.reg, REG)
 
         # RM == 0b101
         addr = self.mem.get_eip(self.eip, 4, True)
         self.eip += 4
 
-        return (self.mem, addr, size1), (self.reg, REG, size2)
+        return (self.mem, addr), (self.reg, REG)
 
     # RM == 0b100 => SIB byte
     SIB = self.mem.get_eip(self.eip, 1)
@@ -90,13 +85,13 @@ def process_ModRM(self, size1: int, size2=None) -> tuple:
             addr += self.mem.get_eip(self.eip, 4, True)
             self.eip += 4
 
-            return (self.mem, addr, size1), (self.reg, REG, size2)
+            return (self.mem, addr), (self.reg, REG)
 
     # (base != 0b101) or we dropped from the `if` clause above
 
     addr += self.reg.get(base, 4, True)
 
-    return (self.mem, addr, size1), (self.reg, REG, size2)
+    return (self.mem, addr), (self.reg, REG)
 
 
 def sign_extend(num: int, nbytes: int) -> int:

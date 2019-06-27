@@ -1,11 +1,12 @@
-import logging
 from functools import partialmethod as P
 from unittest.mock import MagicMock
 
-from ..debug import reg_names
 from ..util import Instruction, to_int, to_signed, byteorder
 
-logger = logging.getLogger(__name__)
+if __debug__:
+    from ..debug import debug_operand, debug_register_operand
+    import logging
+    logger = logging.getLogger(__name__)
 
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-byte number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-byte number
@@ -19,14 +20,16 @@ class NOP(Instruction):
         }
 
     def nop(vm) -> True:
-        logger.debug('nop')
+        if __debug__:
+            logger.debug('nop')
 
         return True
 
     def rm(vm) -> True:
-        vm.process_ModRM(vm.operand_size)
+        vm.process_ModRM()
 
-        logger.debug('nop')
+        if __debug__:
+            logger.debug('nop')
 
         return True
 
@@ -103,7 +106,8 @@ class JMP(Instruction):
 
         vm.eip = tmpEIP
 
-        logger.debug('j%s rel%d 0x%08x', jump.co_filename, sz * 8, vm.eip)
+        if __debug__:
+            logger.debug('j%s rel%d 0x%08x', jump.co_filename, sz * 8, vm.eip)
         
         return True
 
@@ -111,10 +115,10 @@ class JMP(Instruction):
         old_eip = vm.eip
 
         sz = vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
 
         if R[1] == 4:  # this is jmp r/m
-            type, loc, _ = RM
+            type, loc = RM
 
             tmpEIP = (type).get(loc, vm.address_size) 
                       
@@ -122,7 +126,8 @@ class JMP(Instruction):
 
             assert vm.eip < vm.mem.size
 
-            logger.debug('jmp rm%d 0x%x', sz * 8, vm.eip)
+            if __debug__:
+                logger.debug('jmp rm%d 0x%x', sz * 8, vm.eip)
 
             return True
         elif R[1] == 5:  # this is jmp m
@@ -147,7 +152,8 @@ class JMP(Instruction):
             else:
                 vm.eip = tempEIP & 0x0000FFFF
 
-            logger.debug('jmp m%d 0x%x', sz * 8, vm.eip)
+            if __debug__:
+                logger.debug('jmp m%d 0x%x', sz * 8, vm.eip)
 
             return True
 
@@ -173,7 +179,8 @@ class JMP(Instruction):
         else:
             vm.eip = tempEIP & 0x0000FFFF
 
-        logger.debug('jmp m%d 0x%x', sz * 8, vm.eip)
+        if __debug__:
+            logger.debug('jmp m%d 0x%x', sz * 8, vm.eip)
 
         return True
 
@@ -189,14 +196,16 @@ class SETcc(Instruction):
         }
 
     def rm8(vm, cond) -> True:
-        RM, R = vm.process_ModRM(1)  # we know it's 1 byte
+        sz = 1  # we know it's 1 byte
+        RM, R = vm.process_ModRM()
 
-        type, loc, _ = RM
+        type, loc = RM
 
         byte = eval(cond)
-        (type).set(loc, 1, byte)
+        (type).set(loc, sz, byte)
 
-        logger.debug('set%s %s := %d', cond.co_filename, hex(loc) if type else reg_names[loc][1], byte)
+        if __debug__:
+            logger.debug('set%s %s := %d', cond.co_filename, debug_operand(RM, sz), byte)
 
         return True
 
@@ -214,18 +223,24 @@ class CMOVCC(Instruction):
     def r_rm(vm, cond) -> True:
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
 
         if not eval(cond):
             return True
 
-        type, loc, _ = RM
+        type, loc = RM
 
         data = (type).get(loc, sz)
 
         vm.reg.set(R[1], sz, data)
 
-        logger.debug('cmov%s %s, %s=0x%x', cond.co_filename, reg_names[R[1]][sz], hex(loc) if type else reg_names[loc][sz], data)
+        if __debug__:
+            logger.debug(
+                'cmov%s %s, %s=0x%x',
+                cond.co_filename,
+                debug_operand(R, sz), debug_operand(RM, sz),
+                data
+            )
 
         return True
 
@@ -243,26 +258,31 @@ class BT(Instruction):
     def rm_r(vm) -> True:
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        _type, loc = RM
 
-        base = (type).get(loc, sz)
+        base = (_type).get(loc, sz)
         offset = vm.reg.get(R[1], sz)
 
-        logger.debug('bt %s, 0x%02x', hex(loc) if type else reg_names[loc][sz], offset)
-
-        if type == 0:  # first arg is a register
+        if isinstance(_type, type(vm.reg)):
             offset %= sz * 8
 
         vm.reg.eflags.CF = (base >> offset) & 1
+
+        if __debug__:
+            logger.debug(
+                'bt %s, 0x%02x',
+                debug_operand(RM, sz),
+                offset
+            )
 
         return True
 
     def rm_imm(vm) -> bool:
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-        _type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        _type, loc = RM
 
         if R[1] != 4:  # this is not bt
             return False
@@ -275,12 +295,17 @@ class BT(Instruction):
         offset = vm.mem.get_eip(vm.eip, 1)  # always 8 bits
         vm.eip += 1
 
-        logger.debug('bt %s, 0x%02x', hex(loc) if type else reg_names[loc][sz], offset)
-
-        if type == 0:  # first arg is a register
+        if isinstance(_type, type(vm.reg)):  # first arg is a register
             offset %= sz * 8
 
         vm.reg.eflags.CF = (base >> offset) & 1
+
+        if __debug__:
+            logger.debug(
+                'bt %s, 0x%02x',
+                debug_operand(RM, sz),
+                offset
+            )
 
         return True
 
@@ -310,7 +335,8 @@ class INT(Instruction):
 
         vm.interrupt(imm)
 
-        logger.debug('int 0x%x', imm)
+        if __debug__:
+            logger.debug('int 0x%x', imm)
 
         return True
 
@@ -337,12 +363,12 @@ class CALL(Instruction):
         old_eip = vm.eip
         
         sz = vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
         
         if R[1] == 2:  # this is call r/m
-            type, loc, size = RM
+            type, loc = RM
 
-            data = (type).get(loc, size)
+            data = (type).get(loc, sz)
           
             tmpEIP = data & MAXVALS[sz]
           
@@ -352,7 +378,12 @@ class CALL(Instruction):
           
             vm.eip = tmpEIP
 
-            logger.debug('call %s=0x%08x => 0x%08x', hex(loc) if type else reg_names[loc][sz], data, vm.eip)
+            if __debug__:
+                logger.debug(
+                    'call %s=0x%08x => 0x%08x',
+                    debug_operand(RM, sz),
+                    data, vm.eip
+                )
 
             return True
         elif R[1] == 3:  # this is call m
@@ -372,7 +403,8 @@ class CALL(Instruction):
         vm.stack_push(vm.eip)
         vm.eip = tmpEIP
 
-        logger.debug('call 0x%08x => 0x%08x', dest, vm.eip)
+        if __debug__:
+            logger.debug('call 0x%08x => 0x%08x', dest, vm.eip)
 
         return True
 
@@ -401,11 +433,14 @@ class RET(Instruction):
         sz = vm.operand_size
         vm.eip = to_signed(vm.stack_pop(sz), sz)
 
-        logger.debug('ret 0x%08x', vm.eip)
+        if __debug__:
+            logger.debug('ret 0x%08x', vm.eip)
 
         return True
 
     def near_imm(vm) -> True:
+        raise NotImplementedError('This is not optimized yet!')
+
         sz = 2  # always 16 bits
         vm.eip = to_int(vm.stack_pop(sz), True)
 
@@ -448,11 +483,11 @@ class ENTER(Instruction):
         else:
             raise RuntimeError(f"Instruction 'enter {AllocSize}, {NestingLevel}' is not implemented yet")
 
-        vm.reg.set(5, (FrameTemp & MAXVALS[vm.operand_size]).to_bytes(4, byteorder))  # EBP
-        esp = to_int(vm.reg.get(4, vm.operand_size)) - AllocSize
-        vm.reg.set(4, esp.to_bytes(4, byteorder))
+        vm.reg.ebp = FrameTemp & MAXVALS[vm.operand_size]
+        vm.reg.esp = vm.reg.get(4, vm.operand_size) - AllocSize
 
-        logger.debug('enter 0x%04x, 0x%02x', AllocSize, NestingLevel)
+        if __debug__:
+            logger.debug('enter 0x%04x, 0x%02x', AllocSize, NestingLevel)
 
         return True
 
@@ -479,7 +514,8 @@ class LEAVE(Instruction):
         vm.reg.set(ESP, vm.address_size, vm.reg.get(EBP, vm.address_size))
         vm.reg.set(EBP, vm.operand_size, vm.stack_pop(vm.operand_size))
 
-        logger.debug('leave')
+        if __debug__:
+            logger.debug('leave')
 
         return True
 
@@ -502,10 +538,10 @@ class CPUID(Instruction):
         EAX_val = vm.reg.get(eax, 4)
 
         if EAX_val == 0x00:
-            vm.reg.set(eax, max_input_value)
-            vm.reg.set(ebx, b'Genu')
-            vm.reg.set(edx, b'ineI')
-            vm.reg.set(ecx, b'ntel')
+            vm.reg.eax = max_input_value
+            vm.reg.ebx = int.from_bytes(b'Genu', byteorder)
+            vm.reg.edx = int.from_bytes(b'ineI', byteorder)
+            vm.reg.ecx = int.from_bytes(b'ntel', byteorder)
         elif EAX_val == 0x01:
             # Processor Model, Family, Stepping in EAX (https://en.wikichip.org/wiki/intel/cpuid)
             # Family 3, core 80486DX
@@ -517,17 +553,15 @@ class CPUID(Instruction):
             # family: 0b0100,
             # model: 0b0001,
             # stepping: 0b0000
-            EAX_val = 0b0000_0000_0000_0000_0000_0100_0001_0000
-            EBX_val = 0
-            ECX_val = 0  # no extra technologies available
-            EDX_val = 0b0000_0000_0000_0000_1000_0000_0000_0001  # CMOV (bit 5), fpu (bit 0)
-
-            vm.reg.set(eax, EAX_val.to_bytes(4, byteorder))
-            vm.reg.set(ebx, EBX_val.to_bytes(4, byteorder))
-            vm.reg.set(ecx, ECX_val.to_bytes(4, byteorder))
-            vm.reg.set(edx, EDX_val.to_bytes(4, byteorder))
+            vm.reg.eax = 0b0000_0000_0000_0000_0000_0100_0001_0000
+            vm.reg.ebx = 0
+            vm.reg.ecx = 0
+            vm.reg.edx = 0b0000_0000_0000_0000_1000_0000_0000_0001  # CMOV (bit 5), fpu (bit 0)
         else:
             raise RuntimeError(f'Unsupported EAX value for CPUID: 0x{EAX_val:08X}')
+
+        if __debug__:
+            logger.debug('cpuid')
 
         return True
 

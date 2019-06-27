@@ -1,13 +1,14 @@
 import enum
 
-from ..debug import reg_names
 from ..util import Instruction
 from ..misc import parity, sign_extend
 
 from functools import partialmethod as P
 
-import logging
-logger = logging.getLogger(__name__)
+if __debug__:
+    from ..debug import debug_operand, debug_register_operand
+    import logging
+    logger = logging.getLogger(__name__)
 
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
@@ -142,13 +143,15 @@ class ADDSUB(Instruction):
         if not cmp:
             vm.reg.set(0, sz, c)
 
-        logger.debug(
-            '%s %s=%d, imm%d=%d (%s := %d)',
-            ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
-            reg_names[0][sz], a,
-            sz * 8, b,
-            reg_names[0][sz], c
-        )
+        if __debug__:
+            dbg = debug_register_operand(0, sz)
+            logger.debug(
+                '%s %s=%d, imm%d=%d (%s := %d)',
+                ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
+                dbg, a,
+                sz * 8, b,
+                dbg, c
+            )
 
         return True
 
@@ -164,7 +167,8 @@ class ADDSUB(Instruction):
         sz = 1 if _8bit_op else vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         b = vm.mem.get(vm.eip, imm_sz, True)
         vm.eip += imm_sz
@@ -173,8 +177,6 @@ class ADDSUB(Instruction):
 
         if operation == operation.ADC or operation == operation.SBB:
             b += vm.reg.eflags.CF
-
-        type, loc, _ = RM
 
         a = (type).get(loc, sz)
 
@@ -202,21 +204,23 @@ class ADDSUB(Instruction):
         if operation != operation.CMP:
             (type).set(loc, sz, c)
 
-        logger.debug('%s %s=%d, imm%d=%d (%s := %d)',
-                     operation.name,
-                     hex(loc) if type else reg_names[loc][sz],
-                     a, sz * 8, b,
-                     hex(loc) if type else reg_names[loc][sz], c
-                     )
+        if __debug__:
+            dbg = debug_operand(RM, sz)
+            logger.debug(
+                '%s %s=%d, imm%d=%d (%s := %d)',
+                operation.name,
+                dbg, a,
+                sz * 8, b,
+                dbg, c
+            )
         
         return True
 
     def rm_r(vm, _8bit, sub: bool, cmp: bool, carry: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         a = (type).get(loc, sz)
         b = vm.reg.get(R[1], sz)
@@ -248,21 +252,23 @@ class ADDSUB(Instruction):
         if not cmp:
             (type).set(loc, sz, c)
 
-        logger.debug('%s %s=%d, %s=%d (%s := %d)',
-                     ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
-                     hex(loc) if type else reg_names[loc][sz], a,
-                     reg_names[R[1]][R[2]], b,
-                     hex(loc) if type else reg_names[loc][sz], c
-                     )
+        if __debug__:
+            dbg = debug_operand(RM, sz)
+            logger.debug(
+                '%s %s=%d, %s=%d (%s := %d)',
+                ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
+                dbg, a,
+                debug_operand(R, sz), b,
+                dbg, c
+            )
 
         return True
 
     def r_rm(vm, _8bit, sub=False, cmp=False, carry=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         b = (type).get(loc, sz)
         a = vm.reg.get(R[1], sz)
@@ -294,12 +300,15 @@ class ADDSUB(Instruction):
         if not cmp:
             vm.reg.set(R[1], sz, c)
 
-        logger.debug('%s %s=%d, %s=%d (%s := %d)',
-                     ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
-                     reg_names[R[1]][R[2]], a,
-                     hex(loc) if type else reg_names[loc][sz], b,
-                     reg_names[R[1]][R[2]], c
-                     )
+        if __debug__:
+            dbg = debug_operand(R, sz)
+            logger.debug(
+                '%s %s=%d, %s=%d (%s := %d)',
+                ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
+                dbg, a,
+                debug_operand(RM, sz), b,
+                dbg, c
+            )
 
         return True
 
@@ -353,9 +362,8 @@ class INCDEC(Instruction):
         dec = REG
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         a = (type).get(loc, sz)
         b = 1
@@ -381,7 +389,12 @@ class INCDEC(Instruction):
 
         (type).set(loc, sz, c)
 
-        logger.debug('%s %s=%d', 'dec' if dec else 'inc', hex(loc) if type else reg_names[loc][sz], a)
+        if __debug__:
+            logger.debug(
+                '%s %s=%d',
+                'dec' if dec else 'inc',
+                debug_operand(RM, sz), a
+            )
 
         return True
 
@@ -413,7 +426,8 @@ class INCDEC(Instruction):
 
         vm.reg.set(loc, sz, c)
 
-        logger.debug('%s %s := %d', 'dec' if dec else 'inc', reg_names[loc][sz], c)
+        if __debug__:
+            logger.debug('%s %s := %d', 'dec' if dec else 'inc', debug_register_operand(loc, sz), c)
 
         return True
 
@@ -439,13 +453,13 @@ class MUL(Instruction):
 
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
 
         if R[1] != 4:
             vm.eip = old_eip
             return False  # This is not MUL
 
-        type, loc, _ = RM
+        type, loc = RM
 
         a = (type).get(loc, sz)
         b = vm.reg.get(0, sz)  # AL/AX/EAX
@@ -464,12 +478,13 @@ class MUL(Instruction):
         if sz != 1:
             vm.reg.set(2, _sz, hi)  # (E)DX
 
-        logger.debug(
-            'mul %s=%d, %s=%d (edx := 0x%x; eax := 0x%x)',
-            reg_names[0][sz],
-            b, hex(loc) if type else reg_names[loc][sz], a,
-            hi, lo
-        )
+        if __debug__:
+            logger.debug(
+                'mul %s=%d, %s=%d (edx := 0x%x; eax := 0x%x)',
+                debug_register_operand(0, sz), b,
+                debug_operand(RM, sz), a,
+                hi, lo
+            )
 
         return True
 
@@ -507,8 +522,8 @@ class DIV(Instruction):
 
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         divisor = (type).get(loc, sz, idiv)
 
@@ -536,12 +551,13 @@ class DIV(Instruction):
         else:
             vm.reg.set(2, sz, rem)  # DX/EDX
 
-        logger.debug(
-            '%sdiv %s=%d, %s=%d',
-            'i' if idiv else '',
-            reg_names[0][sz], dividend,
-            hex(loc) if type else reg_names[loc][sz], divisor
-        )
+        if __debug__:
+            logger.debug(
+                '%sdiv %s=%d, %s=%d',
+                'i' if idiv else '',
+                debug_register_operand(0, sz), dividend,
+                debug_operand(RM, sz), divisor
+            )
 
         return True
 
@@ -566,13 +582,13 @@ class IMUL(Instruction):
 
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
 
         if R[1] != 5:
             vm.eip = old_eip
             return False  # This is not IMUL
 
-        type, loc, _ = RM
+        type, loc = RM
 
         src = (type).get(loc, sz, True)
         dst = vm.reg.get(0, sz, True)  # AL/AX/EAX
@@ -592,22 +608,22 @@ class IMUL(Instruction):
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = set_flags
 
-        logger.debug(
-            'imul %s=%d, %s=%d (%s := %d; %s := %d)',
-            reg_names[0][sz], dst,
-            hex(loc) if type else reg_names[loc][sz], src,
-            reg_names[2][_sz], hi,
-            reg_names[0][_sz], lo
-        )
+        if __debug__:
+            logger.debug(
+                'imul %s=%d, %s=%d (%s := %d; %s := %d)',
+                debug_register_operand(0, sz), dst,
+                debug_operand(RM, sz), src,
+                debug_register_operand(2, _sz), hi,
+                debug_register_operand(0, _sz), lo
+            )
 
         return True
 
     def r_rm(vm) -> True:
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         src = (type).get(loc, sz, True)
         dst = vm.reg.get(R[1], sz, True)
@@ -621,7 +637,12 @@ class IMUL(Instruction):
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = set_flags
 
-        logger.debug('imul %s=%d, %s=%d', reg_names[R[1]][sz], dst, hex(loc) if type else reg_names[loc][sz], src)
+        if __debug__:
+            logger.debug(
+                'imul %s=%d, %s=%d',
+                debug_operand(R, sz), dst,
+                debug_operand(RM, sz), src
+            )
 
         return True
 
@@ -629,30 +650,29 @@ class IMUL(Instruction):
         sz = vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         src1 = vm.mem.get_eip(vm.eip, imm_sz, True)
         vm.eip += imm_sz
-
-        type, loc, _ = RM
 
         src2 = (type).get(loc, sz, True)
 
         tmp_xp = src1 * src2
 
-        # set_flags = sign_extend(tmp_xp[:sz], sz) != tmp_xp
         DEST = tmp_xp & MAXVALS[sz]
         set_flags = sign_extend(DEST, sz) != tmp_xp
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = set_flags
 
-        #vm.reg.set(R[1], sz, tmp_xp[:sz])
         vm.reg.set(R[1], sz, DEST)
 
-        logger.debug('imul %s := %d, %s=%d, imm%d=%d',
-                     reg_names[R[1]][sz],
-                     DEST,
-                     hex(loc) if type else reg_names[loc][sz],
-                     src2, sz * 8, src1)
+        if __debug__:
+            logger.debug(
+                'imul %s := %d, %s=%d, imm%d=%d',
+                debug_operand(R, sz), DEST,
+                debug_operand(RM, sz), src2,
+                sz * 8, src1
+            )
 
         return True

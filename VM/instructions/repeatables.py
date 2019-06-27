@@ -2,8 +2,9 @@ from ..util import Instruction, SegmentRegs
 
 from functools import partialmethod as P
 
-import logging
-logger = logging.getLogger(__name__)
+if __debug__:
+    import logging
+    logger = logging.getLogger(__name__)
 
 MAXVALS = [None, (1 << 8) - 1, (1 << 16) - 1, None, (1 << 32) - 1]  # MAXVALS[n] is the maximum value of an unsigned n-bit number
 SIGNS   = [None, 1 << 8 - 1, 1 << 16 - 1, None, 1 << 32 - 1]  # SIGNS[n] is the maximum absolute value of a signed n-bit number
@@ -23,10 +24,8 @@ class STOS(Instruction):
         sz = 1 if _8bit else vm.operand_size
 
         eax = vm.reg.get(0, sz)
-
         edi = vm.reg.get(7, vm.address_size)
 
-        # TODO: this should actually use segment registers!
         vm.mem.segment_override = SegmentRegs.ES
         vm.mem.set(edi, sz, eax)
         vm.mem.segment_override = SegmentRegs.DS
@@ -40,7 +39,11 @@ class STOS(Instruction):
 
         vm.reg.set(7, vm.address_size, edi)
 
-        logger.debug('stos%s [0x%x], eax=0x%x', 'b' if sz == 1 else ('w' if sz == 2 else 'd'), edi, eax)
+        if __debug__:
+            logger.debug(
+                'stos%s [0x%x], eax=0x%x',
+                'b' if sz == 1 else ('w' if sz == 2 else 'd'), edi, eax
+            )
 
         return True
 
@@ -61,7 +64,7 @@ class REP(Instruction):
 
         if ecx == 0:
             # do not execute, just skip
-            if opcode in (0xa4, 0xa5, 0xaa, 0xab):  # movsd, movsw/movsd, stosb, stosw/stosd
+            if opcode in {0xa4, 0xa5, 0xaa, 0xab}:  # movsd, movsw/movsd, stosb, stosw/stosd
                 vm.eip += 1
             else:
                 raise ValueError(f'REP will not run: unknown opcode: {opcode:02x}')
