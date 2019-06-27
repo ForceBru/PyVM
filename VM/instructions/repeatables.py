@@ -71,7 +71,8 @@ class REP(Instruction):
 
             return True
 
-        logger.debug('rep ecx=%d, opcode=0x%02x', ecx, opcode)
+        if __debug__:
+            logger.debug('rep ecx=%d, opcode=0x%02x', ecx, opcode)
 
         while ecx != 0:
             ecx -= 1

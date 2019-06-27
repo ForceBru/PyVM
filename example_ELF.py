@@ -102,8 +102,11 @@ if __name__ == '__speed_test__':
 
     avg = lambda x: sum(x) / len(x)
     print(f"LATEST: {min(t):.4f}, {avg(t):.4f}, {max(t):.4f}")
-    # OLD                   : 26.6493, 28.4966, 29.9140
-    # NEW (rolled back)     : 28.6566, 29.1709, 29.9998
-    # LATEST                : 23.2240, 25.5855, 27.2388
-    # LATEST (ModRM checks) : 23.2138, 23.7009, 24.1041
-    # LATEST (simpler ModRM): 20.9989, 21.7070, 22.2221
+    # OLD                     : 26.6493, 28.4966, 29.9140
+    # NEW (rolled back)       : 28.6566, 29.1709, 29.9998
+    # LATEST                  : 23.2240, 25.5855, 27.2388
+    # LATEST (ModRM checks)   : 23.2138, 23.7009, 24.1041
+    # LATEST (simpler ModRM)  : 20.9989, 21.7070, 22.2221
+
+    # LATEST (no optimization): 23.9340, 24.1104, 24.3951
+    # LATEST (optimized)      : 18.4462, 18.9581, 19.3844

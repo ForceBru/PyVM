@@ -1,4 +1,3 @@
-from .Memory import Memory
 
 reg_names = [
     [0, 'al', 'ax', 0, 'eax'],
@@ -15,7 +14,7 @@ reg_names = [
 def debug_operand(operand: tuple, size: int) -> str:
     operand_type, operand_address = operand
 
-    if isinstance(operand_type, Memory):
+    if operand_type.__class__.__name__ == 'Memory':
         return f'0x{operand_address:08x}'
 
     return reg_names[operand_address][size]
