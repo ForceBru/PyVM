@@ -10,9 +10,114 @@ class Shift(enum.Enum):
     SHL = 4
     SHR = 5
     SAR = 6
+    
+    
+TEST_MODRM = True
+if TEST_MODRM:
+    from .ModRMParser.ModRM_map import ModRM_map
+    
+    def new_process_ModRM(self):
+        ModRM = self.mem.get_eip(self.eip, 1)
+        
+        MOD = (ModRM & 0b11000000) >> 6
+        RM  = (ModRM & 0b00000111)
+        
+        if MOD == 0b11:
+            REG = (ModRM & 0b00111000) >> 3
+            self.eip += 1
+            
+            return (self.reg, RM), (self.reg, REG)
+        
+        if RM != 0b100:
+            return ModRM_map[ModRM].address(self)
+        
+        SIB = self.mem.get_eip(self.eip + 1, 1)    
+        return ModRM_map[ModRM][SIB].address(self)
+    
+def old_process_ModRM(self) -> tuple:
+    """
+    Parses the ModRM byte, which is pointed to by `self.eip`.
 
+    :return: (type1, address1), (type2, address2)
+        type:
+            self.mem or self.reg
+        address:
+            Address in memory or the number of the register
+    """
+    # TODO: 16-bit addressing is not supported!
 
-def process_ModRM(self, size1: int, size2=None) -> tuple:
+    ModRM = self.mem.get_eip(self.eip, 1)
+    self.eip += 1
+
+    MOD = (ModRM & 0b11000000) >> 6
+    REG = (ModRM & 0b00111000) >> 3
+    RM  = (ModRM & 0b00000111)
+
+    if MOD == 0b11:
+        return (self.reg, RM), (self.reg, REG)
+
+    if RM != 0b100:  # No SIB byte
+        if MOD == 0b01:
+            addr = self.reg.get(RM, 4, True)
+            addr += self.mem.get_eip(self.eip, 1, True)
+            self.eip += 1
+
+            return (self.mem, addr), (self.reg, REG)
+        if MOD == 0b10:
+            addr = self.reg.get(RM, 4, True)
+            addr += self.mem.get_eip(self.eip, 4, True)
+            self.eip += 4
+
+            return (self.mem, addr), (self.reg, REG)
+
+        # MOD == 0b00
+        if RM != 0b101:
+            addr = self.reg.get(RM, 4, True)
+
+            return (self.mem, addr), (self.reg, REG)
+
+        # RM == 0b101
+        addr = self.mem.get_eip(self.eip, 4, True)
+        self.eip += 4
+
+        return (self.mem, addr), (self.reg, REG)
+
+    # RM == 0b100 => SIB byte
+    SIB = self.mem.get_eip(self.eip, 1)
+    self.eip += 1
+
+    scale = (SIB & 0b11000000) >> 6
+    index = (SIB & 0b00111000) >> 3
+    base  = (SIB & 0b00000111)
+
+    if MOD == 0b00:
+        addr = 0
+    elif MOD == 0b01:
+        addr = self.mem.get_eip(self.eip, 1, True)
+        self.eip += 1
+    else:  # MOD == 0b10
+        addr = self.mem.get_eip(self.eip, 4, True)
+        self.eip += 4
+
+    if index != 0b100:  # if index == 0b100, there's no index
+        addr += self.reg.get(index, 4, True) << scale
+
+    if base == 0b101:
+        if MOD == 0:
+            addr += self.mem.get_eip(self.eip, 4, True)
+            self.eip += 4
+
+            return (self.mem, addr), (self.reg, REG)
+
+    # (base != 0b101) or we dropped from the `if` clause above
+
+    addr += self.reg.get(base, 4, True)
+
+    return (self.mem, addr), (self.reg, REG)
+    
+process_ModRM = new_process_ModRM if TEST_MODRM else old_process_ModRM
+
+def very_old_process_ModRM(self, size1: int, size2=None) -> tuple:
     """
     Parses the ModRM byte, which is pointed to by `self.eip`.
 

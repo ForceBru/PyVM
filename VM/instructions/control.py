@@ -24,7 +24,7 @@ class NOP(Instruction):
         return True
 
     def rm(vm) -> True:
-        vm.process_ModRM(vm.operand_size)
+        vm.process_ModRM()
 
         logger.debug('nop')
 
@@ -111,10 +111,10 @@ class JMP(Instruction):
         old_eip = vm.eip
 
         sz = vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
 
         if R[1] == 4:  # this is jmp r/m
-            type, loc, _ = RM
+            type, loc = RM
 
             tmpEIP = (type).get(loc, vm.address_size) 
                       
@@ -189,14 +189,14 @@ class SETcc(Instruction):
         }
 
     def rm8(vm, cond) -> True:
-        RM, R = vm.process_ModRM(1)  # we know it's 1 byte
-
-        type, loc, _ = RM
+        sz = 1
+        RM, R = vm.process_ModRM()  # we know it's 1 byte
+        type, loc = RM
 
         byte = eval(cond)
-        (type).set(loc, 1, byte)
+        (type).set(loc, sz, byte)
 
-        logger.debug('set%s %s := %d', cond.co_filename, hex(loc) if type else reg_names[loc][1], byte)
+        logger.debug('set%s %s := %d', cond.co_filename, hex(loc) if type else reg_names[loc][sz], byte)
 
         return True
 
@@ -214,12 +214,12 @@ class CMOVCC(Instruction):
     def r_rm(vm, cond) -> True:
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
 
         if not eval(cond):
             return True
 
-        type, loc, _ = RM
+        type, loc = RM
 
         data = (type).get(loc, sz)
 
@@ -261,8 +261,8 @@ class BT(Instruction):
     def rm_imm(vm) -> bool:
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-        _type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        _type, loc = RM
 
         if R[1] != 4:  # this is not bt
             return False
@@ -337,12 +337,12 @@ class CALL(Instruction):
         old_eip = vm.eip
         
         sz = vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
         
         if R[1] == 2:  # this is call r/m
-            type, loc, size = RM
+            type, loc = RM
 
-            data = (type).get(loc, size)
+            data = (type).get(loc, sz)
           
             tmpEIP = data & MAXVALS[sz]
           

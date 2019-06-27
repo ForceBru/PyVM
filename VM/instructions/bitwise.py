@@ -1,4 +1,4 @@
-from ..debug import reg_names
+from ..debug import reg_names, debug_address
 from ..util import Instruction, is_signed_out_of_range
 from ..misc import parity, Shift, MSB, LSB
 
@@ -126,12 +126,12 @@ class BITWISE(Instruction):
         sz = 1 if _8bit else vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
 
         b = vm.mem.get(vm.eip, imm_sz, True)
         vm.eip += imm_sz
 
-        type, loc, _ = RM
+        type, loc = RM
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
@@ -157,9 +157,8 @@ class BITWISE(Instruction):
 
     def rm_r(vm, _8bit, operation, test=False) -> True:
         sz = 1 if _8bit else vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
@@ -181,15 +180,21 @@ class BITWISE(Instruction):
         else:
             name = 'test'
 
-        logger.debug('%s %s=%d, %s=%d', name, hex(loc) if type else reg_names[loc][sz], a, reg_names[R[1]][sz], b)
+        logger.debug(
+            '%s %s=%d, %s=%d',
+            name,
+            debug_address(RM, sz), a,
+            debug_address(R, sz), b
+        )
+        #logger.debug('%s %s=%d, %s=%d', name, hex(loc) if type else reg_names[loc][sz], a, reg_names[R[1]][sz], b)
 
         return True
 
     def r_rm(vm, _8bit, operation, test=False) -> True:
         sz = 1 if _8bit else vm.operand_size
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         vm.reg.eflags.OF = vm.reg.eflags.CF = 0
 
@@ -263,9 +268,8 @@ class NEGNOT(Instruction):
 
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         a = (type).get(loc, sz)
         b = operation(a, sz)
@@ -333,8 +337,9 @@ class SHIFT(Instruction):
     def shift(vm, operation, cnt, _8bit) -> True:
         sz = 1 if _8bit else vm.operand_size
         old_eip = vm.eip
-
-        RM, R = vm.process_ModRM(vm.operand_size, vm.operand_size)
+        
+        sz = vm.operand_size  # WTF?
+        RM, R = vm.process_ModRM()
 
         if (operation == Shift.SHL) and (R[1] != 4):
             vm.eip = old_eip
@@ -365,7 +370,7 @@ class SHIFT(Instruction):
         if tmp_cnt == 0:
             return True
 
-        type, loc, _ = RM
+        type, loc = RM
 
         dst = (type).get(loc, sz, operation == Shift.SAR)
         tmp_dst = dst

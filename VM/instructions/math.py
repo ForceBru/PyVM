@@ -164,7 +164,7 @@ class ADDSUB(Instruction):
         sz = 1 if _8bit_op else vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
 
         b = vm.mem.get(vm.eip, imm_sz, True)
         vm.eip += imm_sz
@@ -174,7 +174,7 @@ class ADDSUB(Instruction):
         if operation == operation.ADC or operation == operation.SBB:
             b += vm.reg.eflags.CF
 
-        type, loc, _ = RM
+        type, loc = RM
 
         a = (type).get(loc, sz)
 
@@ -214,9 +214,9 @@ class ADDSUB(Instruction):
     def rm_r(vm, _8bit, sub: bool, cmp: bool, carry: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
 
-        type, loc, _ = RM
+        type, loc = RM
 
         a = (type).get(loc, sz)
         b = vm.reg.get(R[1], sz)
@@ -251,7 +251,7 @@ class ADDSUB(Instruction):
         logger.debug('%s %s=%d, %s=%d (%s := %d)',
                      ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
                      hex(loc) if type else reg_names[loc][sz], a,
-                     reg_names[R[1]][R[2]], b,
+                     reg_names[R[1]][sz], b,
                      hex(loc) if type else reg_names[loc][sz], c
                      )
 
@@ -260,9 +260,8 @@ class ADDSUB(Instruction):
     def r_rm(vm, _8bit, sub=False, cmp=False, carry=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         b = (type).get(loc, sz)
         a = vm.reg.get(R[1], sz)
@@ -296,9 +295,9 @@ class ADDSUB(Instruction):
 
         logger.debug('%s %s=%d, %s=%d (%s := %d)',
                      ('sbb' if sub else 'adc') if carry else ('cmp' if cmp else ('sub' if sub else 'add')),
-                     reg_names[R[1]][R[2]], a,
+                     reg_names[R[1]][sz], a,
                      hex(loc) if type else reg_names[loc][sz], b,
-                     reg_names[R[1]][R[2]], c
+                     reg_names[R[1]][sz], c
                      )
 
         return True
@@ -353,9 +352,8 @@ class INCDEC(Instruction):
         dec = REG
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         a = (type).get(loc, sz)
         b = 1
@@ -439,13 +437,13 @@ class MUL(Instruction):
 
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
-
+        RM, R = vm.process_ModRM()
+        
         if R[1] != 4:
             vm.eip = old_eip
             return False  # This is not MUL
 
-        type, loc, _ = RM
+        type, loc = RM
 
         a = (type).get(loc, sz)
         b = vm.reg.get(0, sz)  # AL/AX/EAX
@@ -507,8 +505,8 @@ class DIV(Instruction):
 
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         divisor = (type).get(loc, sz, idiv)
 
@@ -566,13 +564,13 @@ class IMUL(Instruction):
 
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
 
         if R[1] != 5:
             vm.eip = old_eip
             return False  # This is not IMUL
 
-        type, loc, _ = RM
+        type, loc = RM
 
         src = (type).get(loc, sz, True)
         dst = vm.reg.get(0, sz, True)  # AL/AX/EAX
@@ -605,9 +603,8 @@ class IMUL(Instruction):
     def r_rm(vm) -> True:
         sz = vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
-
-        type, loc, _ = RM
+        RM, R = vm.process_ModRM()
+        type, loc = RM
 
         src = (type).get(loc, sz, True)
         dst = vm.reg.get(R[1], sz, True)
@@ -629,12 +626,12 @@ class IMUL(Instruction):
         sz = vm.operand_size
         imm_sz = 1 if _8bit_imm else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz)
+        RM, R = vm.process_ModRM()
 
         src1 = vm.mem.get_eip(vm.eip, imm_sz, True)
         vm.eip += imm_sz
 
-        type, loc, _ = RM
+        type, loc = RM
 
         src2 = (type).get(loc, sz, True)
 

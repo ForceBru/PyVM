@@ -1,3 +1,6 @@
+from .Memory import Memory
+from .Registers import Reg32
+
 reg_names = [
     [0, 'al', 'ax', 0, 'eax'],
     [0, 'cl', 'cx', 0, 'ecx'],
@@ -8,3 +11,11 @@ reg_names = [
     [0, 'dh', 'si', 0, 'esi'],
     [0, 'bh', 'di', 0, 'edi'],
     ]
+    
+def debug_address(addr: tuple, size: int) -> str:
+    hardware, addr = addr
+    
+    if isinstance(hardware, Reg32):
+        return reg_names[addr][size]
+        
+    return f'0x{addr:08x}'
