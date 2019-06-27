@@ -1,10 +1,11 @@
 import functools
 import os
-import binascii
 import enum
 import struct
-import logging
-logger = logging.getLogger(__name__)
+
+if __debug__:
+    import logging
+    logger = logging.getLogger(__name__)
 
 
 byteorder = 'little'
@@ -63,7 +64,8 @@ class InstructionMeta(type):
         if name == 'Instruction':
             return
 
-        logger.log(logging.NOTSET, "Registering instruction %s...", name)
+        if __debug__:
+            logger.log(logging.NOTSET, "Registering instruction %s...", name)
 
         if '__init__' not in dct.keys():
             raise AttributeError("Instructions must have an '__init__' method")
@@ -74,7 +76,8 @@ class InstructionMeta(type):
         setattr(cls, '__init__', lambda self: dct['__init__'](cls))
         cls.__class__.instruction_set.add(cls)
 
-        logger.log(logging.NOTSET, "\tInstruction %s registered", name)
+        if __debug__:
+            logger.log(logging.NOTSET, "\tInstruction %s registered", name)
 
 
 class CPUMeta(type):
@@ -84,6 +87,7 @@ class CPUMeta(type):
     """
     
     loaded = False
+
     def __init__(cls, name, bases, dct):
         super().__init__(name, bases, dct)
         
@@ -112,7 +116,7 @@ class CPUMeta(type):
             impl_name = implementation.__name__
         except AttributeError:
             if isinstance(implementation, functools.partialmethod):
-                rand = binascii.hexlify(os.urandom(4)).decode()
+                rand = os.urandom(4).hex()
 
                 try:
                     impl_name = f"{implementation.func.__name__}_{rand}"
@@ -121,13 +125,12 @@ class CPUMeta(type):
                     impl_name = rand
             else:
                 # TODO: WTF is happening here? Eg. with a MagicMock
-                impl_name = binascii.hexlify(os.urandom(4)).decode()
-                # raise ValueError(f"Failed to retrieve function name for {implementation}")
+                impl_name = os.urandom(4).hex()
 
         concrete_name = f"i_{instruction.__name__}_{impl_name}"
 
         while concrete_name in cls._concrete_names:
-            concrete_name += binascii.hexlify(os.urandom(4)).decode()
+            concrete_name += os.urandom(4).hex()
 
         cls._concrete_names.append(concrete_name)
 
@@ -156,6 +159,5 @@ class CPU(metaclass=CPUMeta):
         """
         self.instr = {
             opcode: {getattr(self, name) for name in impl_names}
-
             for opcode, impl_names in self._opcodes_names.items()
-            }
+        }
