@@ -1,3 +1,5 @@
+// Original: https://stackoverflow.com/a/27639437/4354477
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>

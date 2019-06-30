@@ -58,6 +58,36 @@ class Memory:
 
         self.__segment_base = sreg.hidden.base
 
+    def asan_raw(self, offset: int, size: int):
+        """
+        Check if it is valid to access `size` bytes at address `offset` withing the current code segment.
+        :param offset: The accessed address.
+        :param size: The amount of bytes to be accessed.
+        :return: Raises an exception if the access is invalid.
+        """
+        if offset > self.__size or offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range '
+                f'0x{offset:08x}-0x{offset + size:08x} ({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
+
+    def asan(self, offset: int, size: int):
+        """
+        Check if it is valid to access `size` bytes at address `offset` within the current data segment.
+        :param offset: The accessed address.
+        :param size: The amount of bytes to be accessed.
+        :return: Raises an exception if the access is invalid.
+        """
+        if self.__segment_base + offset > self.__size or self.__segment_base + offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range 0x{offset:08x}-0x{offset + size:08x} '
+                f'({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
+
     def calc_address(self, offset: int) -> int:
         return self.base + self.__segment_base + offset
 
@@ -65,8 +95,14 @@ class Memory:
         return self.base + offset
 
     def get(self, offset: int, size: int, signed=False) -> int:
-        if self.__segment_base + offset + size > self.__size or offset < 0:
-            raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+        # self.asan(offset, size) -> pasted here for speed
+        if self.__segment_base + offset > self.__size or self.__segment_base + offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range 0x{offset:08x}-0x{offset + size:08x} '
+                f'({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
 
         if size == 4:
             ret = self.types[size].from_address(self.base + self.__segment_base + offset).value
@@ -86,8 +122,14 @@ class Memory:
         )
 
     def get_bytes(self, offset: int, size: int) -> bytes:
-        if self.__segment_base + offset + size > self.__size or offset < 0:
-            raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+        # self.asan(offset, size) -> pasted here for speed
+        if self.__segment_base + offset > self.__size or self.__segment_base + offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range 0x{offset:08x}-0x{offset + size:08x} '
+                f'({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
 
         return bytes(self.mem[self.__segment_base + offset:self.__segment_base + offset + size])
 
@@ -95,8 +137,14 @@ class Memory:
         return string_at(self.base + offset, size)
 
     def get_eip(self, offset: int, size: int, signed=False) -> int:
-        if offset + size > self.__size or offset < 0:
-            raise MemoryError(f"Memory.get_eip: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+        # self.asan_raw(offset, size) -> pasted here for speed
+        if offset > self.__size or offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range '
+                f'0x{offset:08x}-0x{offset + size:08x} ({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
 
         if size == 4:
             ret = self.types[size].from_address(self.base + offset).value
@@ -114,8 +162,14 @@ class Memory:
         return bytes(self.mem[offset:offset + size])
 
     def get_float(self, offset: int, size: int) -> binary80:
-        if self.__segment_base + offset + size // 8 > self.__size or offset < 0:
-            raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+        # self.asan(offset, size) -> pasted here for speed
+        if self.__segment_base + offset > self.__size or self.__segment_base + offset + size // 8 > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range 0x{offset:08x}-0x{offset + size:08x} '
+                f'({size // 8} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
 
         orig_float = {32: flt, 64: dbl, 80: binary80}[size].from_address(self.base + self.__segment_base + offset)
 
@@ -125,8 +179,14 @@ class Memory:
         return binary80.from_float(orig_float.value)
 
     def get_float_eip(self, offset: int, size: int) -> binary80:
-        if offset + size // 8 > self.__size or offset < 0:
-            raise MemoryError(f"Memory.get_eip: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+        # self.asan_raw(offset, size) -> pasted here for speed
+        if offset > self.__size or offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range '
+                f'0x{offset:08x}-0x{offset + size:08x} ({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
 
         orig_float = {32: flt, 64: dbl, 80: binary80}[size].from_address(self.base + offset)
 
@@ -135,22 +195,43 @@ class Memory:
 
         return binary80.from_float(orig_float.value)
 
-    def memset(self, offset: int, value: int, count: int) -> int:
-        return memset(self.base + offset, value, count) - self.base
+    def memset(self, offset: int, value: int, size: int) -> int:
+        # self.asan_raw(offset, size) -> pasted here for speed
+        if offset > self.__size or offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range '
+                f'0x{offset:08x}-0x{offset + size:08x} ({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
+
+        return memset(self.base + offset, value, size) - self.base
 
     # def set_addr(self, offset: int, size: int, addr: int) -> None:
     #     memmove(self.base + offset, addr, size)
 
     def set_bytes(self, offset: int, size: int, val: bytes) -> None:
-        if self.__segment_base + offset + size > self.__size or offset < 0:
-            raise MemoryError(f"Memory.set_bytes: not enough memory (tried to write {size} bytes to address: 0x{offset:08x}, memory available: {self.size} bytes)")
+        # self.asan(offset, size) -> pasted here for speed
+        if self.__segment_base + offset > self.__size or self.__segment_base + offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range 0x{offset:08x}-0x{offset + size:08x} '
+                f'({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
 
         addr = self.__segment_base + offset
         self.mem[addr:addr + size] = val
 
     def set(self, offset: int, size: int, val: int) -> None:
-        if self.__segment_base + offset + size > self.__size or offset < 0:
-            raise MemoryError(f"Memory.set: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+        # self.asan(offset, size) -> pasted here for speed
+        if self.__segment_base + offset > self.__size or self.__segment_base + offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range 0x{offset:08x}-0x{offset + size:08x} '
+                f'({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
 
         addr = self.__segment_base + offset
         if size == 4:
@@ -165,11 +246,18 @@ class Memory:
             raise RuntimeError(f'Memory.set: invalid size: {size} not in (1, 2, 4). Use Memory.set_bytes instead')
 
     def set_float(self, offset: int, size: int, val: binary80) -> None:
-        if self.__segment_base + offset + size > self.__size or offset < 0:
-            raise MemoryError(f"Memory.set: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
+        # self.asan(offset, size) -> pasted here for speed
+        if self.__segment_base + offset > self.__size or self.__segment_base + offset + size > self.__size:
+            raise MemoryError(
+                f'Not enough memory (tried to write to address range 0x{offset:08x}-0x{offset + size:08x} '
+                f'({size} bytes), maximum address: 0x{self.size:08x} bytes)'
+            )
+
+        assert offset >= 0, f'Invalid memory address: {hex(offset)}'
 
         converted = {4: flt, 8: dbl}[size](float(val))
 
         addr = self.__segment_base + offset
 
         self.mem[addr:addr + size] = {4: udword, 8: uqword}[size].from_buffer(converted).value.to_bytes(size, 'little')
+

@@ -821,14 +821,16 @@ class BitScan(Instruction):
         type, loc = RM
 
         SRC = (type).get(loc, sz)
-        SRC_orig = SRC
+
+        if __debug__:
+            SRC_orig = SRC
 
         if SRC == 0:
             vm.reg.eflags.ZF = 1
 
             if __debug__:
                 logger.debug(
-                    'bsf %s, %s=%032b',
+                    'bsf %s, %s=%08x',
                     debug_operand(RM, sz), debug_register_operand(loc, sz), SRC_orig
                 )
 
@@ -845,7 +847,7 @@ class BitScan(Instruction):
 
         if __debug__:
             logger.debug(
-                'bsf %s, %s=%032b',
+                'bsf %s, %s=%08x',
                 debug_operand(RM, sz), debug_register_operand(loc, sz), SRC_orig
             )
 
