@@ -58,6 +58,12 @@ class Memory:
 
         self.__segment_base = sreg.hidden.base
 
+    def calc_address(self, offset: int) -> int:
+        return self.base + self.__segment_base + offset
+
+    def calc_address_raw(self, offset: int) -> int:
+        return self.base + offset
+
     def get(self, offset: int, size: int, signed=False) -> int:
         if self.__segment_base + offset + size > self.__size or offset < 0:
             raise MemoryError(f"Memory.get: not enough memory (requested address: 0x{offset:08x}, memory available: {self.size} bytes)")
@@ -155,6 +161,8 @@ class Memory:
             self.mem[addr:addr + 2] = val & 0xFF, (val >> 8) & 0xFF  # (val & 0xFFFF).to_bytes(2, 'little')
         elif size == 1:
             self.mem[addr] = val
+        else:
+            raise RuntimeError(f'Memory.set: invalid size: {size} not in (1, 2, 4). Use Memory.set_bytes instead')
 
     def set_float(self, offset: int, size: int, val: binary80) -> None:
         if self.__segment_base + offset + size > self.__size or offset < 0:

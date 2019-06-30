@@ -134,7 +134,7 @@ class FetchLoopMixin:
                 elif ov in pref_segments:
                     self.mem.segment_override = SegmentRegs.DS
 
-        return self.reg.ebx
+        return self.reg.eax
 
 
 class ExecutionStrategy(enum.Enum):

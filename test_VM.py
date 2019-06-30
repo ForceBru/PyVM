@@ -69,7 +69,7 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
         'c_float_vecmul': Ret(56),
         'c_loop': Ret(10),
         'c_pointers': Ret(1),
-        'c_pow': Ret(625),
+        'c_pow': Ret(625 & 0o0377),
         'c_stdlib': Msg('Hello, world!\n'),
         'c_stdlib_O3': Msg('Hello, world!\n'),
 
@@ -94,7 +94,7 @@ class TestInstructions(unittest.TestCase, metaclass=TestInserter):
         'test_shifts': Ret(0),
         'test_shr_shl': Msg('Testing shifts...\nSuccess!\n'),
         'test_test': Msg('Testing test...\nSuccess!\n'),
-        'test_xchg': Both('Testing xchg...\n', 1000)
+        'test_xchg': Both('Testing xchg...\n', 1000 & 0o0377)
     }
 
     def do_test(self):
