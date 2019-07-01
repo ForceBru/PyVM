@@ -1,8 +1,8 @@
 import os
 from io import UnsupportedOperation
 
-from .ctypes_types import udword, ctypes
-from .kernel import Kernel
+from ..ctypes_types import udword, ctypes
+from .kernel import Kernel, Int, Uint
 
 import logging
 logger = logging.getLogger(__name__)
@@ -23,7 +23,8 @@ class StructIovec(ctypes.LittleEndianStructure):
     ]
 
 
-def sys_open(kernel: Kernel):
+@Kernel.register(0x05)
+def sys_open(kernel: Kernel, pathname_addr: Uint, flags: Int, mode: Uint):
     """
     int open(const char *pathname, int flags, mode_t mode);
     """
@@ -83,8 +84,6 @@ def sys_open(kernel: Kernel):
 
         return descriptor
 
-    pathname_addr, flags, mode = kernel.kernel_args('usu')
-
     pathname = kernel.kernel_read_string(pathname_addr).decode()
     flags = O_MODE(flags)
     mode = O_MODE(mode)
@@ -131,12 +130,11 @@ def sys_open(kernel: Kernel):
         return -1
 
 
-def sys_close(kernel: Kernel):
+@Kernel.register(0x06)
+def sys_close(kernel: Kernel, fd: Uint):
     """
     sys_close(unsigned int fd)
     """
-
-    fd, = kernel.kernel_args('u')
 
     logger.info('sys_close(unsigned int fd = %u)', fd)
 
@@ -156,12 +154,12 @@ def sys_close(kernel: Kernel):
     return 0
 
 
-def sys_unlink(kernel: Kernel):
+@Kernel.register(0x0a)
+def sys_unlink(kernel: Kernel, pathname_addr: Uint):
     """
     int sys_unlink(const char * pathname)
     """
 
-    pathname_addr, = kernel.kernel_args('u')
     pathname = kernel.kernel_read_string(pathname_addr).decode()
 
     logger.info('sys_unlink(const char * pathname = %r)', pathname)
@@ -178,9 +176,8 @@ def sys_unlink(kernel: Kernel):
     return ret
 
 
-def sys_read(kernel: Kernel):
-    fd, data_addr, count = kernel.kernel_args('uuu')
-
+@Kernel.register(0x03)
+def sys_read(kernel: Kernel, fd: Uint, data_addr: Uint, count: Uint):
     logger.info('sys_read(unsigned int fd = %u, char *dest = 0x%08x, size_t count = %u)', fd, data_addr, count)
 
     try:
@@ -200,11 +197,11 @@ def sys_read(kernel: Kernel):
     return l
 
 
-def sys_write(kernel: Kernel):
+@Kernel.register(0x04)
+def sys_write(kernel: Kernel, fd: Uint, buf_addr: Uint, count: Uint):
     """
     Arguments: (unsigned int fd, const char * buf, size_t count)
     """
-    fd, buf_addr, count = kernel.kernel_args('uuu')
 
     buf = kernel.cpu.mem.get_bytes(buf_addr, count)
 
@@ -220,7 +217,8 @@ def sys_write(kernel: Kernel):
     return ret if ret is not None else count
 
 
-def sys_writev(kernel: Kernel):
+@Kernel.register(0x92)
+def sys_writev(kernel: Kernel, fd: Int, iov_addr: Uint, iovcnt: Int):
     """
     ssize_t writev(
         int fd,  // file descriptor
@@ -233,7 +231,6 @@ def sys_writev(kernel: Kernel):
 
     TAKEN FROM: http://man7.org/linux/man-pages/man2/writev.2.html
     """
-    fd, iov_addr, iovcnt = kernel.kernel_args('sus')
 
     logger.info('sys_writev(fd=%d, iov=0x%x, iovcnt=%d)', fd, iov_addr, iovcnt)
 
@@ -266,7 +263,8 @@ def sys_writev(kernel: Kernel):
     return size
 
 
-def sys_llseek(kernel: Kernel):
+@Kernel.register(0x8c)
+def sys_llseek(kernel: Kernel, fd: Uint, offset_high: Uint, offset_low: Uint, result_addr: Uint, whence: Uint):
     """
     Arguments: (unsigned int fd, unsigned long offset_high,
                unsigned long offset_low, loff_t *result,
@@ -274,8 +272,6 @@ def sys_llseek(kernel: Kernel):
 
     See: http://man7.org/linux/man-pages/man2/llseek.2.html
     """
-
-    fd, offset_high, offset_low, result_addr, whence = kernel.kernel_args('uuuuu')
 
     logger.info('sys_lseek(fd=%d, offset_high=%d, offset_low=%d, result=0x%08x, whence=%d)',
                 fd, offset_high, offset_low, result_addr, whence
@@ -301,11 +297,3 @@ def sys_llseek(kernel: Kernel):
     # return success
     return ret
 
-
-Kernel.register(sys_open, 0x05)
-Kernel.register(sys_close, 0x06)
-Kernel.register(sys_unlink, 0x0a)
-Kernel.register(sys_read, 0x03)
-Kernel.register(sys_write, 0x04)
-Kernel.register(sys_writev, 0x92)
-Kernel.register(sys_llseek, 0x8c)

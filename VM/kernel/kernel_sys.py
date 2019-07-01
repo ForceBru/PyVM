@@ -1,8 +1,7 @@
 import struct
 import ctypes
 
-from .kernel import Kernel
-from .kernel_memory import sys_brk
+from .kernel import Kernel, Uint, Int
 
 import logging
 logger = logging.getLogger(__name__)
@@ -32,7 +31,8 @@ class StructNewUtsname(ctypes.LittleEndianStructure):
     ]
 
 
-def sys_clock_gettime(kernel: Kernel):
+@Kernel.register(0x109)
+def sys_clock_gettime(kernel: Kernel, clk_id: Uint, tp_addr: Uint):
     """
     int clock_gettime(clockid_t clk_id, struct timespec *tp);
 
@@ -48,8 +48,6 @@ def sys_clock_gettime(kernel: Kernel):
     };
     """
 
-    clk_id, tp_addr = kernel.kernel_args('uu')
-
     struct_timespec = struct.Struct('<II')
 
     import time
@@ -62,12 +60,11 @@ def sys_clock_gettime(kernel: Kernel):
     return 0
 
 
-def sys_ioctl(kernel: Kernel):
+@Kernel.register(0x36)
+def sys_ioctl(kernel: Kernel, fd: Int, request: Uint, data_addr: Uint):
     """
     Arguments: (int fd, unsigned long request, ...)
     """
-
-    fd, request, data_addr = kernel.kernel_args('suu')
 
     # SOURCE: http://man7.org/linux/man-pages/man2/ioctl_list.2.html
     # < include / asm - i386 / termios.h >
@@ -190,14 +187,12 @@ def sys_ioctl(kernel: Kernel):
     return -1
 
 
-def sys_exit(kernel: Kernel):
-    code, = kernel.kernel_args('s')
-
+@Kernel.register(0x01)
+def sys_exit(kernel: Kernel, code: Int):
     # deallocate memory
     logger.info('sys_exit: deallocating memory...')
     oldbrk = kernel.cpu.mem.program_break
-    kernel.cpu.reg.ebx = kernel.cpu.code_segment_end
-    sys_brk(kernel)
+    kernel.sys_brk(kernel.cpu.code_segment_end)
     if oldbrk > kernel.cpu.mem.program_break:
         logger.info('sys_exit: %d bytes of memory deallocated', oldbrk - kernel.cpu.mem.program_break)
     else:
@@ -225,16 +220,16 @@ def sys_exit(kernel: Kernel):
     return code
 
 
-def sys_exit_group(kernel: Kernel):
-    return sys_exit(kernel)
+@Kernel.register(0xfc)
+def sys_exit_group(kernel: Kernel, code: Int):
+    return sys_exit(kernel, code)
 
 
-def sys_newuname(kernel: Kernel):
+@Kernel.register(0x7a)
+def sys_newuname(kernel: Kernel, buf_addr: Uint):
     """
     int sys_newuname(struct new_utsname *buf);
     """
-
-    buf_addr, = kernel.kernel_args('u')
 
     logger.debug(f'sys_newuname(struct new_utsname *buf=0x%08X)', buf_addr)
 
@@ -251,9 +246,3 @@ def sys_newuname(kernel: Kernel):
 
     return 0
 
-
-Kernel.register(sys_clock_gettime, 0x109)
-Kernel.register(sys_ioctl, 0x36)
-Kernel.register(sys_exit, 0x01)
-Kernel.register(sys_exit_group, 0xfc)
-Kernel.register(sys_newuname, 0x7a)

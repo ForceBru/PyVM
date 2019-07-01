@@ -1,4 +1,4 @@
-from .kernel import Kernel
+from .kernel import Kernel, Int, Uint
 
 from ctypes import LittleEndianStructure, c_uint32, sizeof
 
@@ -39,7 +39,8 @@ class structUserDesc(LittleEndianStructure):
          self.read_exec_only, self.limit_in_pages, self.seg_not_present, self.useable)
 
 
-def sys_set_thread_area(kernel: Kernel):
+@Kernel.register(0xf3)
+def sys_set_thread_area(kernel: Kernel, u_info_addr: Uint):
     """
     Arguments: (struct user_desc *u_info)
 
@@ -58,7 +59,6 @@ def sys_set_thread_area(kernel: Kernel):
         unsigned int  useable:1;
     };
     """
-    u_info_addr, = kernel.kernel_args('u')
 
     logger.info(f'sys_set_thread_area(u_info=0x%08x)', u_info_addr)
 
@@ -84,7 +84,7 @@ def sys_set_thread_area(kernel: Kernel):
         entry was changed.
         """
 
-        from .Registers import SegmentDescriptor
+        from ..Registers import SegmentDescriptor
         for selector_index, entry in enumerate(kernel.cpu.GDT[1:], 1):
             seg_descr = SegmentDescriptor.from_buffer_copy(entry)  # segment_descriptor_struct.unpack(entry)
 
@@ -115,7 +115,8 @@ def sys_set_thread_area(kernel: Kernel):
     return 0
 
 
-def sys_set_tid_address(kernel: Kernel):
+@Kernel.register(0x102)
+def sys_set_tid_address(kernel: Kernel, tidptr: Uint):
     """
     Arguments: (int *tidptr)
 
@@ -125,8 +126,6 @@ def sys_set_tid_address(kernel: Kernel):
     :return: always returns the caller's thread ID.
     """
 
-    tidptr, = kernel.kernel_args('u')
-
     tid = kernel.cpu.mem.get(tidptr, 4)
 
     logger.info('sys_set_tid_address(tidptr=0x%08x (tid=%d))', tidptr, tid)
@@ -135,13 +134,13 @@ def sys_set_tid_address(kernel: Kernel):
     return tid
 
 
-def sys_brk(kernel: Kernel):
+@Kernel.register(0x2d)
+def sys_brk(kernel: Kernel, brk: Uint):
     '''
     Arguments: (unsigned long brk)
 
     https://elixir.bootlin.com/linux/v2.6.35/source/mm/mmap.c#L245
     '''
-    brk, = kernel.kernel_args('u')
 
     logger.info('sys_brk(unsigned long brk = %u)', brk)
 
@@ -188,7 +187,8 @@ def sys_brk(kernel: Kernel):
     return kernel.cpu.mem.program_break
 
 
-def sys_mmap(kernel: Kernel):
+@Kernel.register(0xc0)
+def sys_mmap(kernel: Kernel, addr: Uint, length: Uint, prot: Int, flags: Int, fd: Int):
     """
     void *mmap2(void *addr, size_t length, int prot, int flags,
               int fd, off_t offset);
@@ -212,8 +212,6 @@ def sys_mmap(kernel: Kernel):
         PROT_WRITE = 0x2  # Page can be written.
         PROT_EXEC  = 0x4  # Page can be executed.
         PROT_NONE  = 0x0  # Page can not be accessed.
-
-    addr, length, prot, flags, fd = kernel.kernel_args('uusss')
 
     flags = MAP_FLAGS(flags)
     prot = MAP_PROT(prot)
@@ -279,12 +277,11 @@ def _munmap_fuse_memory_blocks(kernel: Kernel):
             kernel.free_blocks = sorted(filter(None, kernel.free_memory_blocks))
 
 
-def sys_munmap(kernel: Kernel):
+@Kernel.register(0x5b)
+def sys_munmap(kernel: Kernel, addr: Uint, length: Uint):
     """
     int munmap(void *addr, size_t length);
     """
-
-    addr, length = kernel.kernel_args('uu')
 
     logger.info('sys_munmap(void *addr = 0x%08x, size_t length = %u)', addr, length)
 
@@ -314,9 +311,3 @@ def sys_munmap(kernel: Kernel):
 
     return 0
 
-
-Kernel.register(sys_set_thread_area, 0xf3)
-Kernel.register(sys_set_tid_address, 0x102)
-Kernel.register(sys_brk, 0x2d)
-Kernel.register(sys_mmap, 0xc0)
-Kernel.register(sys_munmap, 0x5b)

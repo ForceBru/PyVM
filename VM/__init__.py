@@ -2,7 +2,7 @@ import sys
 
 from .CPU import CPU32
 from .kernel import Kernel
-from . import kernel_memory, kernel_sys, kernel_filesystem
+#from . import kernel_memory, kernel_sys, kernel_filesystem
 from .fetchLoop import FetchLoopMixin, ExecuteBytes, ExecuteFlat, ExecuteELF, ExecutionStrategy
 
 __author__ = '@ForceBru'
@@ -29,10 +29,7 @@ class VM(CPU32, FetchLoopMixin):
         if code == 0x80:  # syscall
             syscall_number = self.reg.eax
 
-            retval = self.kernel.syscall(syscall_number)
-
-            if retval is False:
-                raise RuntimeError(f'System call 0x{syscall_number:02x} is not supported yet')
+            self.reg.eax = self.kernel[syscall_number]()
         else:
             raise RuntimeError(f'Interrupt 0x{code:02x} is not supported yet')
 
