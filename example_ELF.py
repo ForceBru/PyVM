@@ -112,3 +112,6 @@ if __name__ == '__speed_test__':
     # LATEST (optimized)      : 18.4462, 18.9581, 19.3844
 
     # LATEST (n/o, new kernel): 23.4503, 23.8670, 24.3896
+    # LATEST (opt, new kernel): 19.5924, 20.3518, 20.8239
+
+    # LATEST (n/o, new k)     : 23.9043, 24.5534, 24.9884

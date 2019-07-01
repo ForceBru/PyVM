@@ -442,9 +442,9 @@ class RET(Instruction):
         raise NotImplementedError('This is not optimized yet!')
 
         sz = 2  # always 16 bits
-        vm.eip = to_int(vm.stack_pop(sz), True)
+        vm.eip = to_signed(vm.stack_pop(sz), sz)
 
-        imm = to_int(vm.mem.get(vm.eip, sz))
+        imm = vm.mem.get(vm.eip, sz)
         vm.eip += sz
 
         vm.stack_pop(imm)
