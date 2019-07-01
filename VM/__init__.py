@@ -2,11 +2,10 @@ import sys
 
 from .CPU import CPU32
 from .kernel import Kernel
-#from . import kernel_memory, kernel_sys, kernel_filesystem
 from .fetchLoop import FetchLoopMixin, ExecuteBytes, ExecuteFlat, ExecuteELF, ExecutionStrategy
 
 __author__ = '@ForceBru'
-__version__ = '0.1-beta'
+__version__ = 0, 1, 0
 
 
 class VM(CPU32, FetchLoopMixin):

@@ -11,19 +11,19 @@ def Stats(pr):
     print(s.getvalue())
 
 
-def parse_code(code: str) -> bytearray:
+def parse_code(code: str) -> bytes:
     binary = ''
     regex = re.compile(r"[0-9a-f]+:\s+([^;]+)\s*;.*", re.DOTALL)
 
-    for line in code.strip().splitlines(keepends=False):
+    for i, line in enumerate(code.strip().splitlines(keepends=False)):
         if line.startswith(';'):
             continue
         match = regex.match(line)
-        if not match:
-            raise ValueError("Malformed code!")
-        binary += match.groups()[0]
+        assert match is not None, f"Could not parse code (line {i})"
 
-    return bytearray.fromhex(binary)
+        binary += match.group(1)
+
+    return bytes.fromhex(binary)
 
 
 if __name__ == "__main__":

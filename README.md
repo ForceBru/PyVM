@@ -35,12 +35,17 @@ Features:
    - Memory management operations: `mov`, `movs`, `movsx`, `movsxd`, `movzx`, `push`, `pop`, `lea`, `xchg`, `cmpxchg`,
    `cbw`, `cwde`, `cwd`, `cdq`, `cmc`, `clc`, `cld`, `stc`, `std`, `bsf`, `bsr`;
    - Repeatable operations: `stos`.
- - Linux system calls (files: `VM/kernel.py`)
-   - Input-output: `sys_read`, `sys_write`, `sys_writev`, `sys_open`, `sys_close`, `sys_unlink`, `sys_readlink`;
-   - System management: `sys_exit`, `sys_clock_gettime`;
-   - Memory management: `brk`, `sys_set_thread_area`, `mmap`, `munmap` <sub>(be warned: the latter two are super buggy)</sub>
-   - Some syscalls that are provided by Python's `os` module.
- - Debugger that prints the instructions and syscalls that are being executed in a (relatively) human-readable format.
+ - Linux system calls (files: `VM/kernel/kernel.py`, `VM/kernel/kernel_filesystem.py`, `VM/kernel/kernel_memory.py`, `VM/kernel/kernel_sys.py`)
+   - Syscall registration and execution. See file #1 and `VM/__init__.py:VM.interrupt`;
+   - Input-output: `sys_read`, `sys_write`, `sys_writev`, `sys_open`, `sys_close`, `sys_unlink`, `sys_llseek`. See file #2;
+   - Memory management: `brk`, `sys_set_thread_area`, `sys_set_tid_address`, `mmap`, `munmap`. See file #3;
+   - System management: `sys_exit`, `sys_exit_group`, `sys_clock_gettime`, `sys_ioctl`, `sys_newuname`. See file #4.
+ - A debugger that prints the instructions and syscalls that are being executed in a (relatively) human-readable format.
+ - Ability to run binaries from command line (files: `VM/__main__.py`)
+   1. Change directory to `PyVM-master` (or wherever you downloaded PyVM);
+   2. Execute yor command (for example, `./C/real_life/nasm -h`) like this: `python3 -OO -m VM 'C/real_life/nasm -h'`
+   3. ...
+   4. Profit!
  
 ## How to use
 Simple example:
@@ -48,22 +53,22 @@ Simple example:
 ```python
 import VM  # import the module
 
-def parse_code(code: str) -> bytearray:
+def parse_code(code: str) -> bytes:
     # This just converts the prettified code below to the raw, ugly bytecode. You can ignore this function.
     import re
     
     binary = ''
     regex = re.compile(r"[0-9a-f]+:\s+([^;]+)\s*;.*", re.DOTALL)
 
-    for line in code.strip().splitlines(keepends=False):
+    for i, line in enumerate(code.strip().splitlines(keepends=False)):
         if line.startswith(';'):
             continue
         match = regex.match(line)
-        if not match:
-            raise ValueError("Malformed code!")
-        binary += match.groups()[0]
+        assert match is not None, f"Could not parse code (line {i})"
+        
+        binary += match.group(1)
 
-    return bytearray.fromhex(binary)
+    return bytes.fromhex(binary)
 
 
 if __name__ == "__main__":
@@ -103,6 +108,8 @@ Hello, world!
 ```
 
 Please see `example_BYTES.py`, `example_FLAT.py` and `example_ELF.py` for more examples of usage.
+
+Also see `README`s in other directories: for example, `VM/instructions`, `VM/kernel` and many more.
  
 ## What this is
  - A toy emulator of the x86 CPU that actually works;
