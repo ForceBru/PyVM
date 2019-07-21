@@ -23,7 +23,6 @@ class TestStack(unittest.TestCase):
             self.cpu.stack_push(x)
 
         for i, x in enumerate(reversed(self.data)):
-            
             with self.subTest("x = '{}' (#{}) failed".format(x, i)):
                 popped = self.cpu.stack_pop(self.cpu.operand_size)
                 

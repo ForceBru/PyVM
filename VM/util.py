@@ -97,8 +97,8 @@ class CPUMeta(type):
             # duplicates of opcode implementations.
             return
 
-        cls._opcodes_names = {} # TODO: this looks ugly
-        cls._concrete_names = []
+        cls.opcodes_names = {}  # TODO: this looks ugly
+        cls.concrete_names = []
 
         for instruction in Instruction.instruction_set:
             for opcode, implementation in instruction().opcodes.items():
@@ -129,13 +129,13 @@ class CPUMeta(type):
 
         concrete_name = f"i_{instruction.__name__}_{impl_name}"
 
-        while concrete_name in cls._concrete_names:
+        while concrete_name in cls.concrete_names:
             concrete_name += os.urandom(4).hex()
 
-        cls._concrete_names.append(concrete_name)
+        cls.concrete_names.append(concrete_name)
 
         setattr(cls, concrete_name, implementation)
-        cls._opcodes_names.setdefault(opcode, []).append(concrete_name)
+        cls.opcodes_names.setdefault(opcode, []).append(concrete_name)
 
 
 class Instruction(metaclass=InstructionMeta):
@@ -151,6 +151,10 @@ class CPU(metaclass=CPUMeta):
     Thanks to the metaclass, all the methods of the registered instructions that are mentioned in their 'opcodes' attribute
      become bound to this class. The methods' names are handled accordingly by the metaclass.
     """
+    __slots__ = 'instr',
+    opcodes_names = {}
+    concrete_names = []
+
     def __init__(self):
         """
         This merely collects all the methods (which are now bound to the class), so that later on, 'self.instr[opcode]'
@@ -159,5 +163,5 @@ class CPU(metaclass=CPUMeta):
         """
         self.instr = {
             opcode: {getattr(self, name) for name in impl_names}
-            for opcode, impl_names in self._opcodes_names.items()
+            for opcode, impl_names in self.opcodes_names.items()
         }

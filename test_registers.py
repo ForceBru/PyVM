@@ -68,15 +68,14 @@ class TestRegisters(unittest.TestCase):
     def test_get_lo(self):
         for name, offset in self.NAMES_LO.items():
             correct = self.random_data[offset] & 0xFF
-            stored = getattr(self.reg, name)
 
-            with self.subTest(register=(name, offset), correct=correct, stored=stored):
+            with self.subTest(register=(name, offset), correct=correct):
                 ret = self.reg.get(offset, 1)
 
                 self.assertEqual(ret, correct)
 
             correct = int.from_bytes(correct.to_bytes(1, 'little'), 'little', signed=True)
-            with self.subTest(register=(name, offset), correct=correct, stored=stored, signed=True):
+            with self.subTest(register=(name, offset), correct=correct, signed=True):
                 ret = self.reg.get(offset, 1, True)
 
                 self.assertEqual(ret, correct)
@@ -84,15 +83,14 @@ class TestRegisters(unittest.TestCase):
     def test_get_hi(self):
         for name, offset in self.NAMES_HI.items():
             correct = (self.random_data[offset % 4] >> 8) & 0xFF
-            stored = getattr(self.reg, name)
 
-            with self.subTest(register=(name, offset), correct=correct, stored=stored):
+            with self.subTest(register=(name, offset), correct=correct):
                 ret = self.reg.get(offset, 1)
 
                 self.assertEqual(ret, correct)
 
             correct = int.from_bytes(correct.to_bytes(1, 'little'), 'little', signed=True)
-            with self.subTest(register=(name, offset), correct=correct, stored=stored, signed=True):
+            with self.subTest(register=(name, offset), correct=correct, signed=True):
                 ret = self.reg.get(offset, 1, True)
 
                 self.assertEqual(ret, correct)
