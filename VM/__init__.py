@@ -16,8 +16,6 @@ class VM(CPU32, FetchLoopMixin):
         super().__init__(int(memsize))
         self.kernel = Kernel(self)
 
-        self.fmt = '\t[0x%08x]\t%02x'
-
         self.descriptors = [stdin, stdout, stderr]
         self.GDT = [
             b'\0' * 8  # 64-bit entry

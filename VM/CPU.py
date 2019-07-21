@@ -10,7 +10,7 @@ class CPU32(CPU):
     __slots__ = ('reg', 'sreg', 'mem', 'fpu', 'eip', 'opcode',
                  'modes', 'default_mode', 'current_mode',
                  'sizes', 'operand_size', 'address_size', 'stack_address_size',
-                 'code_segment_end', 'running'
+                 'code_segment_end', 'running', 'fmt'
                  )
 
     def __init__(self, memsize: int):
@@ -37,6 +37,7 @@ class CPU32(CPU):
         self.code_segment_end = 0
         self.stack_init()
         self.running = True
+        self.fmt = '\t[%#08x]\t%02x'
         
     def stack_init(self):
         self.reg.esp = self.mem.size - 1

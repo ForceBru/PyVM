@@ -4,6 +4,28 @@
 
 #define OP_LEN 8
 
+long long process_operand(char *string, long long ans) {
+    size_t len = strlen(string);
+    if (len && (string[len - 1] == '\n'))
+        string[len - 1] = 0;
+
+    if (string[0] == 'r')
+        return ans;
+    return atoll(string);
+}
+
+char process_operation(char op, char *valid_ops, size_t n_valid_ops) {
+    for (size_t i = 0; i < n_valid_ops; ++i) {
+        if (op == valid_ops[i])
+            return 1;
+    }
+    printf("[ERR] Invalid operation: '%c'\n", op);
+    return 0;
+}
+
+static const char valid_ops[] = "+-*/";
+static const size_t n_valid_ops = sizeof valid_ops / sizeof valid_ops[0];
+
 int main(void) {
     setbuf(stdout, NULL); // no buffer!
 
@@ -21,9 +43,7 @@ int main(void) {
         if (str_a[0] == 'q')
             break;
 
-        size_t len = strlen(str_a);
-        if (len && (str_a[len - 1] == '\n'))
-            str_a[len - 1] = 0;
+        a = process_operand(str_a, c);
 
         printf("Operation: ");
         scanf("%c%*c", &op);
@@ -31,31 +51,16 @@ int main(void) {
         if (op == 'q')
             break;
 
+        if (! process_operation(op, (char *)valid_ops, n_valid_ops))
+            continue;
+
         printf("Second operand: ");
         fgets(str_b, OP_LEN, stdin);
 
         if (str_b[0] == 'q')
             break;
 
-        len = strlen(str_b);
-
-        if (len && (str_b[len - 1] == '\n')) {
-            str_b[len - 1] = 0;
-        }
-
-        if (str_a[0] == 'r') {
-            a = c;
-        } else {
-            // sscanf(str_a, "%ld", &a); -> DOESN'T WORK
-            a = atoll(str_a);
-        }
-
-        if (str_b[0] == 'r') {
-            b = c;
-        } else {
-            // sscanf(str_b, "%lld", &b);
-            b = atoll(str_b);
-        }
+        b = process_operand(str_b, c);
 
         switch (op) {
             case '+':
