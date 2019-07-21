@@ -9,6 +9,7 @@ __version__ = 0, 1, 0
 
 
 class VM(CPU32, FetchLoopMixin):
+    __slots__ = 'fmt', 'descriptors', 'GDT', 'running', 'RETCODE', 'kernel'
     from .misc import process_ModRM
 
     def __init__(self, memsize: int, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
@@ -22,7 +23,6 @@ class VM(CPU32, FetchLoopMixin):
             b'\0' * 8  # 64-bit entry
         ] * 6  # TODO: how many entries are there?
         self.RETCODE = None
-        self.running = True
 
     def interrupt(self, code: int):
         if code == 0x80:  # syscall

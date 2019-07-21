@@ -1,16 +1,17 @@
-import logging
 import enum
 
 from .ELF import ELF32, enums
 from .util import SegmentRegs, MissingOpcodeError
+from .CPU import CPU32
 
+import logging
 logger = logging.getLogger(__name__)
 
 
 class FetchLoopMixin:
     _attrs_ = 'eip', 'mem', 'reg.ebx', 'fmt', 'instr', 'sizes', 'default_mode'
 
-    def execute_opcode(self) -> None:
+    def execute_opcode(self: CPU32) -> None:
         self.eip += 1
 
         off = 1
@@ -21,7 +22,8 @@ class FetchLoopMixin:
             self.opcode = (self.opcode << 8) | op
             off += 1
 
-        logger.debug(self.fmt, self.eip - off, self.opcode)
+        if __debug__:
+            logger.debug(self.fmt, self.eip - off, self.opcode)
 
         try:
             impls = self.instr[self.opcode]
@@ -51,7 +53,7 @@ class FetchLoopMixin:
 
         raise NotImplementedError(f'No suitable implementation found for opcode {self.opcode:x} (@0x{self.eip - off - 1:02x})')
 
-    def run(self) -> int:
+    def run(self: CPU32) -> int:
         """
         Implements the basic CPU instruction cycle (https://en.wikipedia.org/wiki/Instruction_cycle)
         :param self: passed implicitly
@@ -152,7 +154,7 @@ class ExecuteBytes(ExecutionMixin):
     _attrs_ = 'eip', 'mem', 'code_segment_end'
     _funcs_ = 'run',
 
-    def execute(self, data: bytes, offset=0):
+    def execute(self: CPU32, data: bytes, offset=0):
         l = len(data)
         self.mem.set_bytes(offset, l, data)
 
@@ -167,7 +169,7 @@ class ExecuteFlat(ExecutionMixin):
     _attrs_ = 'eip', 'mem', 'code_segment_end'
     _funcs_ = 'run',
 
-    def execute(self, fname: str, offset=0):
+    def execute(self: CPU32, fname: str, offset=0):
         with open(fname, 'rb') as f:
             data = f.read()
             l = len(data)
@@ -184,7 +186,7 @@ class ExecuteELF(ExecutionMixin):
     _attrs_ = 'eip', 'mem', 'reg', 'code_segment_end'
     _funcs_ = 'run', 'stack_init', 'stack_push'
 
-    def execute(self, fname: str, args=()):
+    def execute(self: CPU32, fname: str, args=()):
         with ELF32(fname) as elf:
             if elf.hdr.e_type != enums.e_type.ET_EXEC:
                 raise ValueError(f'ELF file {elf.fname!r} is not executable (type: {elf.hdr.e_type})')

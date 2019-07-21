@@ -1,5 +1,6 @@
 from ..util import Instruction, to_int, byteorder, SegmentRegs
 from ..misc import sign_extend, parity
+from ..CPU import CPU32
 
 from functools import partialmethod as P
 
@@ -57,7 +58,7 @@ class MOV(Instruction):
             0xA3: P(self.r_moffs, reverse=True, _8bit=False),
             }
 
-    def r_imm(vm, _8bit) -> True:
+    def r_imm(vm: CPU32, _8bit) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         imm = vm.mem.get_eip(vm.eip, sz)
@@ -72,7 +73,7 @@ class MOV(Instruction):
 
         return True
 
-    def rm_imm(vm, _8bit) -> bool:
+    def rm_imm(vm: CPU32, _8bit) -> bool:
         sz = 1 if _8bit else vm.operand_size
         old_eip = vm.eip
 
@@ -94,7 +95,7 @@ class MOV(Instruction):
 
         return True
 
-    def rm_r(vm, _8bit, reverse=False) -> True:
+    def rm_r(vm: CPU32, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         RM, R = vm.process_ModRM()
@@ -128,7 +129,7 @@ class MOV(Instruction):
 
         return True
 
-    def r_moffs(vm, _8bit, reverse=False) -> True:
+    def r_moffs(vm: CPU32, _8bit, reverse=False) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         loc = vm.mem.get_eip(vm.eip, vm.address_size)
@@ -155,7 +156,7 @@ class MOV(Instruction):
 
         return True
 
-    def sreg_rm(vm, reverse) -> True:
+    def sreg_rm(vm: CPU32, reverse: bool) -> True:
         # TODO: implement MOV with sreg
         sz = 2
 
@@ -204,7 +205,7 @@ class MOVSX(Instruction):
             0x0FB7: P(self.r_rm_movzx, _8bit=False),
         }
 
-    def r_rm_movzx(vm, _8bit) -> True:
+    def r_rm_movzx(vm: CPU32, _8bit: bool) -> True:
         sz = 1 if _8bit else 2
 
         sz_R = vm.operand_size
@@ -225,7 +226,7 @@ class MOVSX(Instruction):
 
         return True
 
-    def r_rm(vm, _8bit, movsxd: bool) -> True:
+    def r_rm(vm: CPU32, _8bit: bool, movsxd: bool) -> True:
         if not movsxd:
             sz_RM, sz_R = 1 if _8bit else 2, vm.operand_size
             RM, R = vm.process_ModRM()  # r/m8 or r/m16
@@ -277,7 +278,7 @@ class PUSH(Instruction):
             0x0FA8: P(self.sreg, 'GS')
             }
 
-    def r(vm) -> True:
+    def r(vm: CPU32) -> True:
         sz = vm.operand_size
 
         loc = vm.opcode & 0b111
@@ -290,7 +291,7 @@ class PUSH(Instruction):
 
         return True
 
-    def rm(vm) -> bool:
+    def rm(vm: CPU32) -> bool:
         old_eip = vm.eip
         sz = vm.operand_size
 
@@ -310,7 +311,7 @@ class PUSH(Instruction):
 
         return True
 
-    def imm(vm, _8bit=False) -> True:
+    def imm(vm: CPU32, _8bit: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         data = vm.mem.get_eip(vm.eip, sz, sz < vm.operand_size)
@@ -323,7 +324,7 @@ class PUSH(Instruction):
 
         return True
 
-    def sreg(vm, reg: str) -> bool:
+    def sreg(vm: CPU32, reg) -> bool:
         """
         Push a segment register onto the stack.
 
@@ -349,13 +350,15 @@ class PUSHF(Instruction):
             0x9C: self.pushf
         }
 
-    def pushf(vm) -> True:
+    def pushf(vm: CPU32) -> True:
+        raise
         # TODO: this should check for some kind of mode or whatnot
-        tmpEFLAGS = vm.reg.eflags & (0x00FCFFFF if vm.operand_size == 4 else 0x0000FFFF)
+        tmpEFLAGS = vm.reg.eflags.eflags & (0x00FCFFFF if vm.operand_size == 4 else 0x0000FFFF)
 
-        vm.stack_push(tmpEFLAGS.to_bytes(vm.stack_address_size, byteorder))
+        vm.stack_push(tmpEFLAGS)
 
-        logger.debug('pushf%s', 'd' if vm.operand_size == 4 else '')
+        if __debug__:
+            logger.debug('pushf%s', 'd' if vm.operand_size == 4 else '')
 
         return True
 
@@ -369,7 +372,7 @@ class PUSHA(Instruction):
             0x60: self.pusha
         }
 
-    def pusha(vm) -> True:
+    def pusha(vm: CPU32) -> True:
         regs_to_push_1 = 0, 1, 2, 3
         regs_to_push_2 = 5, 6, 7
 
@@ -398,7 +401,7 @@ class POPA(Instruction):
             0x61: self.popa
         }
 
-    def popa(vm) -> True:
+    def popa(vm: CPU32) -> True:
         regs_to_pop_1 = 7, 6, 5
         regs_to_pop_2 = 3, 2, 1, 0
 
@@ -432,10 +435,12 @@ class POPF(Instruction):
             0x9D: self.popf
         }
 
-    def popf(vm) -> True:
+    def popf(vm: CPU32) -> True:
+        raise
         # TODO: this should check for some kind of mode or whatnot
-        tmpEFLAGS = to_int(vm.stack_pop(vm.stack_address_size))
-        vm.reg.eflags = tmpEFLAGS & MAXVALS[vm.operand_size]
+        tmpEFLAGS = vm.stack_pop(vm.operand_size) & 0xFFFF
+
+        vm.reg.eflags.eflags = tmpEFLAGS
 
         if __debug__:
             logger.debug('popf%s', 'd' if vm.operand_size == 4 else '')
@@ -467,7 +472,7 @@ class POP(Instruction):
             0x0FA9: P(self.sreg, 'GS', _32bit=True)
             }
 
-    def r(vm) -> True:
+    def r(vm: CPU32) -> True:
         sz = vm.operand_size
 
         loc = vm.opcode & 0b111
@@ -479,7 +484,7 @@ class POP(Instruction):
 
         return True
 
-    def rm(vm) -> bool:
+    def rm(vm: CPU32) -> bool:
         sz = vm.operand_size
         old_eip = vm.eip
 
@@ -500,7 +505,7 @@ class POP(Instruction):
 
         return True
 
-    def sreg(vm, reg: str, _32bit=False) -> True:
+    def sreg(vm: CPU32, reg: str, _32bit=False) -> True:
         raise NotImplementedError('This is not potimized yet')
 
         sz = 4 if _32bit else 2
@@ -523,7 +528,7 @@ class LEA(Instruction):
             0x8D: self.r_rm
             }
 
-    def r_rm(vm) -> True:
+    def r_rm(vm: CPU32) -> True:
         sz_RM, sz_R = vm.address_size, vm.operand_size
         RM, R = vm.process_ModRM()
 
@@ -569,7 +574,7 @@ class XCHG(Instruction):
             0x87: P(self.rm_r, _8bit=False)
             }
 
-    def eax_r(vm) -> True:
+    def eax_r(vm: CPU32) -> True:
         sz = vm.operand_size
         loc = vm.opcode & 0b111
 
@@ -587,7 +592,7 @@ class XCHG(Instruction):
 
         return True
 
-    def rm_r(vm, _8bit) -> True:
+    def rm_r(vm: CPU32, _8bit: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         RM, R = vm.process_ModRM(sz, sz)
@@ -623,7 +628,7 @@ class CMPXCHG(Instruction):
             0x0FB1: P(self.rm_r, _8bit=False)
         }
 
-    def rm_r(vm, _8bit) -> True:
+    def rm_r(vm: CPU32, _8bit: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         RM, R = vm.process_ModRM()
@@ -677,7 +682,7 @@ class CBW(Instruction):
             0x98: self.cbwcwde
             }
 
-    def cbwcwde(vm) -> True:
+    def cbwcwde(vm: CPU32) -> True:
         vm.reg.set(0, sign_extend(vm.reg.get(0, vm.operand_size // 2), vm.operand_size))
 
         if __debug__:
@@ -695,7 +700,7 @@ class CMC(Instruction):
             0xF5: self.cmc
             }
 
-    def cmc(vm) -> True:
+    def cmc(vm: CPU32) -> True:
         vm.reg.eflags.CF = not vm.reg.eflags.CF
 
         if __debug__:
@@ -714,7 +719,7 @@ class MOVS(Instruction):
             0xA5: P(self.movs, _8bit=False)
             }
 
-    def movs(vm, _8bit: bool) -> True:
+    def movs(vm: CPU32, _8bit: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         esi = vm.reg.get(6, vm.address_size)
@@ -763,7 +768,7 @@ class CWD(Instruction):
             0x99: self.cwd_cdq
             }
 
-    def cwd_cdq(vm) -> True:
+    def cwd_cdq(vm: CPU32) -> True:
         sz = vm.operand_size
 
         tmp = vm.reg.get(0, sz, True)  # AX / EAX
@@ -789,7 +794,7 @@ class CLC(Instruction):
             0xFD: P(self.set_stuff, 'DF', 1),
             }
 
-    def set_stuff(vm, flag: str, val: int) -> True:
+    def set_stuff(vm: CPU32, flag: str, val: int) -> True:
         setattr(vm.reg.eflags, flag, val)
 
         if __debug__:
@@ -814,7 +819,7 @@ class BitScan(Instruction):
             0x0FBC: self.bsf
         }
 
-    def bsf(vm) -> True:
+    def bsf(vm: CPU32) -> True:
         sz = vm.operand_size
 
         RM, R = vm.process_ModRM()

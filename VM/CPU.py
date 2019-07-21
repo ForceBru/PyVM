@@ -3,12 +3,16 @@ from .Registers import Reg32, Sreg
 from .util import CPU
 from .FPU import FPU
 
-from . import instructions  # this line MUST be here for the instructions to be loaded correctly
-
 eax, ecx, edx, ebx, esp, ebp, esi, edi = range(8)
 
 
 class CPU32(CPU):
+    __slots__ = ('reg', 'sreg', 'mem', 'fpu', 'eip', 'opcode',
+                 'modes', 'default_mode', 'current_mode',
+                 'sizes', 'operand_size', 'address_size', 'stack_address_size',
+                 'code_segment_end', 'running'
+                 )
+
     def __init__(self, memsize: int):
         super().__init__()
 
@@ -19,6 +23,7 @@ class CPU32(CPU):
         self.mem = Memory(memsize, self.sreg)  # stack grows downward, user memory - upward
 
         self.eip = 0
+        self.opcode = 0
 
         self.modes = (32, 16)  # number of bits
         self.sizes = (4, 2)  # number of bytes
@@ -31,6 +36,7 @@ class CPU32(CPU):
 
         self.code_segment_end = 0
         self.stack_init()
+        self.running = True
         
     def stack_init(self):
         self.reg.esp = self.mem.size - 1
@@ -55,3 +61,9 @@ class CPU32(CPU):
         self.reg.set(esp, self.stack_address_size, new_esp)
 
         return data
+
+
+# This line MUST be here for the instructions to be loaded correctly
+# Even more, it MUST be down here, after the definition of the class CPU, so that
+# instructions could import this class for use in annotations
+from . import instructions

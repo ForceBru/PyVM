@@ -246,3 +246,32 @@ def sys_newuname(kernel: Kernel, buf_addr: Uint):
 
     return 0
 
+
+@Kernel.register(0xae)
+def sys_sigaction(kernel: Kernel, signum: Int, act_addr: Uint, oldact_addr: Uint):
+    """
+    int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+    See: http://man7.org/linux/man-pages/man2/rt_sigaction.2.html
+    """
+
+    return -1
+
+
+@Kernel.register(0xaf)
+def sys_sigprocmask(kernel: Kernel, how: Int, set_addr: Uint, oset_addr: Uint, sigsetsize: Uint):
+    """
+    int rt_sigprocmask(int how, const kernel_sigset_t *set, kernel_sigset_t *oldset, size_t sigsetsize);
+    See: http://man7.org/linux/man-pages/man2/rt_sigprocmask.2.html
+    """
+
+    return -1
+
+
+@Kernel.register(0xba)
+def sys_sigaltstack(kernel: Kernel, ss_addr: Uint, old_ss_addr: Uint):
+    """
+    int sigaltstack(const stack_t *ss, stack_t *old_ss);
+    See: http://man7.org/linux/man-pages/man2/sigaltstack.2.html
+    """
+
+    return -1

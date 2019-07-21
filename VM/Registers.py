@@ -11,22 +11,13 @@ REG_TAILS = 'sp', 'bp', 'si', 'di'
 def GenRegX(letter: str):
     assert letter in REG_LETTERS
 
-    class _HiLo_byte(ctypes.LittleEndianStructure):
-        _pack_ = 1
-        # these are SWAPPED because of endianness
-        _fields_ = [
-            (letter + 'l', ubyte),
-            (letter + 'h', ubyte),
-        ]
-
-    # ctypes' docs (16.12.1.11. Structure/union alignment and byte order) say LittleEndianUnion exists, like LittleEndianStructure but it doesn't
+    # ctypes' docs (16.12.1.11. Structure/union alignment and byte order) say LittleEndianUnion exists,
+    # like LittleEndianStructure but it doesn't
     class _Reg32(ctypes.Union):
         _pack_ = 1
-        _anonymous_ = '__byte',
         _fields_ = [
             (f'e{letter}x', udword),
-            (letter + 'x', uword),
-            ('__byte', _HiLo_byte)
+            (letter + 'x', uword)
         ]
 
     return _Reg32
@@ -59,10 +50,16 @@ class _Eflags_bits(ctypes.LittleEndianStructure):
         ('IF', uword, 1),
         ('DF', uword, 1),
         ('OF', uword, 1),
+
+        ('__', uword, 1),
+        ('__', uword, 1),
+        ('__', uword, 1),
+        ('__', uword, 1),
     ][::-1]
 
 
 class _Eflags(ctypes.Union):
+    _pack_ = 1
     _anonymous_ = '__bits',
     _fields_ = [
         ('eflags', uword),
@@ -216,6 +213,3 @@ class Reg32(_Reg32_base):
             self.__ptr8[4 * (offset % 4) + offset // 4] = value
         else:
             raise ValueError(f'Reg32.set_val(offset={offset}, size={size}, value={value}): unexpected size: {size}')
-
-    def set4(self, offset: int, value: int):
-        self.__ptr32[offset] = value

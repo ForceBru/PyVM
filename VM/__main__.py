@@ -1,5 +1,7 @@
 import argparse
 import shlex
+import logging
+import sys
 
 from . import VMKernel, ExecutionStrategy
 
@@ -12,12 +14,20 @@ parser.add_argument(
     help='Executable type (elf, flat)'
 )
 parser.add_argument('-m', '--memory', default=10_000, type=int, help='The amount of memory to give to the VM (bytes)')
+parser.add_argument('-d', '--debug', action='store_true', default=False, help='Enable debug output')
 parser.add_argument('-v', '--verbose', action='store_true', default=False)
 args = parser.parse_args()
 
 
 if args.verbose:
     print(f'Initializing VM with {args.memory:,d} bytes of memory...')
+
+if args.debug:
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.DEBUG,
+        format='%(message)s'
+    )
 
 vm = VMKernel(args.memory)
 

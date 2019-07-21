@@ -1,6 +1,7 @@
 from functools import partialmethod as P
 from unittest.mock import MagicMock
 
+from ..CPU import CPU32
 from ..util import Instruction, to_int, to_signed, byteorder
 
 if __debug__:
@@ -19,13 +20,13 @@ class NOP(Instruction):
             0x0F1F: self.rm
         }
 
-    def nop(vm) -> True:
+    def nop(vm: CPU32) -> True:
         if __debug__:
             logger.debug('nop')
 
         return True
 
-    def rm(vm) -> True:
+    def rm(vm: CPU32) -> True:
         vm.process_ModRM()
 
         if __debug__:
@@ -89,7 +90,7 @@ class JMP(Instruction):
             }
         }
 
-    def rel(vm, _8bit, jump) -> True:
+    def rel(vm: CPU32, _8bit, jump) -> True:
         sz = 1 if _8bit else vm.operand_size
 
         d = vm.mem.get(vm.eip, sz, True)
@@ -111,7 +112,7 @@ class JMP(Instruction):
         
         return True
 
-    def rm_m(vm) -> bool:
+    def rm_m(vm: CPU32) -> bool:
         old_eip = vm.eip
 
         sz = vm.operand_size
@@ -160,7 +161,7 @@ class JMP(Instruction):
         vm.eip = old_eip
         return False
 
-    def ptr(vm) -> True:
+    def ptr(vm: CPU32) -> True:
         segment_selector = to_int(vm.mem.get(vm.eip, 2), True)
         vm.eip += 2
 
@@ -195,7 +196,7 @@ class SETcc(Instruction):
             for opcode in range(0x0F90, 0x0FA0)
         }
 
-    def rm8(vm, cond) -> True:
+    def rm8(vm: CPU32, cond) -> True:
         sz = 1  # we know it's 1 byte
         RM, R = vm.process_ModRM()
 
@@ -220,7 +221,7 @@ class CMOVCC(Instruction):
             for opcode in range(0x0F40, 0x0F50)
         }
 
-    def r_rm(vm, cond) -> True:
+    def r_rm(vm: CPU32, cond) -> True:
         sz = vm.operand_size
 
         RM, R = vm.process_ModRM()
@@ -255,7 +256,7 @@ class BT(Instruction):
             0x0FA3: self.rm_r
         }
 
-    def rm_r(vm) -> True:
+    def rm_r(vm: CPU32) -> True:
         sz = vm.operand_size
 
         RM, R = vm.process_ModRM()
@@ -278,7 +279,7 @@ class BT(Instruction):
 
         return True
 
-    def rm_imm(vm) -> bool:
+    def rm_imm(vm: CPU32) -> bool:
         sz = vm.operand_size
 
         RM, R = vm.process_ModRM()
@@ -324,12 +325,12 @@ class INT(Instruction):
             0xCD: self.imm
             }
 
-    def _3(vm) -> True:
+    def _3(vm: CPU32) -> True:
         vm.descriptors[2].write("[!] It's a trap! (literally)")
 
         return True
 
-    def imm(vm) -> True:
+    def imm(vm: CPU32) -> True:
         imm = vm.mem.get_eip(vm.eip, 1)  # always 8 bits
         vm.eip += 1
 
@@ -359,7 +360,7 @@ class CALL(Instruction):
     # rm_m = MagicMock(return_value=False)
     ptr = MagicMock(return_value=False)
     
-    def rm_m(vm) -> bool:
+    def rm_m(vm: CPU32) -> bool:
         old_eip = vm.eip
         
         sz = vm.operand_size
@@ -393,7 +394,7 @@ class CALL(Instruction):
         vm.eip = old_eip
         return False
 
-    def rel(vm) -> True:
+    def rel(vm: CPU32) -> True:
         sz = vm.operand_size
         dest = vm.mem.get(vm.eip, sz, True)
         vm.eip += sz
@@ -429,7 +430,7 @@ class RET(Instruction):
     far = MagicMock(return_value=False)
     far_imm = MagicMock(return_value=False)
 
-    def near(vm) -> True:
+    def near(vm: CPU32) -> True:
         sz = vm.operand_size
         vm.eip = to_signed(vm.stack_pop(sz), sz)
 
@@ -438,20 +439,17 @@ class RET(Instruction):
 
         return True
 
-    def near_imm(vm) -> True:
-        raise NotImplementedError('This is not optimized yet!')
+    def near_imm(vm: CPU32) -> True:
+        sz = vm.operand_size
 
-        sz = 2  # always 16 bits
+        imm = vm.mem.get(vm.eip, 2)
         vm.eip = to_signed(vm.stack_pop(sz), sz)
 
-        imm = vm.mem.get(vm.eip, sz)
-        vm.eip += sz
+        esp = 4
+        vm.reg.set(esp, vm.stack_address_size, vm.reg.get(esp, vm.stack_address_size) + imm)
 
-        vm.stack_pop(imm)
-
-        assert vm.eip in vm.mem.bounds
-
-        logger.debug('ret 0x%x', vm.eip)
+        if __debug__:
+            logger.debug('ret 0x%08x', vm.eip)
 
         return True
 
@@ -465,7 +463,7 @@ class ENTER(Instruction):
             0xC8: self.enter
         }
 
-    def enter(vm):
+    def enter(vm: CPU32):
         AllocSize = vm.mem.get_eip(vm.eip, 2)
         vm.eip += 2
 
@@ -501,7 +499,7 @@ class LEAVE(Instruction):
             0xC9: self.leave
             }
 
-    def leave(vm) -> True:
+    def leave(vm: CPU32) -> True:
         """
         High-level procedure exit.
 
@@ -529,7 +527,7 @@ class CPUID(Instruction):
             0x0FA2: self.cpuid
         }
 
-    def cpuid(vm) -> True:
+    def cpuid(vm: CPU32) -> True:
         """
         See: https://en.wikipedia.org/wiki/CPUID
         """
@@ -575,5 +573,5 @@ class HLT(Instruction):
             0xF4: self.hlt
         }
 
-    def hlt(vm):
+    def hlt(vm: CPU32):
         raise RuntimeError(f'HALT @ 0x{vm.eip - 1:08x}')  # Subtract 1 because EIP points to the NEXT opcode
