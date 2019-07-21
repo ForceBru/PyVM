@@ -517,3 +517,27 @@ class SHIFTD(Instruction):
             )
 
         return True
+
+
+####################
+# BSWAP
+####################
+class BSWAP(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0x0FC8 + i: self.bswap
+            for i in range(8)
+        }
+
+    def bswap(vm) -> True:
+        sz = 4
+
+        reg32 = vm.opcode & 0b111
+        src = vm.reg.get(reg32, sz)
+
+        dest = int.from_bytes(src.to_bytes(sz, 'big'), 'little')
+        vm.reg.set(reg32, sz, dest)
+
+        logger.debug('bswap %s', debug_register_operand(reg32, sz))
+
+        return True

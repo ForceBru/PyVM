@@ -387,6 +387,9 @@ class binary80(_binary80):
             return False
         return self.significand > other.significand
 
+    @staticmethod
+    def from_int(val: int):
+        return binary80.from_double(float(val))  # TODO: this is a placeholder
 
     @staticmethod
     def from_double(val: float):

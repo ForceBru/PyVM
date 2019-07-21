@@ -1,5 +1,7 @@
 from functools import partialmethod as P
 from unittest.mock import MagicMock
+from ..CPU import CPU32
+from ..FPU import binary80
 
 from ..util import Instruction
 
@@ -8,11 +10,13 @@ if __debug__:
     logger = logging.getLogger(__name__)
 
 
+# FLD
 class FLD(Instruction):
     m_st = MagicMock(return_value=False)
 
     def __init__(self):
         self.opcodes = {
+            # FLD
             0xD9: P(self.m_fp, bits=32, REG=0),
             0xDD: P(self.m_fp, bits=64, REG=0),
             0xDB: P(self.m_fp, bits=80, REG=5),
@@ -22,23 +26,58 @@ class FLD(Instruction):
             }
         }
 
-    def m_fp(vm, bits: int, REG: int):
+    def m_fp(vm: CPU32, bits: int, REG: int):
         ModRM = vm.mem.get_eip(vm.eip, 1)
         _REG = (ModRM & 0b00111000) >> 3
 
         if _REG != REG:
             return False
 
-        sz = vm.operand_size
+        # sz = vm.operand_size
         RM, R = vm.process_ModRM()
-
         _, loc = RM
 
         flt80 = vm.mem.get_float(loc, bits)
-
         vm.fpu.push(flt80)
 
         logger.debug('fld%d 0x%08x = %s', bits // 8, loc, flt80)
+
+        return True
+
+
+# FILD
+class FILD(Instruction):
+    def __init__(self):
+        self.opcodes = {
+            0xDB: P(self.m_int, is32bit=True, REG=0),
+            0xDF: [
+                P(self.m_int, is32bit=False, REG=0),
+                P(self.m_int, is32bit=False, REG=5),
+            ]
+        }
+
+    def m_int(vm: CPU32, is32bit: bool, REG: int) -> True:
+        ModRM = vm.mem.get_eip(vm.eip, 1)
+        _REG = (ModRM & 0b00111000) >> 3
+
+        if _REG != REG:
+            return False
+
+        sz = {
+            (False, 0): 2,
+            (True, 0): 4,
+            (False, 5): 8
+        }[(is32bit, REG)]
+
+        RM, R = vm.process_ModRM()
+        _, loc = RM
+
+        imm = vm.mem.get(loc, sz)
+
+        flt80 = binary80.from_int(imm)
+        vm.fpu.push(flt80)
+
+        logger.debug('fild%d %d', sz * 8, imm)
 
         return True
 
@@ -301,6 +340,7 @@ class FCOMP(Instruction):
             vm.fpu.pop()
 
         return True
+
 
 # FLDCW
 class FLDCW(Instruction):
