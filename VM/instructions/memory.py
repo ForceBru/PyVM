@@ -488,7 +488,7 @@ class POP(Instruction):
         sz = vm.operand_size
         old_eip = vm.eip
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
 
         if R[1] != 0:
             vm.eip = old_eip
@@ -595,7 +595,7 @@ class XCHG(Instruction):
     def rm_r(vm: CPU32, _8bit: bool) -> True:
         sz = 1 if _8bit else vm.operand_size
 
-        RM, R = vm.process_ModRM(sz, sz)
+        RM, R = vm.process_ModRM()
         type, loc, _ = RM
 
         if loc != R[1]:
